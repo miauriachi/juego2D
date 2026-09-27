@@ -303,11 +303,11 @@ export const urgenciasConfig = {
     {
       "sourceId": "return-reception",
       "position": [
-        -4.35,
+        -4.85,
         0,
-        0.10
+        0.20
       ],
-      "radius": 1.45
+      "radius": 2.15
     }
   ],
   "debug": false,
@@ -315,15 +315,15 @@ export const urgenciasConfig = {
     "id": "to-corridor",
     "trigger": "interact",
     "sourceId": "return-reception",
-    "minX": -4.95,
-    "maxX": -3.70,
-    "z": 0.10,
+    "minX": -5.85,
+    "maxX": -3.35,
+    "z": 0.20,
     "direction": 1,
     "bounds": {
-      "minX": -4.95,
-      "maxX": -3.70,
-      "minZ": -0.65,
-      "maxZ": 0.75
+      "minX": -5.85,
+      "maxX": -3.35,
+      "minZ": -1.45,
+      "maxZ": 2.40
     },
     "targetArea": "reception",
     "targetZone": "cam02",
