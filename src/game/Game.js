@@ -440,6 +440,16 @@ export class Game {
     if (this.mode !== 'onFoot' || this.dialogueManager.isOpen || this.receptionDelivery?.isBusy || area === this.area) return;
     if (area === 'exterior' && !this.raccoonDelivery.resolved) return;
     if (area === 'exterior' && !this.exterior) this.setupExterior();
+    if (area === 'exterior' && !this.exteriorLevel?.backgroundLoaded) {
+      if (!this.exteriorTransitionPending) {
+        this.exteriorTransitionPending = true;
+        this.exteriorLevel.backgroundReady.then(ok => {
+          this.exteriorTransitionPending = false;
+          if (ok && this.area !== 'exterior') this.changeArea('exterior');
+        });
+      }
+      return;
+    }
     const next = { reception: this.reception, urgencias: this.urgencias, exterior: this.exterior }[area];
     if (!next) return;
     if (area === 'urgencias' && !this.urgenciasBackdrop.isReady(urgenciasConfig.id)) {
