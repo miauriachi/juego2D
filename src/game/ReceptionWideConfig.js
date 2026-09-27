@@ -305,7 +305,7 @@ export const receptionWideConfig = {
         -2.05
       ],
       "rotationY": 3.141592653589793,
-      "lookAtPlayer": true,
+      "presentationYOffset": -0.12,
       "visible": true,
       "occlusionPolygon": [
         [
