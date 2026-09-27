@@ -21,8 +21,10 @@ export const exteriorConfig = {
 
   // Bryan exits through the illuminated Emergency doors.
   spawn: {
-    position: [-11.55, 0, 4.55],
-    rotationY: -Math.PI / 2,
+    // Fine-tuned to sit just outside the left/center Emergency doorway.
+    position: [-11.88, 0, 4.88],
+    // Face outward from the doorway instead of sideways across the frame.
+    rotationY: 0,
   },
 
   // Presentation correction is visual-only; physics and GLB source stay untouched.
