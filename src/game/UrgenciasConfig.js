@@ -241,6 +241,8 @@ export const urgenciasConfig = {
         0.80733
       ],
       "rotationY": 2.2,
+      "scale": 1.0,
+      "followSourceMotion": true,
       "visible": true
     },
     "patientBed01": {
@@ -252,7 +254,7 @@ export const urgenciasConfig = {
       ],
       "supportHeight": 0.85,
       "rotationY": 1.5707963267948966,
-      "scale": 0.8,
+      "scale": 1.0,
       "visible": true
     },
     "patientWaiting01": {
@@ -263,7 +265,7 @@ export const urgenciasConfig = {
         3.25625
       ],
       "rotationY": 1.5707963267948966,
-      "scale": 0.8,
+      "scale": 1.0,
       "visible": true
     },
     "nurse": {
@@ -274,7 +276,7 @@ export const urgenciasConfig = {
         -1.73683
       ],
       "rotationY": 3.141592653589793,
-      "scale": 0.9,
+      "scale": 1.0,
       "visible": true
     }
   },
@@ -291,11 +293,11 @@ export const urgenciasConfig = {
     {
       "sourceId": "return-reception",
       "position": [
-        -2.48426,
+        -4.35,
         0,
-        2.96716
+        0.10
       ],
-      "radius": 0.9
+      "radius": 1.45
     }
   ],
   "debug": false,
@@ -303,15 +305,15 @@ export const urgenciasConfig = {
     "id": "to-corridor",
     "trigger": "interact",
     "sourceId": "return-reception",
-    "minX": -2.78445,
-    "maxX": -2.28897,
-    "z": 3.55512,
+    "minX": -4.95,
+    "maxX": -3.70,
+    "z": 0.10,
     "direction": 1,
     "bounds": {
-      "minX": -2.78445,
-      "maxX": -2.28897,
-      "minZ": 1.93898,
-      "maxZ": 3.55512
+      "minX": -4.95,
+      "maxX": -3.70,
+      "minZ": -0.65,
+      "maxZ": 0.75
     },
     "targetArea": "reception",
     "targetZone": "cam02",
