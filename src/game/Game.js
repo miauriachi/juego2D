@@ -470,6 +470,10 @@ export class Game {
       ? exteriorConfig.spawn.rotationY
       : area === 'urgencias' || previousArea === 'exterior' ? 0 : Math.PI;
     this.player.group.rotation.y = this.player.rotationY;
+    // The GLB has a slight forward/side lean that is exaggerated by this high exterior camera.
+    // Counter-tilt only in the parking-lot shot; reset it everywhere else.
+    this.player.group.rotation.z = area === 'exterior' ? -0.12 : 0;
+    this.player.group.rotation.x = 0;
     this.player.velocity.set(0, 0, 0);
     this.interactionManager.currentHintText = '';
     this.input.clearFrameState();
