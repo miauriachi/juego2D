@@ -1,3 +1,5 @@
+import exteriorBackdropData from './ExteriorBackdropData.js';
+
 // Fixed-camera exterior plate calibration.
 export const exteriorConfig = {
   id: 'exterior-prerender',
@@ -10,7 +12,7 @@ export const exteriorConfig = {
   },
   background: {
     key: 'hospital-exterior-prerender',
-    url: 'assets/references/hospital/exterior_prerender.jpg',
+    url: exteriorBackdropData,
     zoom: 1,
     offsetX: 0,
     offsetY: 0,
