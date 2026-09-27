@@ -56,10 +56,10 @@ export class HospitalExterior extends HospitalIntro {
     // Conservative collider: enough to stop Bryan walking through the body,
     // but small enough that he can still reach the driver's-side interaction point.
     this.collisionSystem.addCollider({
-      minX: exteriorConfig.car.position[0] - 0.52,
-      maxX: exteriorConfig.car.position[0] + 0.52,
-      minZ: exteriorConfig.car.position[2] - 0.92,
-      maxZ: exteriorConfig.car.position[2] + 0.92,
+      minX: exteriorConfig.car.position[0] - 0.44,
+      maxX: exteriorConfig.car.position[0] + 0.44,
+      minZ: exteriorConfig.car.position[2] - 0.78,
+      maxZ: exteriorConfig.car.position[2] + 0.78,
     });
 
     // Dynamic snow is deliberately separate from the baked plate.
@@ -105,64 +105,41 @@ export class HospitalExterior extends HospitalIntro {
   }
 
   getCarInteractionPosition() {
-    this.car.updateMatrixWorld(true);
-    return this.car.localToWorld(new THREE.Vector3(...exteriorConfig.car.interaction.localPosition));
+    return this.car.position.clone();
   }
 
-  // Correct only the rendered Bryan GLB. His physics group and movement heading
-  // remain untouched. The correction is solved from the current fixed camera so
-  // his projected head/feet line is vertical against the hospital door jambs.
+  // Visual-only 2.5D correction for the high fixed camera.
+  // The previous solver changed roll abruptly as Bryan turned; this uses one
+  // fixed world-space tilt toward the camera so every heading stays stable.
   applyPlayerPresentation(player, camera, bryanVisual) {
     const visual = bryanVisual?.group;
     if (!visual || !camera || !player.group.visible) return;
 
-    visual.rotation.x = 0;
-    visual.rotation.z = 0;
-    visual.updateMatrixWorld(true);
+    player.group.updateMatrixWorld(true);
     camera.updateMatrixWorld(true);
 
-    const footLocal = new THREE.Vector3(0, 0.02, 0);
-    const headLocal = new THREE.Vector3(0, 1.76, 0);
-    const projectedDx = angle => {
-      visual.rotation.z = angle;
-      visual.updateMatrixWorld(true);
-      const foot = footLocal.clone().applyMatrix4(visual.matrixWorld).project(camera);
-      const head = headLocal.clone().applyMatrix4(visual.matrixWorld).project(camera);
-      return head.x - foot.x;
-    };
+    const parentWorld = new THREE.Quaternion();
+    player.group.getWorldQuaternion(parentWorld);
 
-    if (!exteriorConfig.playerPresentation.screenVertical) return;
-    const epsilon = 0.018;
-    const d0 = projectedDx(0);
-    const d1 = projectedDx(epsilon);
-    const derivative = (d1 - d0) / epsilon;
+    const cameraRight = new THREE.Vector3(1, 0, 0)
+      .applyQuaternion(camera.quaternion)
+      .setY(0)
+      .normalize();
 
-    let correction = Math.abs(derivative) > 1e-6 ? -d0 / derivative : 0;
-    correction = THREE.MathUtils.clamp(
-      correction,
-      -exteriorConfig.playerPresentation.maxRollCorrection,
-      exteriorConfig.playerPresentation.maxRollCorrection,
+    const tiltWorld = new THREE.Quaternion().setFromAxisAngle(
+      cameraRight,
+      exteriorConfig.playerPresentation.cameraTilt,
     );
 
-    // One Newton refinement makes the projected line effectively vertical.
-    let d = projectedDx(correction);
-    const dNext = projectedDx(correction + epsilon);
-    const slope = (dNext - d) / epsilon;
-    if (Math.abs(slope) > 1e-6) correction -= d / slope;
-
-    visual.rotation.z = THREE.MathUtils.clamp(
-      correction,
-      -exteriorConfig.playerPresentation.maxRollCorrection,
-      exteriorConfig.playerPresentation.maxRollCorrection,
-    );
+    const desiredWorld = tiltWorld.clone().multiply(parentWorld);
+    visual.quaternion.copy(parentWorld.clone().invert().multiply(desiredWorld));
     visual.updateMatrixWorld(true);
   }
 
   restorePlayerPresentation(bryanVisual) {
     const visual = bryanVisual?.group;
     if (!visual) return;
-    visual.rotation.x = 0;
-    visual.rotation.z = 0;
+    visual.quaternion.identity();
     visual.updateMatrixWorld(true);
   }
 }
