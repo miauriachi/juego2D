@@ -204,7 +204,10 @@ export class PrerenderBackdropManager {
     // Keep them simulated for gameplay, but hide their presentation in these shots.
     const hideAllNPCs = ['cam-entrance', 'cam05', 'cam02', 'cam01'];
     if (hideAllNPCs.includes(zoneId) || this.configs[zoneId]?.hideOriginalNPCs) {
-      npcGroups.forEach(group => this.setActorVisible(group, false));
+      npcGroups.forEach(group => {
+        const deliveryNurse = zoneId === 'cam05' && group.name === 'npc:Enfermera de envíos';
+        this.setActorVisible(group, deliveryNurse);
+      });
       return;
     }
 
