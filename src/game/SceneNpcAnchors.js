@@ -101,7 +101,15 @@ export class SceneNpcAnchors {
         group.position.x += movedX;
         group.position.z += movedZ;
         const hasMoved = Math.hypot(movedX, movedZ) > 0.03;
-        group.rotation.y = hasMoved ? source.group.rotation.y : anchor.rotationY;
+        if (hasMoved) {
+          group.rotation.y = source.group.rotation.y;
+        } else if (anchor.facePlayerWhenIdle && player) {
+          const dx = player.position.x - group.position.x;
+          const dz = player.position.z - group.position.z;
+          group.rotation.y = Math.atan2(-dx, -dz);
+        } else {
+          group.rotation.y = anchor.rotationY;
+        }
       } else if (anchor.lookAtPlayer && player) {
         const dx = player.position.x - group.position.x;
         const dz = player.position.z - group.position.z;
