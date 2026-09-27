@@ -490,11 +490,10 @@ export class Game {
     this.exteriorLevel = new HospitalExterior(scene, this.player, cameras, collision);
     this.exteriorLevel.build();
 
-    this.exteriorBackdrop = new PrerenderBackdropManager(scene, this.cameraRig.camera, {
-      area: 'exterior',
-      configs: { [exteriorConfig.id]: exteriorConfig.background },
-    });
-    this.exteriorBackdropReady = this.exteriorBackdrop.preload(exteriorConfig.id);
+    // Exterior uses scene.background directly. Do not create another backplate
+    // plane here; that was the source of the black/blank exterior.
+    this.exteriorBackdrop = null;
+    this.exteriorBackdropReady = this.exteriorLevel.backgroundReady;
 
     this.exterior = { scene, collision, cameras, interactions };
 
