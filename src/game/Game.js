@@ -312,6 +312,18 @@ export class Game {
   }
 
   updateRoomInteractions(room) {
+    if (room.config.id === 'urgencias_prerender') {
+      const exit = this.interactionManager.interactables.find(item => item.id === 'return-reception');
+      const p = this.player.position;
+      const atLeftExitDoor =
+        p.x >= -5.95 && p.x <= -3.20 &&
+        p.z >= -1.55 && p.z <= 2.55;
+      if (exit && atLeftExitDoor && (!exit.canInteract || exit.canInteract())) {
+        this.interactionManager.currentHintText = exit.getHintText();
+        if (this.input.isJustPressed('KeyE')) exit.interact();
+        return;
+      }
+    }
     if (room.config.id === 'cam05') {
       const receptionist = this.interactionManager.interactables.find(item => item.id === 'Recepcionista');
       const player = this.player.position;
