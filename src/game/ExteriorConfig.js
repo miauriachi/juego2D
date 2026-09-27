@@ -27,20 +27,22 @@ export const exteriorConfig = {
 
   // Presentation correction is visual-only; physics and GLB source stay untouched.
   playerPresentation: {
-    screenVertical: true,
-    maxRollCorrection: 0.34,
+    // Stable camera-facing tilt; avoids the abrupt roll jumps from the old
+    // per-frame Newton correction while reducing the "seen from above" look.
+    cameraTilt: 0.26,
   },
 
   car: {
     // Calibrated to the foreground empty bay. Heading matches the baked parked cars.
-    position: [0.72, 0, 3.72],
-    rotationY: -1.02,
-    scale: 0.58,
+    position: [1.05, 0, 4.08],
+    rotationY: -0.96,
+    scale: 0.52,
 
     // Door-side interaction point, outside the collision footprint.
     interaction: {
-      localPosition: [1.25, 0, 0.15],
-      radius: 1.0,
+      // Interaction is intentionally broad around the car body; the old
+      // side-anchor could sit behind the collider and never expose [E].
+      radius: 2.25,
     },
   },
 
