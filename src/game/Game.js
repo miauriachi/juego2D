@@ -311,6 +311,16 @@ export class Game {
   }
 
   updateRoomInteractions(room) {
+    if (room.config.id === 'cam05') {
+      const receptionist = this.interactionManager.interactables.find(item => item.id === 'Recepcionista');
+      const player = this.player.position;
+      const nearCounter = player.x >= -0.75 && player.x <= 1.1 && player.z >= -1.95 && player.z <= 0.85;
+      if (receptionist && nearCounter && (!receptionist.canInteract || receptionist.canInteract())) {
+        this.interactionManager.currentHintText = receptionist.getHintText();
+        if (this.input.isJustPressed('KeyE')) receptionist.interact();
+        return;
+      }
+    }
     const candidates = (room.config.interactionAnchors || []).map(anchor => ({ anchor,
       source: this.interactionManager.interactables.find(item => item.id === anchor.sourceId),
       distance: Math.hypot(this.player.position.x - anchor.position[0], this.player.position.z - anchor.position[2]),
@@ -539,7 +549,7 @@ export class Game {
     activeNPCs?.update(dt, this.player);
     this.openingSequence.updateGameplay(dt, this.dialogueManager.isOpen);
     if (this.area === 'exterior') this.exteriorLevel.update(dt, this.player);
-    if (this.area === 'urgencias') this.urgenciasSequence.update();
+    if (this.area === 'urgencias') this.urgenciasSequence.update(dt);
     this.receptionDelivery.update(dt, this.area);
     this.raccoonDelivery.update(this.area);
     const wasOpen = this.dialogueManager.isOpen;
@@ -580,7 +590,7 @@ export class Game {
       activePortal: room?.portals.find(p => p.bounds && this.player.position.x >= p.bounds.minX && this.player.position.x <= p.bounds.maxX && this.player.position.z >= p.bounds.minZ && this.player.position.z <= p.bounds.maxZ)?.id || null,
       dialogueLocked: this.dialogueManager.isOpen,
     }));
-    this.sceneNpcAnchors.update(this.activePrerenderRoom?.config.id);
+    this.sceneNpcAnchors.update(this.activePrerenderRoom?.config.id, this.player);
     this.input.clearFrameState();
 
     this.renderer.render(this.scene, this.cameraManager.activeCamera || this.cameraRig.camera);
