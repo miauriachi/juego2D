@@ -25,7 +25,11 @@ jobs:
 
       - name: Copy source into repo
         run: |
-          unzip -oq /tmp/game.zip -d . -x ".github/*"
+          set +e
+          unzip -oq /tmp/game.zip -d . -x ".github/*" > IMPORT_LOG.txt 2>&1
+          code=$?
+          echo "unzip_exit_code=$code" >> IMPORT_LOG.txt
+          set -e
           rm -rf backups artifacts node_modules
 
       - name: Commit source
