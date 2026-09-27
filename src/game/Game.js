@@ -279,6 +279,16 @@ export class Game {
     this.cameraRig.camera.updateProjectionMatrix();
   }
 
+  updateExteriorViewport() {
+    if (this.area !== 'exterior') return;
+    const width = window.innerWidth, height = window.innerHeight;
+    const viewWidth = Math.min(width, height * exteriorConfig.aspect);
+    const viewHeight = viewWidth / exteriorConfig.aspect;
+    this.renderer.setViewport((width - viewWidth) / 2, (height - viewHeight) / 2, viewWidth, viewHeight);
+    this.cameraRig.camera.aspect = exteriorConfig.aspect;
+    this.cameraRig.camera.updateProjectionMatrix();
+  }
+
   enterPrerenderRoom(id, fromZone, anchorName) {
     this.prerenderRooms.forEach(room => { room.active = false; });
     const room = this.prerenderRooms.get(id);
@@ -444,9 +454,11 @@ export class Game {
     this.interactionManager = next.interactions;
     this.scene.add(this.player.group);
     this.player.position.set(...(area === 'urgencias' ? [0, 0, 4.3] : area === 'exterior'
-      ? [0, 0, -7.3] : previousArea === 'exterior' ? [0, 0, 6.2] : [3.3, 0, -6.6]));
+      ? exteriorConfig.spawn.position : previousArea === 'exterior' ? [0, 0, 6.2] : [3.3, 0, -6.6]));
     this.player.previousPosition.copy(this.player.position);
-    this.player.rotationY = area === 'urgencias' || previousArea === 'exterior' ? 0 : Math.PI;
+    this.player.rotationY = area === 'exterior'
+      ? exteriorConfig.spawn.rotationY
+      : area === 'urgencias' || previousArea === 'exterior' ? 0 : Math.PI;
     this.player.group.rotation.y = this.player.rotationY;
     this.player.velocity.set(0, 0, 0);
     this.interactionManager.currentHintText = '';
@@ -458,7 +470,9 @@ export class Game {
     this.cameraManager.applyToCamera(this.cameraRig);
     // Prepare the complete plate before any render can submit the new area.
     this.updateReceptionViewport();
+    this.updateExteriorViewport();
     this.urgenciasBackdrop.update(this.cameraManager.activeZone?.id, this.area);
+    this.exteriorBackdrop?.update(this.cameraManager.activeZone?.id, this.area);
   }
 
   refreshObjective() {
@@ -472,16 +486,34 @@ export class Game {
     const scene = new THREE.Scene(), collision = new CollisionSystem();
     const cameras = new CameraManager(scene, this.cameraRig);
     const interactions = new InteractionManager(this.player, this.input, scene);
+
     this.exteriorLevel = new HospitalExterior(scene, this.player, cameras, collision);
     this.exteriorLevel.build();
+
+    this.exteriorBackdrop = new PrerenderBackdropManager(scene, this.cameraRig.camera, {
+      area: 'exterior',
+      configs: { [exteriorConfig.id]: exteriorConfig.background },
+    });
+    this.exteriorBackdropReady = this.exteriorBackdrop.preload(exteriorConfig.id);
+
     this.exterior = { scene, collision, cameras, interactions };
+
     interactions.register(new Interactable({
-      id: 'hospital-return', name: 'Hospital', position: [0, 0, -8.7], radius: 1.8,
-      label: 'Volver al hospital', onInteract: () => this.changeArea('reception'),
+      id: 'hospital-return',
+      name: 'Hospital',
+      position: exteriorConfig.spawn.position,
+      radius: 0.72,
+      label: 'Volver al hospital',
+      onInteract: () => this.changeArea('reception'),
     }));
+
     interactions.register(new Interactable({
-      id: 'bryan-car', name: 'Auto de Bryan', position: [3.35, 0, 5], radius: 1.5,
-      label: 'Subir al auto', onInteract: () => this.beginDriving(),
+      id: 'bryan-car',
+      name: 'Auto de Bryan',
+      position: exteriorConfig.car.position,
+      radius: 0.78,
+      label: 'Subir al auto',
+      onInteract: () => this.beginDriving(),
     }));
   }
 
