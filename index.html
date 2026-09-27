@@ -85,6 +85,39 @@ function fixes(path,input){
   }
 }`);
   }
+  if(path==="src/game/SceneNpcAnchors.js"){
+    o=o.replace(
+      "      scene.add(group);\n      this.visuals.push({ zoneId: config.id, group, anchor, source });",
+      "      scene.add(group);\n      const sourceNodes = []; source.model.traverse(node => sourceNodes.push(node));\n      const cloneNodes = []; model.traverse(node => cloneNodes.push(node));\n      this.visuals.push({ zoneId: config.id, group, anchor, source, sourceNodes, cloneNodes, sourceStartPosition: source.group.position.clone() });"
+    );
+    o=o.replace(/  update\(zoneId\) \{[\s\S]*?\n  \}\n\}/,
+      "  update(zoneId, player = null) {\n"+
+      "    this.visuals.forEach(({ zoneId: shot, group, anchor, source, sourceNodes, cloneNodes, sourceStartPosition }) => {\n"+
+      "      group.visible = shot === zoneId && anchor.visible && !source.departed;\n"+
+      "      if (!group.visible) return;\n"+
+      "      const count = Math.min(sourceNodes?.length || 0, cloneNodes?.length || 0);\n"+
+      "      for (let i = 1; i < count; i++) { cloneNodes[i].position.copy(sourceNodes[i].position); cloneNodes[i].quaternion.copy(sourceNodes[i].quaternion); cloneNodes[i].scale.copy(sourceNodes[i].scale); }\n"+
+      "      group.position.set(...anchor.position);\n"+
+      "      if (anchor.followSourceMotion) { group.position.x += source.group.position.x - sourceStartPosition.x; group.position.z += source.group.position.z - sourceStartPosition.z; group.rotation.y = source.group.rotation.y; }\n"+
+      "      else if (anchor.lookAtPlayer && player) { const dx = player.position.x - group.position.x; const dz = player.position.z - group.position.z; group.rotation.y = Math.atan2(-dx, -dz); }\n"+
+      "      else { group.rotation.y = anchor.rotationY; }\n"+
+      "      for (const prop of anchor.attachedProps || []) { const original = source.model.getObjectByName(prop.name); let copy = group.getObjectByName(prop.name + '-shot'); if (!original) { if (copy) copy.removeFromParent(); continue; } if (!copy) { copy = original.clone(true); copy.name = prop.name + '-shot'; copy.traverse(mesh => { mesh.userData.preserveForBackplate = true; }); group.getObjectByName(prop.parent)?.add(copy); } }\n"+
+      "    });\n"+
+      "  }\n"+
+      "}"
+    );
+  }
+
+  if(path==="src/game/NPC.js"){
+    o=o.replace("this.model.animate(dt, moved / dt, false, headYaw);","this.model.animate(dt, moved / dt, this.walkSpeed > 2.2, headYaw);");
+  }
+
+  if(path==="src/game/PrerenderBackdropManager.js"){
+    o=o.replace(
+      "    if (hideAllNPCs.includes(zoneId) || this.configs[zoneId]?.hideOriginalNPCs) {\n      npcGroups.forEach(group => this.setActorVisible(group, false));\n      return;\n    }",
+      "    if (hideAllNPCs.includes(zoneId) || this.configs[zoneId]?.hideOriginalNPCs) {\n      npcGroups.forEach(group => { const deliveryNurse = zoneId === 'cam05' && group.name === 'npc:Enfermera de envíos'; this.setActorVisible(group, deliveryNurse); });\n      return;\n    }"
+    );
+  }
   if(path==="src/main.js") o=o.replace("const menu = new MainMenu(root, (input, settings, audio) => new Game(root, { input, settings, audio }));","const menu = new MainMenu(root, (input, settings, audio) => { const game = new Game(root, { input, settings, audio }); window.__RE_GAME__ = game; return game; }); window.__RE_MENU__ = menu;");
   return o;
 }
