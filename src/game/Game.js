@@ -34,6 +34,9 @@ import { SceneNpcAnchors } from './SceneNpcAnchors.js';
 import { PrerenderRoom } from './PrerenderRoom.js';
 import { PrerenderRoomView } from './PrerenderRoomView.js';
 
+// TEMP CHECKPOINT: exterior calibration only. Set false/remove after Bryan/car are fixed.
+const TEMP_EXTERIOR_CHECKPOINT = true;
+
 export class Game {
   constructor(container, { input = null, settings = { sound: true, cameraMotion: true }, audio = null } = {}) {
     this.container = container;
@@ -101,7 +104,7 @@ export class Game {
     this.reception.interactions.register(new Interactable({
       id: 'hospital-exit', name: 'Salida', position: [0, 0, 7.2], radius: 1.7,
       label: 'Salir del hospital', onInteract: () => {
-        if (this.raccoonDelivery.resolved) this.changeArea('exterior');
+        if (TEMP_EXTERIOR_CHECKPOINT || this.raccoonDelivery.resolved) this.changeArea('exterior');
         else if (this.receptionDelivery.signatureForged) this.dialogueManager.start([
           { speaker: 'BRYAN', text: 'La enfermera quiere hablar conmigo antes de que me vaya.' },
         ]);
@@ -438,7 +441,7 @@ export class Game {
 
   changeArea(area) {
     if (this.mode !== 'onFoot' || this.dialogueManager.isOpen || this.receptionDelivery?.isBusy || area === this.area) return;
-    if (area === 'exterior' && !this.raccoonDelivery.resolved) return;
+    if (area === 'exterior' && !TEMP_EXTERIOR_CHECKPOINT && !this.raccoonDelivery.resolved) return;
     if (area === 'exterior' && !this.exterior) this.setupExterior();
     if (area === 'exterior' && !this.exteriorLevel?.backgroundLoaded) {
       if (!this.exteriorTransitionPending) {
@@ -533,7 +536,8 @@ export class Game {
   }
 
   beginDriving() {
-    if (this.area !== 'exterior' || this.mode !== 'onFoot' || this.dialogueManager.isOpen || !this.raccoonDelivery.resolved) return;
+    if (this.area !== 'exterior' || this.mode !== 'onFoot' || this.dialogueManager.isOpen ||
+      (!TEMP_EXTERIOR_CHECKPOINT && !this.raccoonDelivery.resolved)) return;
     if (this.raccoonDelivery.ending === 'LAST_DELIVERY') {
       this.lastDeliveryEnding = new LastDeliveryEnding(this.container, this.input);
       this.mode = 'ending'; this.player.group.visible = false;
