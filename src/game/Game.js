@@ -29,6 +29,7 @@ import { WalkMesh } from './WalkMesh.js';
 import { receptionWideConfig } from './ReceptionWideConfig.js';
 import { corridorConfig } from './CorridorConfig.js';
 import { urgenciasConfig } from './UrgenciasConfig.js';
+import { exteriorConfig } from './ExteriorConfig.js';
 import { SceneNpcAnchors } from './SceneNpcAnchors.js';
 import { PrerenderRoom } from './PrerenderRoom.js';
 import { PrerenderRoomView } from './PrerenderRoomView.js';
@@ -257,8 +258,10 @@ export class Game {
     this.lastDeliveryEnding?.onResize();
     this.openingSequence?.onResize();
     this.prerenderBackdrop?.onResize();
+    this.exteriorBackdrop?.onResize();
     this.updateEntranceViewport();
     this.updateReceptionViewport();
+    this.updateExteriorViewport();
   }
 
   get activePrerenderRoom() {
