@@ -551,6 +551,8 @@ export class Game {
 
   updateDriving(dt) {
     this.prerenderBackdrop.disable();
+    this.urgenciasBackdrop?.disable();
+    this.exteriorBackdrop?.disable();
     if (this.dialogueManager.isOpen) {
       this.input.isJustPressed('KeyR');
       this.dialogueManager.update();
@@ -566,13 +568,20 @@ export class Game {
 
   updateDeparture(dt) {
     this.prerenderBackdrop.disable();
-    this.parkingDeparture.update(dt); this.input.clearFrameState();
+    this.urgenciasBackdrop?.disable();
+    this.cameraManager.applyToCamera(this.cameraRig);
+    this.updateExteriorViewport();
+    this.exteriorBackdrop?.update(exteriorConfig.id, 'exterior');
+    this.parkingDeparture.update(dt);
+    this.input.clearFrameState();
     if (this.mode === 'driving') this.updateDriving(0);
     else this.renderer.render(this.exterior.scene, this.parkingDeparture.camera);
   }
 
   updateEnding(dt) {
     this.prerenderBackdrop.disable();
+    this.urgenciasBackdrop?.disable();
+    this.exteriorBackdrop?.disable();
     this.lastDeliveryEnding.update(dt);
     this.input.clearFrameState();
     this.lastDeliveryEnding.render(this.renderer, this.scene, this.cameraRig.camera);
@@ -631,8 +640,10 @@ export class Game {
     this.cameraManager.applyToCamera(this.cameraRig);
     this.updateEntranceViewport();
     this.updateReceptionViewport();
+    this.updateExteriorViewport();
     this.prerenderBackdrop.update(this.cameraManager.activeZone?.id, this.area);
     this.urgenciasBackdrop.update(this.cameraManager.activeZone?.id, this.area);
+    this.exteriorBackdrop?.update(this.cameraManager.activeZone?.id, this.area);
     const room = this.activePrerenderRoom;
     this.prerenderViews.forEach((view, id) => view.update(this.player, room?.config.id === id, this.input, {
       activePortal: room?.portals.find(p => p.bounds && this.player.position.x >= p.bounds.minX && this.player.position.x <= p.bounds.maxX && this.player.position.z >= p.bounds.minZ && this.player.position.z <= p.bounds.maxZ)?.id || null,
