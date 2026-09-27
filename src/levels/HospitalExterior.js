@@ -1,6 +1,7 @@
 import * as THREE from 'three';
 import { HospitalIntro } from './HospitalIntro.js';
 import { createCar } from '../game/Vehicle.js';
+import { Snowfall } from '../environment/Snowfall.js';
 import { DEBUG_MODE } from '../config/constants.js';
 import { exteriorConfig } from '../game/ExteriorConfig.js';
 
@@ -9,9 +10,6 @@ export class HospitalExterior extends HospitalIntro {
     this.scene.background = new THREE.Color(0x05090d);
     this.scene.fog = null;
 
-    // Use the user's clean parking-lot plate as the actual scene background.
-    // scene.background is deliberate here: it cannot be hidden by world geometry
-    // or the prerender-plane visibility rules that caused the previous black screen.
     this.backgroundLoaded = false;
     this.backgroundError = null;
     this.backgroundReady = new Promise(resolve => {
@@ -55,21 +53,27 @@ export class HospitalExterior extends HospitalIntro {
     });
     this.scene.add(this.car);
 
-    // Keep Bryan out of the parked car itself while he walks from the
-    // Emergency doors to the marked foreground parking space.
+    // Conservative collider: enough to stop Bryan walking through the body,
+    // but small enough that he can still reach the driver's-side interaction point.
     this.collisionSystem.addCollider({
-      minX: exteriorConfig.car.position[0] - 0.34,
-      maxX: exteriorConfig.car.position[0] + 0.34,
-      minZ: exteriorConfig.car.position[2] - 0.62,
-      maxZ: exteriorConfig.car.position[2] + 0.62,
+      minX: exteriorConfig.car.position[0] - 0.52,
+      maxX: exteriorConfig.car.position[0] + 0.52,
+      minZ: exteriorConfig.car.position[2] - 0.92,
+      maxZ: exteriorConfig.car.position[2] + 0.92,
     });
 
-    // Actor/car lighting only. The hospital and parking lot are baked into the plate.
-    this.scene.add(new THREE.HemisphereLight(0xb9cad8, 0x17202a, 0.9));
-    const moon = new THREE.DirectionalLight(0xbfd2e7, 1.1);
+    // Dynamic snow is deliberately separate from the baked plate.
+    this.snowfall = new Snowfall(this.scene, 520, 18);
+    this.snowfall.points.material.size = 0.10;
+    this.snowfall.points.material.opacity = 0.72;
+    this.snowfall.points.renderOrder = 20;
+
+    // Actor/car lighting only. The environment itself is baked into the plate.
+    this.scene.add(new THREE.HemisphereLight(0xb9cad8, 0x17202a, 0.86));
+    const moon = new THREE.DirectionalLight(0xbfd2e7, 0.95);
     moon.position.set(-4, 8, 4);
     this.scene.add(moon);
-    const lamp = new THREE.PointLight(0xffd8a3, 10, 7, 2);
+    const lamp = new THREE.PointLight(0xffd8a3, 8, 7, 2);
     lamp.position.set(0.35, 3.2, 0.7);
     this.scene.add(lamp);
 
@@ -96,5 +100,69 @@ export class HospitalExterior extends HospitalIntro {
     }
   }
 
-  update() {}
+  update(dt, center = this.player?.position ?? this.car.position) {
+    if (this.snowfall && center) this.snowfall.update(dt, center);
+  }
+
+  getCarInteractionPosition() {
+    this.car.updateMatrixWorld(true);
+    return this.car.localToWorld(new THREE.Vector3(...exteriorConfig.car.interaction.localPosition));
+  }
+
+  // Correct only the rendered Bryan GLB. His physics group and movement heading
+  // remain untouched. The correction is solved from the current fixed camera so
+  // his projected head/feet line is vertical against the hospital door jambs.
+  applyPlayerPresentation(player, camera, bryanVisual) {
+    const visual = bryanVisual?.group;
+    if (!visual || !camera || !player.group.visible) return;
+
+    visual.rotation.x = 0;
+    visual.rotation.z = 0;
+    visual.updateMatrixWorld(true);
+    camera.updateMatrixWorld(true);
+
+    const footLocal = new THREE.Vector3(0, 0.02, 0);
+    const headLocal = new THREE.Vector3(0, 1.76, 0);
+    const projectedDx = angle => {
+      visual.rotation.z = angle;
+      visual.updateMatrixWorld(true);
+      const foot = footLocal.clone().applyMatrix4(visual.matrixWorld).project(camera);
+      const head = headLocal.clone().applyMatrix4(visual.matrixWorld).project(camera);
+      return head.x - foot.x;
+    };
+
+    if (!exteriorConfig.playerPresentation.screenVertical) return;
+    const epsilon = 0.018;
+    const d0 = projectedDx(0);
+    const d1 = projectedDx(epsilon);
+    const derivative = (d1 - d0) / epsilon;
+
+    let correction = Math.abs(derivative) > 1e-6 ? -d0 / derivative : 0;
+    correction = THREE.MathUtils.clamp(
+      correction,
+      -exteriorConfig.playerPresentation.maxRollCorrection,
+      exteriorConfig.playerPresentation.maxRollCorrection,
+    );
+
+    // One Newton refinement makes the projected line effectively vertical.
+    let d = projectedDx(correction);
+    const dNext = projectedDx(correction + epsilon);
+    const slope = (dNext - d) / epsilon;
+    if (Math.abs(slope) > 1e-6) correction -= d / slope;
+
+    visual.rotation.z = THREE.MathUtils.clamp(
+      correction,
+      -exteriorConfig.playerPresentation.maxRollCorrection,
+      exteriorConfig.playerPresentation.maxRollCorrection,
+    );
+    visual.updateMatrixWorld(true);
+  }
+
+  restorePlayerPresentation(bryanVisual) {
+    const visual = bryanVisual?.group;
+    if (!visual) return;
+    visual.rotation.x = 0;
+    visual.rotation.z = 0;
+    visual.updateMatrixWorld(true);
+  }
 }
