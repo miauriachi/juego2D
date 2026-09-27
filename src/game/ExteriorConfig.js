@@ -1,3 +1,4 @@
+// Fixed-camera exterior plate calibration.
 export const exteriorConfig = {
   id: 'exterior-prerender',
   area: 'exterior',
