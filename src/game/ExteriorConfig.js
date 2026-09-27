@@ -21,16 +21,18 @@ export const exteriorConfig = {
 
   // Bryan exits through the illuminated Emergency doors.
   spawn: {
-    // Fine-tuned to sit just outside the left/center Emergency doorway.
-    position: [-11.88, 0, 4.88],
-    // Face outward from the doorway instead of sideways across the frame.
-    rotationY: 0,
+    // Back to the doorway position that was closest to the reference.
+    position: [-11.55, 0, 4.55],
+    // Restore the previous world heading; screen alignment is handled separately below.
+    rotationY: -Math.PI / 2,
   },
 
   // Presentation correction is visual-only; physics and GLB source stay untouched.
   playerPresentation: {
-    // TEMP TEST: no artificial pitch/roll. Let Bryan stay naturally upright.
-    cameraTilt: 0,
+    // Exterior-only visual calibration:
+    // fixed roll around Bryan's local Z axis so his body aligns with the doorway,
+    // without changing his movement/world heading.
+    rollZ: 0.34,
   },
 
   car: {
