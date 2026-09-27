@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+// GitHub migration validation checkpoint.
 import { Player } from './Player.js';
 import { FixedCamera } from './FixedCamera.js';
 import { CollisionSystem } from './CollisionSystem.js';
