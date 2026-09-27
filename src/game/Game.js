@@ -538,17 +538,26 @@ export class Game {
   beginDriving() {
     if (this.area !== 'exterior' || this.mode !== 'onFoot' || this.dialogueManager.isOpen ||
       (!TEMP_EXTERIOR_CHECKPOINT && !this.raccoonDelivery.resolved)) return;
-    if (this.raccoonDelivery.ending === 'LAST_DELIVERY') {
+    if (!TEMP_EXTERIOR_CHECKPOINT && this.raccoonDelivery.ending === 'LAST_DELIVERY') {
       this.lastDeliveryEnding = new LastDeliveryEnding(this.container, this.input);
       this.mode = 'ending'; this.player.group.visible = false;
       this.objective.hidden = true; this.dialogueManager.setHint('');
       this.input.keys.clear(); this.input.clearFrameState();
       return;
     }
-    this.mode = 'parkingDeparture'; this.player.group.visible = false;
-    this.dialogueManager.setHint(''); this.objective.hidden = true;
-    this.input.keys.clear(); this.input.clearFrameState();
-    this.parkingDeparture = new ParkingDepartureSequence(this.container, this.exteriorLevel, this.audio, () => this.startRoad());
+    this.mode = 'parkingDeparture';
+    this.player.group.visible = false;
+    this.exteriorLevel.car.visible = true;
+    this.dialogueManager.setHint('');
+    this.objective.hidden = true;
+    this.input.keys.clear();
+    this.input.clearFrameState();
+    this.parkingDeparture = new ParkingDepartureSequence(
+      this.container,
+      this.exteriorLevel,
+      this.audio,
+      () => this.startRoad(),
+    );
   }
 
   startRoad() {
