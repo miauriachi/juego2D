@@ -87,7 +87,7 @@ export class NPCManager {
       if (reception) {
         // Interaction anchor at the public edge: the solid countertop separates the bodies.
         interactable.position.set(-5.9, 0, 0.45);
-        interactable.canInteract = () => player.position.z <= 0.1;
+        interactable.canInteract = () => true;
       } else {
         interactable.position = npc.group.position;
       }
