@@ -18,22 +18,46 @@ export class RaccoonDeliverySequence {
     return '';
   }
 
-  update(area) {
+  update(area, dt = 0.016) {
     if (area !== 'reception' || !this.reception.signatureForged || this.dialogue.isOpen || this.resolved) return;
+    dt = Math.min(Math.max(dt || 0.016, 0.001), 0.05);
+
     if (this.state === 'waitingForSignature') {
-      this.origin = this.player.position.clone();
-      this.nurse = this.npcs.addNPC({ name: 'Enfermera de envíos', type: 'Nurse',
-        walkSpeed: 0, waypoints: [{ x: -5, z: -1.3 }] });
+      this.nurse = this.npcs.addNPC({
+        name: 'Enfermera de envíos',
+        type: 'Nurse',
+        walkSpeed: 0,
+        waypoints: [{ x: -5.0, z: -1.30 }],
+      });
       this.nurse.lookTarget = this.player.position;
       this.raccoonCityPackage = this.createPackage();
       this.nurse.model.body.add(this.raccoonCityPackage);
-      this.state = 'armed';
+      this.arrivalTarget = new THREE.Vector3(-2.15, 0, -0.95);
+      this.arrivalSpeed = 3.15;
+      this.state = 'runningIn';
+      this.onChange();
     }
-    if (this.state === 'armed' && this.player.position.distanceTo(this.origin) >= 3) {
+
+    if (this.state === 'runningIn') {
+      const dx = this.arrivalTarget.x - this.nurse.group.position.x;
+      const dz = this.arrivalTarget.z - this.nurse.group.position.z;
+      const distance = Math.hypot(dx, dz);
+
+      if (distance > 0.08) {
+        const step = Math.min(this.arrivalSpeed * dt, distance);
+        this.nurse.group.rotation.y = Math.atan2(-dx, -dz);
+        this.nurse.group.position.x += dx / distance * step;
+        this.nurse.group.position.z += dz / distance * step;
+        this.nurse.model.animate(dt, this.arrivalSpeed, true, 0);
+        return;
+      }
+
+      this.nurse.group.position.copy(this.arrivalTarget);
+      this.nurse.lookTarget = this.player.position;
+      const toBryanX = this.player.position.x - this.nurse.group.position.x;
+      const toBryanZ = this.player.position.z - this.nurse.group.position.z;
+      this.nurse.group.rotation.y = Math.atan2(-toBryanX, -toBryanZ);
       this.state = 'talking';
-      const delta = this.player.position.clone().sub(this.nurse.group.position);
-      this.nurse.group.rotation.y = Math.atan2(-delta.x, -delta.z);
-      // An E used on the trigger frame must not also skip the opening call.
       this.dialogue.input.clearFrameState();
       this.onChange();
       this.dialogue.start([
