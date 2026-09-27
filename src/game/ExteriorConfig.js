@@ -21,22 +21,23 @@ export const exteriorConfig = {
   // The player appears just outside the Emergency doors.
   spawn: {
     // Just outside the illuminated Emergency doors.
-    position: [-11.5, 0, 4.4],
+    position: [-10.8, 0, 4.55],
     rotationY: -Math.PI / 2,
   },
 
   // Empty foreground parking space marked with the red circle.
   car: {
     // Centered in the foreground white parking bay and aligned with its lines.
-    position: [0.10, 0, 3.30],
-    rotationY: -1.05,
-    // Keep real proportions versus Bryan; distance is handled by the camera.
-    scale: 0.95,
+    position: [0.80, 0, 4.00],
+    rotationY: 1.34,
+    // Match the baked parked cars in the plate instead of looking toy-giant.
+    scale: 0.52,
   },
 
   // Red route drawn on the reference: foreground space -> center aisle -> gate.
   carPath: [
-    [0.10, 0, 3.30],
+    [0.80, 0, 4.00],
+    [1.05, 0, 2.45],
     [0.55, 0, 1.85],
     [1.0, 0, 0.4],
     [-0.8, 0, -0.5],
