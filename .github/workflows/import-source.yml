@@ -30,6 +30,7 @@ jobs:
           code=$?
           echo "unzip_exit_code=$code" >> IMPORT_LOG.txt
           set -e
+          chmod -R u+rwX .
           rm -rf backups artifacts node_modules
 
       - name: Commit source
