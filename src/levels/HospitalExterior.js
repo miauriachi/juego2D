@@ -108,38 +108,23 @@ export class HospitalExterior extends HospitalIntro {
     return this.car.position.clone();
   }
 
-  // Visual-only 2.5D correction for the high fixed camera.
-  // The previous solver changed roll abruptly as Bryan turned; this uses one
-  // fixed world-space tilt toward the camera so every heading stays stable.
+  // Exterior-only visual correction.
+  // Keep Bryan's actual world heading untouched and apply only a constant local
+  // Z-axis roll to the rendered GLB. This prevents the old per-frame snapping.
   applyPlayerPresentation(player, camera, bryanVisual) {
     const visual = bryanVisual?.group;
-    if (!visual || !camera || !player.group.visible) return;
+    if (!visual || !player.group.visible) return;
 
-    player.group.updateMatrixWorld(true);
-    camera.updateMatrixWorld(true);
-
-    const parentWorld = new THREE.Quaternion();
-    player.group.getWorldQuaternion(parentWorld);
-
-    const cameraRight = new THREE.Vector3(1, 0, 0)
-      .applyQuaternion(camera.quaternion)
-      .setY(0)
-      .normalize();
-
-    const tiltWorld = new THREE.Quaternion().setFromAxisAngle(
-      cameraRight,
-      exteriorConfig.playerPresentation.cameraTilt,
-    );
-
-    const desiredWorld = tiltWorld.clone().multiply(parentWorld);
-    visual.quaternion.copy(parentWorld.clone().invert().multiply(desiredWorld));
+    visual.rotation.x = 0;
+    visual.rotation.y = 0;
+    visual.rotation.z = exteriorConfig.playerPresentation.rollZ;
     visual.updateMatrixWorld(true);
   }
 
   restorePlayerPresentation(bryanVisual) {
     const visual = bryanVisual?.group;
     if (!visual) return;
-    visual.quaternion.identity();
+    visual.rotation.set(0, 0, 0);
     visual.updateMatrixWorld(true);
   }
 }
