@@ -1,0 +1,313 @@
+name: Import and publish RE Noche Cero
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - ".github/workflows/import-game.yml"
+
+permissions:
+  contents: write
+
+jobs:
+  import-game:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Download current game snapshot
+        run: |
+          curl -fL "https://5a8e0e8c-77e9-4b8a-a830-ff3c7ad6bdce.sandbox.floot.app/_cdn/static/92a283dd-4a08-4660-af08-0a2624d4be57-REnochecero_PRERENDER_12_FIXES_RECEPTION_URG.zip" -o /tmp/game.zip
+          rm -rf /tmp/game
+          mkdir -p /tmp/game
+          unzip -q /tmp/game.zip -d /tmp/game
+
+      - name: Apply latest Floot corrections to real source files
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          import re
+
+          root = Path("/tmp/game")
+
+          def read(path):
+              return (root / path).read_text(encoding="utf-8")
+
+          def write(path, text):
+              (root / path).write_text(text, encoding="utf-8")
+
+          # Reception: keep the working interaction zone and receptionist calibration.
+          p = "src/game/ReceptionWideConfig.js"
+          s = read(p)
+          s = re.sub(
+              r'("receptionist"\s*:\s*\{\s*"sourceName"\s*:\s*"Recepcionista"\s*,\s*"position"\s*:\s*\[)\s*[-\d.]+\s*,\s*0\s*,\s*[-\d.]+\s*(\]\s*,\s*"rotationY"\s*:\s*)[-\d.]+',
+              r'\1\n        4.18,\n        0,\n        -2.05\n      \2 3.141592653589793',
+              s, count=1)
+          s = re.sub(
+              r'("sourceId"\s*:\s*"Recepcionista"\s*,\s*"position"\s*:\s*\[)\s*[-\d.]+\s*,\s*0\s*,\s*[-\d.]+\s*(\]\s*,\s*"radius"\s*:\s*)[-\d.]+',
+              r'\1\n        0.48,\n        0,\n        -0.55\n      \2 1.8',
+              s, count=1)
+          write(p, s)
+
+          p = "src/game/NPCManager.js"
+          s = read(p).replace(
+              "interactable.canInteract = () => player.position.z <= 0.1;",
+              "interactable.canInteract = () => true;"
+          )
+          write(p, s)
+
+          # Reception interaction + pass dt into UrgenciasSequence.
+          p = "src/game/Game.js"
+          s = read(p)
+          needle = "  updateRoomInteractions(room) {\n    const candidates = "
+          if needle in s:
+              s = s.replace(needle,
+              "  updateRoomInteractions(room) {\n"
+              "    if (room.config.id === 'cam05') {\n"
+              "      const receptionist = this.interactionManager.interactables.find(item => item.id === 'Recepcionista');\n"
+              "      const p = this.player.position;\n"
+              "      const atCounter = p.x >= -0.8 && p.x <= 1.0 && p.z >= -1.9 && p.z <= 1.0;\n"
+              "      if (receptionist && atCounter && (!receptionist.canInteract || receptionist.canInteract())) {\n"
+              "        this.interactionManager.currentHintText = receptionist.getHintText();\n"
+              "        if (this.input.isJustPressed('KeyE')) receptionist.interact();\n"
+              "        return;\n"
+              "      }\n"
+              "    }\n"
+              "    const candidates = ", 1)
+          s = s.replace(
+              "if (this.area === 'urgencias') this.urgenciasSequence.update();",
+              "if (this.area === 'urgencias') this.urgenciasSequence.update(dt);"
+          )
+          write(p, s)
+
+          # Urgencias presentation: equal-size NPCs and interaction return point.
+          p = "src/game/UrgenciasConfig.js"
+          s = read(p)
+          # Doctor follows its logical escape motion.
+          if '"followSourceMotion": true' not in s:
+              s = s.replace(
+                  '"rotationY": 2.2,\n      "visible": true',
+                  '"rotationY": 2.2,\n      "scale": 1.0,\n      "followSourceMotion": true,\n      "visible": true',
+                  1)
+          else:
+              s = re.sub(
+                  r'("sourceName": "Doctor responsable"[\s\S]*?"rotationY": 2\.2,)(?:\s*"scale": [-\d.]+,)?',
+                  r'\1\n      "scale": 1.0,',
+                  s, count=1)
+          s = re.sub(
+              r'("sourceName": "Paciente en camilla 0"[\s\S]*?"scale": )[-\d.]+',
+              r'\g<1>1.0', s, count=1)
+          s = re.sub(
+              r'("sourceName": "Paciente sentado 2"[\s\S]*?"scale": )[-\d.]+',
+              r'\g<1>1.0', s, count=1)
+          s = re.sub(
+              r'("sourceName": "Enfermera de observación"[\s\S]*?"scale": )[-\d.]+',
+              r'\g<1>1.0', s, count=1)
+          s = re.sub(
+              r'("sourceId": "return-reception"\s*,\s*"position"\s*:\s*\[)\s*[-\d.]+\s*,\s*0\s*,\s*[-\d.]+\s*(\]\s*,\s*"radius"\s*:\s*)[-\d.]+',
+              r'\1\n        -4.35,\n        0,\n        0.10\n      \2 1.45',
+              s, count=1)
+          s = re.sub(r'("returnPortal"[\s\S]*?"minX": )[-\d.]+', r'\g<1>-4.95', s, count=1)
+          s = re.sub(r'("returnPortal"[\s\S]*?"maxX": )[-\d.]+', r'\g<1>-3.70', s, count=1)
+          s = re.sub(r'("returnPortal"[\s\S]*?"z": )[-\d.]+', r'\g<1>0.10', s, count=1)
+          s = re.sub(r'("returnPortal"[\s\S]*?"bounds"[\s\S]*?"minX": )[-\d.]+', r'\g<1>-4.95', s, count=1)
+          s = re.sub(r'("returnPortal"[\s\S]*?"bounds"[\s\S]*?"maxX": )[-\d.]+', r'\g<1>-3.70', s, count=1)
+          s = re.sub(r'("returnPortal"[\s\S]*?"bounds"[\s\S]*?"minZ": )[-\d.]+', r'\g<1>-0.65', s, count=1)
+          s = re.sub(r'("returnPortal"[\s\S]*?"bounds"[\s\S]*?"maxZ": )[-\d.]+', r'\g<1>0.75', s, count=1)
+          write(p, s)
+
+          # Prerender clones mirror logical actor pose/motion so the doctor's run is visible.
+          p = "src/game/SceneNpcAnchors.js"
+          s = read(p)
+          if "sourceNodes" not in s:
+              s = s.replace(
+                  "      scene.add(group);\n      this.visuals.push({ zoneId: config.id, group, anchor, source });",
+                  "      scene.add(group);\n"
+                  "      const sourceNodes = []; source.model.traverse(node => sourceNodes.push(node));\n"
+                  "      const cloneNodes = []; model.traverse(node => cloneNodes.push(node));\n"
+                  "      this.visuals.push({ zoneId: config.id, group, anchor, source, sourceNodes, cloneNodes,\n"
+                  "        sourceStartPosition: source.group.position.clone() });"
+              )
+          start = s.find("  update(zoneId")
+          if start >= 0:
+              end = s.rfind("\n}")
+              s = s[:start] + """  update(zoneId, player = null) {
+            this.visuals.forEach(({ zoneId: shot, group, anchor, source, sourceNodes, cloneNodes, sourceStartPosition }) => {
+              group.visible = shot === zoneId && anchor.visible && !source.departed;
+              if (!group.visible) return;
+
+              const count = Math.min(sourceNodes?.length || 0, cloneNodes?.length || 0);
+              for (let i = 1; i < count; i++) {
+                cloneNodes[i].position.copy(sourceNodes[i].position);
+                cloneNodes[i].quaternion.copy(sourceNodes[i].quaternion);
+                cloneNodes[i].scale.copy(sourceNodes[i].scale);
+              }
+
+              group.position.set(...anchor.position);
+              if (anchor.followSourceMotion) {
+                group.position.x += source.group.position.x - sourceStartPosition.x;
+                group.position.z += source.group.position.z - sourceStartPosition.z;
+                group.rotation.y = source.group.rotation.y;
+              } else if (anchor.lookAtPlayer && player) {
+                const dx = player.position.x - group.position.x;
+                const dz = player.position.z - group.position.z;
+                group.rotation.y = Math.atan2(-dx, -dz);
+              } else {
+                group.rotation.y = anchor.rotationY;
+              }
+
+              for (const prop of anchor.attachedProps || []) {
+                const original = source.model.getObjectByName(prop.name);
+                let copy = group.getObjectByName(prop.name + '-shot');
+                if (!original) { if (copy) copy.removeFromParent(); continue; }
+                if (!copy) {
+                  copy = original.clone(true); copy.name = prop.name + '-shot';
+                  copy.traverse(mesh => { mesh.userData.preserveForBackplate = true; });
+                  group.getObjectByName(prop.parent)?.add(copy);
+                }
+              }
+            });
+          }
+        }""" + s[end+2:]
+          write(p, s)
+
+          # Doctor: after handoff run directly into Treatment Room 2,
+          # pause at the threshold, then disappear permanently.
+          p = "src/game/UrgenciasSequence.js"
+          s = read(p)
+          s = s.replace(
+              "interaction.canInteract = () => !this.departing;",
+              "interaction.canInteract = () => !this.departing && !this.completed;"
+          )
+          start = s.find("  finish() {")
+          end = s.rfind("\n}")
+          if start >= 0 and end > start:
+              s = s[:start] + """  finish() {
+            if (this.completed) return;
+            const kit = this.player.model.getObjectByName('medicalKit');
+            if (!kit) return;
+            this.completed = true;
+            this.doctor.model.forearms[0].add(kit);
+            kit.position.set(0.335, -1, -0.02);
+            kit.getObjectByName('bagStrap').visible = false;
+            this.doctor.lookTarget = null;
+
+            this.doctor.paused = true;
+            this.doctor.walkSpeed = 0;
+            this.doctor.departed = false;
+            this.departing = true;
+            this.departureStage = 'running';
+            this.departureIndex = 1;
+            this.departureHold = 0;
+            this.departureSpeed = 3.5;
+            this.departurePoints = [
+              this.doctor.group.position.clone(),
+              new THREE.Vector3(1.15, 0, -30.75),
+            ];
+            this.onComplete();
+          }
+
+          update(dt = 0.016) {
+            if (!this.departing) return;
+            dt = Math.min(Math.max(dt || 0.016, 0.001), 0.05);
+
+            if (this.departureStage === 'waitingAtDoor') {
+              this.departureHold += dt;
+              this.doctor.model.animate(dt, 0, false, 0);
+              if (this.departureHold >= 0.5) {
+                this.doctor.departed = true;
+                this.doctor.group.visible = false;
+                this.departing = false;
+              }
+              return;
+            }
+
+            const target = this.departurePoints[this.departureIndex];
+            if (!target) return;
+            const dx = target.x - this.doctor.group.position.x;
+            const dz = target.z - this.doctor.group.position.z;
+            const distance = Math.hypot(dx, dz);
+
+            if (distance <= 0.04) {
+              this.doctor.group.position.copy(target);
+              this.departureIndex++;
+              if (this.departureIndex >= this.departurePoints.length) {
+                this.departureStage = 'waitingAtDoor';
+                this.departureHold = 0;
+              }
+              return;
+            }
+
+            const step = Math.min(this.departureSpeed * dt, distance);
+            this.doctor.group.rotation.y = Math.atan2(-dx, -dz);
+            this.doctor.group.position.x += dx / distance * step;
+            this.doctor.group.position.z += dz / distance * step;
+            this.doctor.model.animate(dt, this.departureSpeed, true, 0);
+          }
+        }""" + s[end+2:]
+          write(p, s)
+
+          # Keep the dynamically spawned delivery nurse visible on the reception plate.
+          p = "src/game/PrerenderBackdropManager.js"
+          s = read(p)
+          old = """    if (hideAllNPCs.includes(zoneId) || this.configs[zoneId]?.hideOriginalNPCs) {
+              npcGroups.forEach(group => this.setActorVisible(group, false));
+              return;
+            }"""
+          if old in s:
+              s = s.replace(old, """    if (hideAllNPCs.includes(zoneId) || this.configs[zoneId]?.hideOriginalNPCs) {
+              npcGroups.forEach(group => {
+                const deliveryNurse = zoneId === 'cam05' && group.name === 'npc:Enfermera de envíos';
+                this.setActorVisible(group, deliveryNurse);
+              });
+              return;
+            }""")
+          write(p, s)
+
+          # Make running NPCs use the faster procedural run cycle.
+          p = "src/game/NPC.js"
+          s = read(p).replace(
+              "this.model.animate(dt, moved / dt, false, headYaw);",
+              "this.model.animate(dt, moved / dt, this.walkSpeed > 2.2, headYaw);"
+          )
+          write(p, s)
+
+          # Pass player to scene anchors so receptionist can face Bryan.
+          p = "src/game/Game.js"
+          s = read(p).replace(
+              "this.sceneNpcAnchors.update(this.activePrerenderRoom?.config.id);",
+              "this.sceneNpcAnchors.update(this.activePrerenderRoom?.config.id, this.player);"
+          )
+          write(p, s)
+          PY
+
+      - name: Validate edited JavaScript
+        run: |
+          node --check /tmp/game/src/game/Game.js
+          node --check /tmp/game/src/game/UrgenciasSequence.js
+          node --check /tmp/game/src/game/SceneNpcAnchors.js
+          node --check /tmp/game/src/game/UrgenciasConfig.js
+
+      - name: Replace repository contents
+        run: |
+          find . -mindepth 1 -maxdepth 1 ! -name .git ! -name .github ! -name README.md -exec rm -rf {} +
+          rsync -a /tmp/game/ ./
+          rm -rf ./backups ./artifacts ./node_modules
+          cat > README.md <<'EOF'
+          # RE Noche Cero
+
+          Versión web de trabajo del prototipo **RE Noche Cero**.
+
+          El código de este repositorio se sincronizó con la versión PRERENDER_12 y las correcciones posteriores de recepción y Urgencias.
+          EOF
+
+      - name: Commit imported game
+        run: |
+          git config user.name "ChatGPT Build"
+          git config user.email "actions@users.noreply.github.com"
+          git add -A
+          git diff --cached --quiet && exit 0
+          git commit -m "Import current RE Noche Cero build [skip ci]"
+          git push
