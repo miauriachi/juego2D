@@ -551,7 +551,7 @@ export class Game {
     if (this.area === 'exterior') this.exteriorLevel.update(dt, this.player);
     if (this.area === 'urgencias') this.urgenciasSequence.update(dt);
     this.receptionDelivery.update(dt, this.area);
-    this.raccoonDelivery.update(this.area);
+    this.raccoonDelivery.update(this.area, dt);
     const wasOpen = this.dialogueManager.isOpen;
     if (wasOpen) this.dialogueManager.update();
     else if (!this.receptionDelivery.isBusy) {
