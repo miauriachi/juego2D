@@ -470,9 +470,8 @@ export class Game {
       ? exteriorConfig.spawn.rotationY
       : area === 'urgencias' || previousArea === 'exterior' ? 0 : Math.PI;
     this.player.group.rotation.y = this.player.rotationY;
-    // The GLB has a slight forward/side lean that is exaggerated by this high exterior camera.
-    // Counter-tilt only in the parking-lot shot; reset it everywhere else.
-    this.player.group.rotation.z = area === 'exterior' ? -0.12 : 0;
+    // Keep Bryan upright in the fixed exterior shot.
+    this.player.group.rotation.z = 0;
     this.player.group.rotation.x = 0;
     this.player.velocity.set(0, 0, 0);
     this.interactionManager.currentHintText = '';
@@ -524,7 +523,7 @@ export class Game {
       id: 'bryan-car',
       name: 'Auto de Bryan',
       position: exteriorConfig.car.position,
-      radius: 0.78,
+      radius: 1.85,
       label: 'Subir al auto',
       onInteract: () => this.beginDriving(),
     }));
@@ -625,7 +624,17 @@ export class Game {
     const wasOpen = this.dialogueManager.isOpen;
     if (wasOpen) this.dialogueManager.update();
     else if (!this.receptionDelivery.isBusy) {
-      if (this.activePrerenderRoom) this.updateRoomInteractions(this.activePrerenderRoom);
+      if (this.area === 'exterior') {
+        const car = this.interactionManager.interactables.find(item => item.id === 'bryan-car');
+        const distanceToCar = car ? this.player.position.distanceTo(car.position) : Infinity;
+        if (car && distanceToCar <= 1.95) {
+          this.interactionManager.current = car;
+          this.interactionManager.currentHintText = car.getHintText();
+          if (this.input.isJustPressed('KeyE')) car.interact();
+        } else {
+          this.interactionManager.update();
+        }
+      } else if (this.activePrerenderRoom) this.updateRoomInteractions(this.activePrerenderRoom);
       else this.interactionManager.update();
     }
     if (this.mode === 'parkingDeparture') { this.updateDeparture(0); return; }
