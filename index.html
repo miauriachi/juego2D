@@ -1,0 +1,126 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
+  <title>RE Noche Cero</title>
+  <style>
+    html,body,#game-root{margin:0;width:100%;height:100%;overflow:hidden;background:#020406}
+    #boot{position:fixed;inset:0;display:grid;place-items:center;background:#020406;color:#cfd7d1;font-family:Georgia,serif;z-index:999999;text-align:center;padding:24px}
+    #boot h1{font-size:clamp(30px,5vw,64px);margin:0 0 16px;letter-spacing:.08em}
+    #status{font:13px/1.65 monospace;color:#91aaa0;white-space:pre-wrap;max-width:760px}
+  </style>
+  <script src="https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js"></script>
+</head>
+<body>
+  <div id="game-root"></div>
+  <div id="boot"><div><h1>RE NOCHE CERO</h1><div id="status">Cargando proyecto…</div></div></div>
+<script type="module">
+const ZIP_URL="https://5a8e0e8c-77e9-4b8a-a830-ff3c7ad6bdce.sandbox.floot.app/_cdn/static/92a283dd-4a08-4660-af08-0a2624d4be57-REnochecero_PRERENDER_12_FIXES_RECEPTION_URG.zip";
+const THREE_URL="https://esm.sh/three@0.160.0";
+const GLTF_URL="https://esm.sh/three@0.160.0/examples/jsm/loaders/GLTFLoader.js";
+const status=document.querySelector("#status");
+const setStatus=t=>status.textContent=t;
+const norm=v=>{const out=[];for(const p of v.replace(/\\/g,"/").split("/")){if(!p||p===".")continue;if(p==="..")out.pop();else out.push(p)}return out.join("/")};
+const dir=v=>{const a=norm(v).split("/");a.pop();return a.join("/")};
+const resolveRel=(from,spec)=>norm(dir(from)?dir(from)+"/"+spec:spec);
+const mime=p=>{const e=p.split(".").pop().toLowerCase();return {png:"image/png",jpg:"image/jpeg",jpeg:"image/jpeg",webp:"image/webp",gif:"image/gif",glb:"model/gltf-binary",gltf:"model/gltf+json",mp3:"audio/mpeg",wav:"audio/wav",ogg:"audio/ogg"}[e]||"application/octet-stream"};
+
+function fixes(path,input){
+  let o=input;
+  if(path==="src/game/ReceptionWideConfig.js"){
+    o=o.replace(/"position": \[\s*4\.05,\s*0,\s*-3\.25\s*\],\s*"rotationY": 2\.95/,'"position": [4.18, 0, -2.05],\n      "rotationY": 3.141592653589793');
+    o=o.replace(/"sourceId": "Recepcionista",\s*"position": \[\s*0\.75992,\s*0,\s*-2\.550246\s*\],\s*"radius": 1\.003/,'"sourceId": "Recepcionista",\n      "position": [0.48, 0, -0.55],\n      "radius": 1.8');
+  }
+  if(path==="src/game/NPCManager.js") o=o.replace("interactable.canInteract = () => player.position.z <= 0.1;","interactable.canInteract = () => true;");
+  if(path==="src/game/Game.js"){
+    o=o.replace("  updateRoomInteractions(room) {\n    const candidates = ","  updateRoomInteractions(room) {\n    if (room.config.id === 'cam05') {\n      const receptionist = this.interactionManager.interactables.find(item => item.id === 'Recepcionista');\n      const p = this.player.position;\n      const atCounter = p.x >= -0.8 && p.x <= 1.0 && p.z >= -1.9 && p.z <= 1.0;\n      if (receptionist && atCounter && (!receptionist.canInteract || receptionist.canInteract())) {\n        this.interactionManager.currentHintText = receptionist.getHintText();\n        if (this.input.isJustPressed('KeyE')) receptionist.interact();\n        return;\n      }\n    }\n    const candidates = ");
+    o=o.replace("if (this.area === 'urgencias') this.urgenciasSequence.update();","if (this.area === 'urgencias') this.urgenciasSequence.update(dt);");
+    o=o.replace("this.sceneNpcAnchors.update(this.activePrerenderRoom?.config.id);","this.sceneNpcAnchors.update(this.activePrerenderRoom?.config.id, this.player);");
+  }
+  if(path==="src/game/UrgenciasConfig.js"){
+    o=o.replace('"rotationY": 2.2,\n      "visible": true','"rotationY": 2.2,\n      "scale": 1.0,\n      "followSourceMotion": true,\n      "visible": true');
+    o=o.replace(/("sourceName": "Paciente en camilla 0"[\s\S]*?"scale": )[-\d.]+/,'$11.0');
+    o=o.replace(/("sourceName": "Paciente sentado 2"[\s\S]*?"scale": )[-\d.]+/,'$11.0');
+    o=o.replace(/("sourceName": "Enfermera de observación"[\s\S]*?"scale": )[-\d.]+/,'$11.0');
+    o=o.replace(/"sourceId": "return-reception",\s*"position": \[\s*-2\.48426,\s*0,\s*2\.96716\s*\],\s*"radius": 0\.9/,'"sourceId": "return-reception",\n      "position": [-4.35, 0, 0.10],\n      "radius": 1.45');
+  }
+  if(path==="src/game/UrgenciasSequence.js"){
+    o=o.replace("interaction.canInteract = () => !this.departing;","interaction.canInteract = () => !this.departing && !this.completed;");
+    o=o.replace(/  finish\(\) \{[\s\S]*?\n  update\(\) \{[\s\S]*?\n  \}\n\}/,`  finish() {
+    if (this.completed) return;
+    const kit = this.player.model.getObjectByName('medicalKit');
+    if (!kit) return;
+    this.completed = true;
+    this.doctor.model.forearms[0].add(kit);
+    kit.position.set(0.335, -1, -0.02);
+    kit.getObjectByName('bagStrap').visible = false;
+    this.doctor.lookTarget = null;
+    this.doctor.paused = true;
+    this.doctor.walkSpeed = 0;
+    this.doctor.departed = false;
+    this.departing = true;
+    this.departureStage = 'running';
+    this.departureIndex = 1;
+    this.departureHold = 0;
+    this.departureSpeed = 3.5;
+    this.departurePoints = [this.doctor.group.position.clone(), new THREE.Vector3(1.15,0,-30.75)];
+    this.onComplete();
+  }
+  update(dt=0.016) {
+    if (!this.departing) return;
+    dt=Math.min(Math.max(dt||0.016,0.001),0.05);
+    if (this.departureStage==='waitingAtDoor') {
+      this.departureHold+=dt; this.doctor.model.animate(dt,0,false,0);
+      if (this.departureHold>=0.5) { this.doctor.departed=true; this.doctor.group.visible=false; this.departing=false; }
+      return;
+    }
+    const target=this.departurePoints[this.departureIndex]; if(!target)return;
+    const dx=target.x-this.doctor.group.position.x,dz=target.z-this.doctor.group.position.z,d=Math.hypot(dx,dz);
+    if(d<=0.04){this.doctor.group.position.copy(target);this.departureIndex++;if(this.departureIndex>=this.departurePoints.length){this.departureStage='waitingAtDoor';this.departureHold=0;}return;}
+    const step=Math.min(this.departureSpeed*dt,d);
+    this.doctor.group.rotation.y=Math.atan2(-dx,-dz);
+    this.doctor.group.position.x+=dx/d*step; this.doctor.group.position.z+=dz/d*step;
+    this.doctor.model.animate(dt,this.departureSpeed,true,0);
+  }
+}`);
+  }
+  if(path==="src/main.js") o=o.replace("const menu = new MainMenu(root, (input, settings, audio) => new Game(root, { input, settings, audio }));","const menu = new MainMenu(root, (input, settings, audio) => { const game = new Game(root, { input, settings, audio }); window.__RE_GAME__ = game; return game; }); window.__RE_MENU__ = menu;");
+  return o;
+}
+
+try{
+  setStatus("Descargando la versión actual…");
+  const r=await fetch(ZIP_URL,{mode:"cors"});
+  if(!r.ok) throw new Error("No se pudo descargar el proyecto: HTTP "+r.status);
+  const zip=await JSZip.loadAsync(await r.arrayBuffer());
+  const names=Object.keys(zip.files).map(norm).filter(Boolean);
+  const assets=new Map(), mods=new Map(), texts=new Map(), urls=[];
+  setStatus("Preparando assets…");
+  for(const p of names){
+    const e=zip.file(p); if(!e||e.dir)continue;
+    if(p.startsWith("assets/")){const b=await e.async("uint8array");const u=URL.createObjectURL(new Blob([b],{type:mime(p)}));assets.set(p,u);urls.push(u);}
+  }
+  const getText=async p=>{p=norm(p);if(texts.has(p))return texts.get(p);const e=zip.file(p);if(!e)throw new Error("Falta "+p);const t=await e.async("string");texts.set(p,t);return t};
+  const css=document.createElement("style");css.textContent=await getText("style.css");document.head.appendChild(css);
+  const modulePaths=new Set(names.filter(p=>p.startsWith("src/")&&p.endsWith(".js")));
+  const build=async p=>{
+    p=norm(p);if(mods.has(p))return mods.get(p);
+    let src=fixes(p,await getText(p));
+    src=src.replace(/new\s+URL\(\s*(['"])([^'"]+)\1\s*,\s*import\.meta\.url\s*\)\.href/g,(w,q,s)=>{const rr=s.startsWith(".")?resolveRel(p,s):norm(s);return assets.has(rr)?JSON.stringify(assets.get(rr)):w});
+    src=src.replace(/(['"])([^'"]*assets\/[^'"]+)\1/g,(w,q,s)=>{let rr;if(s.startsWith("./assets/"))rr=norm(s.slice(2));else if(s.startsWith("assets/")||s.startsWith("/assets/"))rr=norm(s);else rr=resolveRel(p,s);return assets.has(rr)?JSON.stringify(assets.get(rr)):w});
+    const re=/((?:from\s+|import\s*)(['"]))([^'"]+)(\2)/g,m=[...src.matchAll(re)],rep=[];
+    for(const x of m){let s=x[3],v=null;if(s==="three")v=THREE_URL;else if(s.includes("three@0.160.0/examples/jsm/loaders/GLTFLoader.js"))v=GLTF_URL;else if(s.startsWith(".")){const rr=resolveRel(p,s);if(modulePaths.has(rr))v=await build(rr);}if(v&&x.index!==undefined){const a=x.index+x[1].length;rep.push({a,b:a+s.length,v});}}
+    for(const x of rep.sort((a,b)=>b.a-a.a))src=src.slice(0,x.a)+x.v+src.slice(x.b);
+    const u=URL.createObjectURL(new Blob([src],{type:"text/javascript"}));mods.set(p,u);urls.push(u);return u;
+  };
+  setStatus("Iniciando juego…");
+  const main=await build("src/main.js");
+  const s=document.createElement("script");s.type="module";s.src=main;
+  s.onload=()=>{document.querySelector("#boot").style.display="none";};
+  s.onerror=()=>{setStatus("ERROR: no se pudo cargar el módulo principal.");};
+  document.head.appendChild(s);
+}catch(e){console.error(e);setStatus("ERROR AL INICIAR\n\n"+(e?.stack||e));}
+</script>
+</body>
+</html>
