@@ -300,11 +300,12 @@ export const receptionWideConfig = {
     "receptionist": {
       "sourceName": "Recepcionista",
       "position": [
-        4.05,
+        4.18,
         0,
-        -3.25
+        -2.05
       ],
-      "rotationY": 2.95,
+      "rotationY": 3.141592653589793,
+      "lookAtPlayer": true,
       "visible": true,
       "occlusionPolygon": [
         [
@@ -357,11 +358,11 @@ export const receptionWideConfig = {
     {
       "sourceId": "Recepcionista",
       "position": [
-        0.75992,
+        0.48,
         0,
-        -2.550246
+        -0.55
       ],
-      "radius": 1.003
+      "radius": 1.8
     },
     {
       "sourceId": "reception-document",
