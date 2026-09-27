@@ -457,6 +457,9 @@ export class Game {
       return;
     }
     const previousArea = this.area;
+    if (previousArea === 'exterior' && area !== 'exterior') {
+      this.exteriorLevel?.restorePlayerPresentation(this.bryanVisual);
+    }
     this.area = area;
     this.scene = next.scene;
     this.collisionSystem = next.collision;
@@ -519,11 +522,12 @@ export class Game {
       onInteract: () => this.changeArea('reception'),
     }));
 
+    const carInteractionPosition = this.exteriorLevel.getCarInteractionPosition();
     interactions.register(new Interactable({
       id: 'bryan-car',
       name: 'Auto de Bryan',
-      position: exteriorConfig.car.position,
-      radius: 1.85,
+      position: carInteractionPosition,
+      radius: exteriorConfig.car.interaction.radius,
       label: 'Subir al auto',
       onInteract: () => this.beginDriving(),
     }));
@@ -585,6 +589,7 @@ export class Game {
     this.updateExteriorViewport();
     this.exteriorBackdrop?.update(exteriorConfig.id, 'exterior');
     this.parkingDeparture.update(dt);
+    this.exteriorLevel.update(dt, this.exteriorLevel.car.position);
     this.input.clearFrameState();
     if (this.mode === 'driving') this.updateDriving(0);
     else this.renderer.render(this.exterior.scene, this.parkingDeparture.camera);
@@ -627,7 +632,8 @@ export class Game {
       if (this.area === 'exterior') {
         const car = this.interactionManager.interactables.find(item => item.id === 'bryan-car');
         const distanceToCar = car ? this.player.position.distanceTo(car.position) : Infinity;
-        if (car && distanceToCar <= 1.95) {
+        const carRadius = exteriorConfig.car.interaction.radius + 0.35;
+        if (car && distanceToCar <= carRadius) {
           this.interactionManager.current = car;
           this.interactionManager.currentHintText = car.getHintText();
           if (this.input.isJustPressed('KeyE')) car.interact();
@@ -672,6 +678,15 @@ export class Game {
       dialogueLocked: this.dialogueManager.isOpen,
     }));
     this.sceneNpcAnchors.update(this.activePrerenderRoom?.config.id, this.player);
+    if (this.area === 'exterior') {
+      this.exteriorLevel.applyPlayerPresentation(
+        this.player,
+        this.cameraManager.activeCamera || this.cameraRig.camera,
+        this.bryanVisual,
+      );
+    } else {
+      this.exteriorLevel?.restorePlayerPresentation(this.bryanVisual);
+    }
     this.input.clearFrameState();
 
     this.renderer.render(this.scene, this.cameraManager.activeCamera || this.cameraRig.camera);
