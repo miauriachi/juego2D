@@ -9,6 +9,27 @@ export class HospitalExterior extends HospitalIntro {
     this.scene.background = new THREE.Color(0x05090d);
     this.scene.fog = null;
 
+    // Use the user's clean parking-lot plate as the actual scene background.
+    // scene.background is deliberate here: it cannot be hidden by world geometry
+    // or the prerender-plane visibility rules that caused the previous black screen.
+    this.backgroundReady = new Promise(resolve => {
+      new THREE.TextureLoader().load(
+        exteriorConfig.background.url,
+        texture => {
+          texture.colorSpace = THREE.SRGBColorSpace;
+          texture.magFilter = THREE.LinearFilter;
+          texture.minFilter = THREE.LinearMipmapLinearFilter;
+          this.scene.background = texture;
+          resolve(true);
+        },
+        undefined,
+        error => {
+          console.error('Exterior background failed to load', error);
+          resolve(false);
+        },
+      );
+    });
+
     const b = exteriorConfig.playerBounds;
     this.collisionSystem.bounds = {
       minX: b.minX,
