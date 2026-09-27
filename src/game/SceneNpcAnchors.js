@@ -91,12 +91,17 @@ export class SceneNpcAnchors {
         to.scale.copy(from.scale);
       }
 
+      group.position.set(...anchor.position);
+      group.position.y += anchor.presentationYOffset ?? 0;
+
       if (anchor.followSourceMotion) {
         const motionScale = anchor.motionScale ?? 1;
-        group.position.set(...anchor.position);
-        group.position.x += (source.group.position.x - sourceStartPosition.x) * motionScale;
-        group.position.z += (source.group.position.z - sourceStartPosition.z) * motionScale;
-        group.rotation.y = source.group.rotation.y;
+        const movedX = (source.group.position.x - sourceStartPosition.x) * motionScale;
+        const movedZ = (source.group.position.z - sourceStartPosition.z) * motionScale;
+        group.position.x += movedX;
+        group.position.z += movedZ;
+        const hasMoved = Math.hypot(movedX, movedZ) > 0.03;
+        group.rotation.y = hasMoved ? source.group.rotation.y : anchor.rotationY;
       } else if (anchor.lookAtPlayer && player) {
         const dx = player.position.x - group.position.x;
         const dz = player.position.z - group.position.z;
