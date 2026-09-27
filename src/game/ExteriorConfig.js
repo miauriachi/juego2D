@@ -3,12 +3,14 @@ export const exteriorConfig = {
   id: 'exterior-prerender',
   area: 'exterior',
   aspect: 16 / 9,
+
   camera: {
-    // High/far fixed camera to match the supplied overhead parking-lot plate.
+    // Keep the same high/far camera used by the supplied hospital parking-lot plate.
     cameraPosition: [0, 20.0, 16.0],
     lookAt: [0, 0, -0.5],
     fov: 45,
   },
+
   background: {
     key: 'hospital-exterior-prerender',
     url: new URL('../../assets/references/hospital/exterior_clean.webp', import.meta.url).href,
@@ -17,42 +19,51 @@ export const exteriorConfig = {
     offsetY: 0,
   },
 
-  // Calibrated against the clean parking-lot plate supplied by the user.
-  // The player appears just outside the Emergency doors.
+  // Bryan exits through the illuminated Emergency doors.
   spawn: {
-    // Just outside the illuminated Emergency doors.
     position: [-10.8, 0, 4.55],
     rotationY: -Math.PI / 2,
   },
 
-  // Empty foreground parking space marked with the red circle.
-  car: {
-    // Centered in the foreground white parking bay and aligned with its lines.
-    position: [0.80, 0, 4.00],
-    rotationY: 1.34,
-    // Match the baked parked cars in the plate instead of looking toy-giant.
-    scale: 0.52,
+  // Presentation correction is visual-only; physics and GLB source stay untouched.
+  playerPresentation: {
+    screenVertical: true,
+    maxRollCorrection: 0.34,
   },
 
-  // Red route drawn on the reference: foreground space -> center aisle -> gate.
+  car: {
+    // Calibrated to the foreground empty bay. Heading matches the baked parked cars.
+    position: [0.72, 0, 3.72],
+    rotationY: -1.02,
+    scale: 0.58,
+
+    // Door-side interaction point, outside the collision footprint.
+    interaction: {
+      localPosition: [1.25, 0, 0.15],
+      radius: 1.0,
+    },
+  },
+
+  // User-marked departure route:
+  // bay -> central aisle -> sweep up-left -> guard booth / exit barrier.
+  // ParkingDepartureSequence prepends the car's actual current position.
   carPath: [
-    [0.80, 0, 4.00],
-    [1.05, 0, 2.45],
-    [0.55, 0, 1.85],
-    [1.0, 0, 0.4],
-    [-0.8, 0, -0.5],
-    [-2.6, 0, -1.3],
-    [-4.4, 0, -2.2],
-    [-6.0, 0, -3.6],
-    [-7.1, 0, -4.8],
+    [2.35, 0, 2.55],
+    [4.35, 0, 1.20],
+    [4.85, 0, 0.55],
+    [3.55, 0, 0.42],
+    [1.20, 0, -0.10],
+    [-1.40, 0, -0.85],
+    [-3.85, 0, -1.85],
+    [-5.95, 0, -3.10],
+    [-7.55, 0, -4.75],
+    [-8.20, 0, -5.75],
   ],
 
-  // Bryan is intentionally restricted to the foreground walkway from
-  // the hospital doors to his parking space. The painted cars remain scenery.
   playerBounds: {
     minX: -12.4,
-    maxX: 1.4,
+    maxX: 3.5,
     minZ: 1.15,
-    maxZ: 5.05,
+    maxZ: 6.2,
   },
 };
