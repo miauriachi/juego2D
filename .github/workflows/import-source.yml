@@ -25,7 +25,13 @@ jobs:
 
       - name: Copy source into repo
         run: |
-          cp -a /tmp/game/. ./
+          for item in /tmp/game/* /tmp/game/.[!.]* /tmp/game/..?*; do
+            [ -e "$item" ] || continue
+            base="$(basename "$item")"
+            [ "$base" = ".github" ] && continue
+            rm -rf "./$base"
+            cp -a "$item" "./$base"
+          done
           rm -rf backups artifacts node_modules
 
       - name: Commit source
