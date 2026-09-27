@@ -3,8 +3,7 @@ name: Import RE Noche Cero source
 on:
   workflow_dispatch:
   push:
-    branches:
-      - main
+    branches: [main]
     paths:
       - ".github/workflows/import-source.yml"
 
@@ -20,12 +19,13 @@ jobs:
       - name: Download source zip
         run: |
           curl -fL "https://5a8e0e8c-77e9-4b8a-a830-ff3c7ad6bdce.sandbox.floot.app/_cdn/static/2bd93445-9be3-4fa4-949c-f968ad1477e2-REnochecero_PRERENDER_12_REPLIT_CLEAN.zip" -o /tmp/game.zip
+          rm -rf /tmp/game
           mkdir -p /tmp/game
           unzip -q /tmp/game.zip -d /tmp/game
 
-      - name: Copy game into repository
+      - name: Copy source into repo
         run: |
-          rsync -a --delete --exclude ".git" --exclude ".github" /tmp/game/ ./
+          cp -a /tmp/game/. ./
           rm -rf backups artifacts node_modules
 
       - name: Commit source
@@ -33,9 +33,6 @@ jobs:
           git config user.name "ChatGPT Build"
           git config user.email "actions@users.noreply.github.com"
           git add -A
-          if git diff --cached --quiet; then
-            echo "No changes"
-          else
-            git commit -m "Import PRERENDER_12 source"
-            git push
-          fi
+          git diff --cached --quiet && exit 0
+          git commit -m "Import PRERENDER_12 source [skip ci]"
+          git push
