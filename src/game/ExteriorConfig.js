@@ -20,21 +20,24 @@ export const exteriorConfig = {
   // Calibrated against the clean parking-lot plate supplied by the user.
   // The player appears just outside the Emergency doors.
   spawn: {
-    position: [-6.2, 0, 2.6],
+    // Just outside the illuminated Emergency doors.
+    position: [-11.5, 0, 4.4],
     rotationY: -Math.PI / 2,
   },
 
   // Empty foreground parking space marked with the red circle.
   car: {
-    position: [0.35, 0, 2.05],
-    rotationY: -0.34,
+    // Centered in the foreground white parking bay and aligned with its lines.
+    position: [0.10, 0, 3.30],
+    rotationY: -1.05,
     // Keep real proportions versus Bryan; distance is handled by the camera.
     scale: 0.95,
   },
 
   // Red route drawn on the reference: foreground space -> center aisle -> gate.
   carPath: [
-    [0.35, 0, 2.05],
+    [0.10, 0, 3.30],
+    [0.55, 0, 1.85],
     [1.0, 0, 0.4],
     [-0.8, 0, -0.5],
     [-2.6, 0, -1.3],
@@ -46,9 +49,9 @@ export const exteriorConfig = {
   // Bryan is intentionally restricted to the foreground walkway from
   // the hospital doors to his parking space. The painted cars remain scenery.
   playerBounds: {
-    minX: -7.0,
-    maxX: 1.25,
+    minX: -12.4,
+    maxX: 1.4,
     minZ: 1.15,
-    maxZ: 3.35,
+    maxZ: 5.05,
   },
 };
