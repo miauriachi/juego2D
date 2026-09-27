@@ -522,11 +522,10 @@ export class Game {
       onInteract: () => this.changeArea('reception'),
     }));
 
-    const carInteractionPosition = this.exteriorLevel.getCarInteractionPosition();
     interactions.register(new Interactable({
       id: 'bryan-car',
       name: 'Auto de Bryan',
-      position: carInteractionPosition,
+      position: exteriorConfig.car.position,
       radius: exteriorConfig.car.interaction.radius,
       label: 'Subir al auto',
       onInteract: () => this.beginDriving(),
@@ -631,12 +630,14 @@ export class Game {
     else if (!this.receptionDelivery.isBusy) {
       if (this.area === 'exterior') {
         const car = this.interactionManager.interactables.find(item => item.id === 'bryan-car');
-        const distanceToCar = car ? this.player.position.distanceTo(car.position) : Infinity;
-        const carRadius = exteriorConfig.car.interaction.radius + 0.35;
+        const distanceToCar = this.exteriorLevel?.car
+          ? this.player.position.distanceTo(this.exteriorLevel.car.position)
+          : Infinity;
+        const carRadius = exteriorConfig.car.interaction.radius;
         if (car && distanceToCar <= carRadius) {
           this.interactionManager.current = car;
-          this.interactionManager.currentHintText = car.getHintText();
-          if (this.input.isJustPressed('KeyE')) car.interact();
+          this.interactionManager.currentHintText = '[E] Subir al auto';
+          if (this.input.isJustPressed('KeyE')) this.beginDriving();
         } else {
           this.interactionManager.update();
         }
