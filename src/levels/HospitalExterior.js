@@ -1,7 +1,8 @@
 import * as THREE from 'three';
 import { HospitalIntro } from './HospitalIntro.js';
 import { createCar } from '../game/Vehicle.js';
-import { DEBUG_MODE } from '../config/constants.js';
+import { DEBUG_MODE, PLAYER_RADIUS } from '../config/constants.js';
+import { WalkMesh } from '../game/WalkMesh.js';
 import { exteriorConfig } from '../game/ExteriorConfig.js';
 
 export class HospitalExterior extends HospitalIntro {
@@ -43,6 +44,7 @@ export class HospitalExterior extends HospitalIntro {
     };
 
     this.car = createCar();
+    const footprint = new THREE.Box3().setFromObject(this.car);
     this.car.position.set(...exteriorConfig.car.position);
     this.car.rotation.y = exteriorConfig.car.rotationY;
     this.car.scale.setScalar(exteriorConfig.car.scale);
@@ -57,12 +59,23 @@ export class HospitalExterior extends HospitalIntro {
 
     // Keep Bryan out of the parked car itself while he walks from the
     // Emergency doors to the marked foreground parking space.
-    this.collisionSystem.addCollider({
-      minX: exteriorConfig.car.position[0] - 0.34,
-      maxX: exteriorConfig.car.position[0] + 0.34,
-      minZ: exteriorConfig.car.position[2] - 0.62,
-      maxZ: exteriorConfig.car.position[2] + 0.62,
+    this.car.updateMatrixWorld(true);
+    const corners = [[footprint.min.x,footprint.min.z],[footprint.max.x,footprint.min.z],
+      [footprint.max.x,footprint.max.z],[footprint.min.x,footprint.max.z]].map(([x,z]) => {
+      const p = this.car.localToWorld(new THREE.Vector3(x,0,z)); return [p.x,p.z];
     });
+    this.navigation = new WalkMesh({ radius: PLAYER_RADIUS,
+      polygon: [[b.minX,b.minZ],[b.maxX,b.minZ],[b.maxX,b.maxZ],[b.minX,b.maxZ]],
+      obstacles: [{ id: 'parked-car', polygon: corners }] });
+    const shadowMap = this.createCanvasTexture((ctx,w,h) => {
+      const gradient=ctx.createRadialGradient(w/2,h/2,0,w/2,h/2,w/2);
+      gradient.addColorStop(0,'rgba(0,0,0,0.55)');gradient.addColorStop(1,'rgba(0,0,0,0)');
+      ctx.fillStyle=gradient;ctx.fillRect(0,0,w,h);
+    },64,64);
+    const shadow=new THREE.Mesh(new THREE.PlaneGeometry(2.5,4.7),
+      new THREE.MeshBasicMaterial({map:shadowMap,transparent:true,depthWrite:false,toneMapped:false}));
+    shadow.name='car-contact-shadow';shadow.rotation.x=-Math.PI/2;shadow.position.y=.003;
+    this.car.add(shadow);
 
     // Actor/car lighting only. The hospital and parking lot are baked into the plate.
     this.scene.add(new THREE.HemisphereLight(0xb9cad8, 0x17202a, 0.9));
@@ -97,4 +110,33 @@ export class HospitalExterior extends HospitalIntro {
   }
 
   update() {}
+
+  getCarInteractionPosition() {
+    this.car.updateMatrixWorld(true);
+    return this.car.localToWorld(new THREE.Vector3(...exteriorConfig.car.interaction.localPosition));
+  }
+
+  applyPlayerPresentation(player, camera) {
+    // Off-axis perspective makes a world-vertical figure lean on this plate.
+    // Shear only its rendered matrix about the grounded pivot, keeping the
+    // projected head/feet X equal. Physics/heading/GLB remain untouched.
+    player.group.updateMatrix();
+    camera.updateMatrixWorld(true);
+    const p = player.position.clone().applyMatrix4(camera.matrixWorldInverse);
+    const up = new THREE.Vector3(0,1,0).transformDirection(camera.matrixWorldInverse);
+    const shear = exteriorConfig.playerPresentation.screenVertical ? p.x * up.z / p.z : 0;
+    const presentation = new THREE.Matrix4().makeShear(0,0,shear,0,0,0);
+    const rotation = new THREE.Matrix4().makeRotationY(player.rotationY);
+    const scale = exteriorConfig.playerPresentation.scale;
+    player.group.matrix.makeTranslation(...player.position.toArray()).multiply(presentation)
+      .multiply(rotation).scale(new THREE.Vector3(scale,scale,scale));
+    player.group.matrixAutoUpdate = false;
+    player.group.matrixWorldNeedsUpdate = true;
+  }
+
+  restorePlayerPresentation(player) {
+    player.group.matrixAutoUpdate = true;
+    player.group.updateMatrix();
+    player.group.matrixWorldNeedsUpdate = true;
+  }
 }

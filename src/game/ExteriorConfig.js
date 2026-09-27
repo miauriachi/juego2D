@@ -1,58 +1,20 @@
-// Fixed-camera exterior plate calibration.
+// The plate/camera stay fixed. Coordinates were checked against its doorway,
+// foreground bay and exit aisle in a rendered browser viewport.
 export const exteriorConfig = {
-  id: 'exterior-prerender',
-  area: 'exterior',
-  aspect: 16 / 9,
-  camera: {
-    // High/far fixed camera to match the supplied overhead parking-lot plate.
-    cameraPosition: [0, 20.0, 16.0],
-    lookAt: [0, 0, -0.5],
-    fov: 45,
-  },
-  background: {
-    key: 'hospital-exterior-prerender',
+  id: 'exterior-prerender', area: 'exterior', aspect: 16 / 9,
+  camera: { cameraPosition: [0,20,16], lookAt: [0,0,-0.5], fov: 45 },
+  background: { key: 'hospital-exterior-prerender',
     url: new URL('../../assets/references/hospital/exterior_clean.webp', import.meta.url).href,
-    zoom: 1,
-    offsetX: 0,
-    offsetY: 0,
-  },
-
-  // Calibrated against the clean parking-lot plate supplied by the user.
-  // The player appears just outside the Emergency doors.
-  spawn: {
-    // Just outside the illuminated Emergency doors.
-    position: [-10.8, 0, 4.55],
-    rotationY: -Math.PI / 2,
-  },
-
-  // Empty foreground parking space marked with the red circle.
+    zoom: 1, offsetX: 0, offsetY: 0 },
+  spawn: { position: [-10.6075,0,5.946], rotationY: -Math.PI/2 },
+  // Presentation only; restored before returning indoors. No GLB modification.
+  playerPresentation: { scale: 1.2, screenVertical: true },
   car: {
-    // Centered in the foreground white parking bay and aligned with its lines.
-    position: [0.80, 0, 4.00],
-    rotationY: 1.34,
-    // Match the baked parked cars in the plate instead of looking toy-giant.
-    scale: 0.52,
+    position: [0.89221,0,3.62889], rotationY: -1.01472, scale: 0.68,
+    interaction: { localPosition: [1.9,0,0.1], radius: 0.7 },
   },
-
-  // Red route drawn on the reference: foreground space -> center aisle -> gate.
-  carPath: [
-    [0.80, 0, 4.00],
-    [1.05, 0, 2.45],
-    [0.55, 0, 1.85],
-    [1.0, 0, 0.4],
-    [-0.8, 0, -0.5],
-    [-2.6, 0, -1.3],
-    [-4.4, 0, -2.2],
-    [-6.0, 0, -3.6],
-    [-7.1, 0, -4.8],
-  ],
-
-  // Bryan is intentionally restricted to the foreground walkway from
-  // the hospital doors to his parking space. The painted cars remain scenery.
-  playerBounds: {
-    minX: -12.4,
-    maxX: 1.4,
-    minZ: 1.15,
-    maxZ: 5.05,
-  },
+  // The first point comes from car.position at sequence construction.
+  carPath: [[3.21683,0,2.10641],[4.98469,0,0.84627],[3.69236,0,0.84627],
+    [1.49173,0,0.45182],[-3.11878,0,-1.35285],[-6.12553,0,-3.329],[-7.89912,0,-6.5802]],
+  playerBounds: { minX: -12.4, maxX: 3.5, minZ: 1.15, maxZ: 7.1 },
 };

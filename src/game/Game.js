@@ -457,6 +457,7 @@ export class Game {
       return;
     }
     const previousArea = this.area;
+    if (previousArea === 'exterior') this.exteriorLevel.restorePlayerPresentation(this.player);
     this.area = area;
     this.scene = next.scene;
     this.collisionSystem = next.collision;
@@ -522,8 +523,8 @@ export class Game {
     interactions.register(new Interactable({
       id: 'bryan-car',
       name: 'Auto de Bryan',
-      position: exteriorConfig.car.position,
-      radius: 1.85,
+      position: this.exteriorLevel.getCarInteractionPosition().toArray(),
+      radius: exteriorConfig.car.interaction.radius,
       label: 'Subir al auto',
       onInteract: () => this.beginDriving(),
     }));
@@ -626,14 +627,8 @@ export class Game {
     else if (!this.receptionDelivery.isBusy) {
       if (this.area === 'exterior') {
         const car = this.interactionManager.interactables.find(item => item.id === 'bryan-car');
-        const distanceToCar = car ? this.player.position.distanceTo(car.position) : Infinity;
-        if (car && distanceToCar <= 1.95) {
-          this.interactionManager.current = car;
-          this.interactionManager.currentHintText = car.getHintText();
-          if (this.input.isJustPressed('KeyE')) car.interact();
-        } else {
-          this.interactionManager.update();
-        }
+        car.position.copy(this.exteriorLevel.getCarInteractionPosition());
+        this.interactionManager.update();
       } else if (this.activePrerenderRoom) this.updateRoomInteractions(this.activePrerenderRoom);
       else this.interactionManager.update();
     }
@@ -647,6 +642,7 @@ export class Game {
         (this.entranceNavigation.owns(this.player.previousPosition) || this.entranceNavigation.owns(this.player.position));
       if (this.activePrerenderRoom) this.activePrerenderRoom.navigation.resolve(this.player);
       else if (entranceMovement) this.entranceNavigation.resolve(this.player);
+      else if (this.area === 'exterior') this.exteriorLevel.navigation.resolve(this.player);
       else {
         this.collisionSystem.resolve(this.player);
         (this.area === 'reception' ? this.npcManager : this.area === 'urgencias' ? this.urgenciasLevel.npcManager : null)?.resolvePlayer(this.player);
@@ -672,6 +668,7 @@ export class Game {
       dialogueLocked: this.dialogueManager.isOpen,
     }));
     this.sceneNpcAnchors.update(this.activePrerenderRoom?.config.id, this.player);
+    if (this.area === 'exterior') this.exteriorLevel.applyPlayerPresentation(this.player, this.cameraRig.camera);
     this.input.clearFrameState();
 
     this.renderer.render(this.scene, this.cameraManager.activeCamera || this.cameraRig.camera);
