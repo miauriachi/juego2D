@@ -243,6 +243,7 @@ export const urgenciasConfig = {
       "rotationY": 2.2,
       "scale": 1.0,
       "followSourceMotion": true,
+      "facePlayerWhenIdle": true,
       "visible": true
     },
     "patientBed01": {
