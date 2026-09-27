@@ -19,4 +19,7 @@ jobs:
           node --check src/game/UrgenciasSequence.js
           node --check src/game/RaccoonDeliverySequence.js
           node --check src/game/PrerenderBackdropManager.js
+          node --check src/game/ExteriorConfig.js
+          node --check src/game/ParkingDepartureSequence.js
+          node --check src/levels/HospitalExterior.js
           node --check src/characters/LowPolyCharacter.js
