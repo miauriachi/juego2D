@@ -27,12 +27,12 @@ export class RaccoonDeliverySequence {
         name: 'Enfermera de envíos',
         type: 'Nurse',
         walkSpeed: 0,
-        waypoints: [{ x: -5.0, z: -1.30 }],
+        waypoints: [{ x: -1.30, z: -5.18 }],
       });
       this.nurse.lookTarget = this.player.position;
       this.raccoonCityPackage = this.createPackage();
       this.nurse.model.body.add(this.raccoonCityPackage);
-      this.arrivalTarget = new THREE.Vector3(-2.15, 0, -0.95);
+      this.arrivalTarget = new THREE.Vector3(-0.65, 0, -1.05);
       this.arrivalSpeed = 3.15;
       this.state = 'runningIn';
       this.onChange();
