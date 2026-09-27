@@ -58,10 +58,10 @@ export class HospitalExterior extends HospitalIntro {
     // Keep Bryan out of the parked car itself while he walks from the
     // Emergency doors to the marked foreground parking space.
     this.collisionSystem.addCollider({
-      minX: exteriorConfig.car.position[0] - 0.46,
-      maxX: exteriorConfig.car.position[0] + 0.46,
-      minZ: exteriorConfig.car.position[2] - 0.88,
-      maxZ: exteriorConfig.car.position[2] + 0.88,
+      minX: exteriorConfig.car.position[0] - 0.34,
+      maxX: exteriorConfig.car.position[0] + 0.34,
+      minZ: exteriorConfig.car.position[2] - 0.62,
+      maxZ: exteriorConfig.car.position[2] + 0.62,
     });
 
     // Actor/car lighting only. The hospital and parking lot are baked into the plate.
