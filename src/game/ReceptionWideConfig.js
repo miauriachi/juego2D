@@ -300,12 +300,12 @@ export const receptionWideConfig = {
     "receptionist": {
       "sourceName": "Recepcionista",
       "position": [
-        4.18,
+        3.05,
         0,
-        -2.05
+        -1.35
       ],
       "rotationY": 3.141592653589793,
-      "presentationYOffset": -0.12,
+      "presentationYOffset": -0.28,
       "visible": true,
       "occlusionPolygon": [
         [
