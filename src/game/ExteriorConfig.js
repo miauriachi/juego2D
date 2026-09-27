@@ -21,15 +21,14 @@ export const exteriorConfig = {
 
   // Bryan exits through the illuminated Emergency doors.
   spawn: {
-    position: [-10.8, 0, 4.55],
+    position: [-11.55, 0, 4.55],
     rotationY: -Math.PI / 2,
   },
 
   // Presentation correction is visual-only; physics and GLB source stay untouched.
   playerPresentation: {
-    // Stable camera-facing tilt; avoids the abrupt roll jumps from the old
-    // per-frame Newton correction while reducing the "seen from above" look.
-    cameraTilt: 0.26,
+    // TEMP TEST: no artificial pitch/roll. Let Bryan stay naturally upright.
+    cameraTilt: 0,
   },
 
   car: {
