@@ -689,7 +689,7 @@ export class Game {
       this.player.velocity.set(0, 0, 0);
     }
     this.player.animate(dt, blocked);
-    this.bryanVisual.update();
+    this.bryanVisual.update(dt);
     this.dialogueManager.setHint(blocked ? '' : this.interactionManager.currentHintText);
     this.updateReceptionCamera();
     this.cameraManager.applyToCamera(this.cameraRig);
