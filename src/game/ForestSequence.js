@@ -19,6 +19,7 @@ export class ForestSequence {
     this.stepTime = 0;
     this.crouchAmount = 0;
     this.inspectionDialogueStarted = false;
+    this.exitNeedsRelease = true;
 
     this.collision = new CollisionSystem();
     this.cameras = new CameraManager(null, game.cameraRig);
@@ -171,20 +172,36 @@ export class ForestSequence {
     if (wasOpen) dialogue.update();
 
     if (this.state === 'inCar') {
-      dialogue.setHint('[E] Salir del auto');
-      if (!wasOpen && input.isJustPressed('KeyE')) {
-        this.state = 'exiting';
-        this.time = 0;
-        g.audio?.playCue('door_open');
-        this.setNarrativeState(STATE.INVESTIGATE_ROAD);
+      // The last dialogue line also uses E. Require one clean key release
+      // before arming the exit so that the dialogue cannot swallow/stick the
+      // same E press and leave Bryan trapped in the car.
+      if (wasOpen || dialogue.isOpen) {
+        this.exitNeedsRelease = true;
+        dialogue.setHint('');
+      } else {
+        if (this.exitNeedsRelease && !input.isPressed('KeyE')) {
+          this.exitNeedsRelease = false;
+          input.justPressed?.delete('KeyE');
+        }
 
-        // Same SnowRoad scene: Bryan appears beside the actual stopped car.
-        this.level.scene.add(p.group);
-        p.position.copy(this.level.exitPosition);
-        p.previousPosition.copy(p.position);
-        p.velocity.set(0, 0, 0);
-        p.rotationY = g.snowRoad.vehicle.heading;
-        p.group.rotation.y = p.rotationY;
+        dialogue.setHint(this.exitNeedsRelease ? '' : '[E] Salir del auto');
+
+        if (!this.exitNeedsRelease && input.isJustPressed('KeyE')) {
+          this.state = 'exiting';
+          this.time = 0;
+          g.audio?.playCue('door_open');
+          this.setNarrativeState(STATE.INVESTIGATE_ROAD);
+
+          // Same SnowRoad scene: Bryan appears beside the actual stopped car.
+          this.level.scene.add(p.group);
+          p.position.copy(this.level.exitPosition);
+          p.previousPosition.copy(p.position);
+          p.velocity.set(0, 0, 0);
+          p.rotationY = g.snowRoad.vehicle.heading;
+          p.group.rotation.y = p.rotationY;
+          input.keys.delete('KeyE');
+          input.justPressed?.delete('KeyE');
+        }
       }
     } else if (this.state === 'exiting') {
       const t = this.time;
