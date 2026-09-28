@@ -148,7 +148,13 @@ export class SnowRoad {
         this.vehicle.velocity.set(0, 0, 0); this.vehicle.speed = 0; this.completed = true;
       }
     }
-    // Gusts vary visually but never change the vehicle physics.
+    this.updateWeather(dt, this.vehicle.position);
+    this.updateCamera(dt);
+  }
+
+  updateWeather(dt, center = this.vehicle.position) {
+    // Gusts vary visually but never change vehicle physics. Keeping this in one
+    // method lets the exact same storm continue after Bryan exits the car.
     this.snowfall.windX = 4.2 + this.stormGust * 2.6;
     this.snowfall.points.material.opacity = 0.72 + this.stormGust * 0.20;
     this.snowfront.windX = 5.8 + this.stormGust * 4.5;
@@ -162,12 +168,11 @@ export class SnowRoad {
     this.headlights.distance = THREE.MathUtils.lerp(42, 35, this.stormGust * 0.72);
     this.headlights.intensity = THREE.MathUtils.lerp(245, 265, this.stormGust * 0.55);
 
-    this.snowfall.update(dt, this.vehicle.position);
-    this.snowfront?.update(dt, this.vehicle.position);
-    this.groundSnow?.update(dt, this.vehicle.position);
+    this.snowfall.update(dt, center);
+    this.snowfront?.update(dt, center);
+    this.groundSnow?.update(dt, center);
     this.vehicleSnow?.update(dt, this.stormGust);
     this.forest?.update(dt, this.vehicle);
-    this.updateCamera(dt);
   }
 
   reset() {
