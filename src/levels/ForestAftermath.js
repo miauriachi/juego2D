@@ -100,8 +100,8 @@ export class ForestAftermath {
     this.hinge.add(door);
     this.car.add(this.hinge);
 
-    // The short maze is added beyond the roadside, but the road/forest/storm
-    // underneath remain the exact same objects from the driving sequence.
+    // The authored forest route is added beyond the roadside, while the original
+    // road, car, headlights, forest and storm remain in the same scene.
     this.layout = new ForestLayout(this.origin);
     this.trail = new BloodTrail(this.layout.points);
     this.scene.add(this.trail);
