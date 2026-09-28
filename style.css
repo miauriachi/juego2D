@@ -117,3 +117,97 @@ canvas {
   opacity: 0;
   pointer-events: none;
 }
+
+
+/* Alternate-ending results screen shown after the credits. */
+.ending-overlay.ending-results {
+  z-index: 32;
+  display: grid;
+  grid-template-columns: minmax(260px, 42vw) minmax(280px, 520px);
+  gap: clamp(24px, 5vw, 72px);
+  align-items: center;
+  justify-content: center;
+  padding: clamp(20px, 4vw, 56px);
+  background:
+    radial-gradient(circle at 25% 50%, rgba(120, 93, 60, .14), transparent 45%),
+    #030404;
+  letter-spacing: normal;
+  text-align: left;
+}
+.ending-results__image {
+  display: block;
+  width: 100%;
+  max-height: 86vh;
+  object-fit: contain;
+  border: 1px solid #736b5d;
+  box-shadow: 0 20px 70px #000, 0 0 26px #907b5b24;
+}
+.ending-results__info {
+  min-width: 0;
+  color: #d8dbd5;
+  font-family: Georgia, 'Times New Roman', serif;
+}
+.ending-results__kicker {
+  margin: 0 0 8px;
+  color: #8f9892;
+  font-size: 11px !important;
+  letter-spacing: .28em;
+}
+.ending-results__info h1 {
+  margin: 0 0 34px;
+  color: #e7e5db;
+  font: 400 clamp(28px, 4vw, 52px)/1 Georgia, serif;
+  letter-spacing: .06em;
+}
+.ending-results__stats {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 12px 28px;
+  margin: 0 0 32px;
+  padding: 20px 0;
+  border-top: 1px solid #4b514d;
+  border-bottom: 1px solid #4b514d;
+}
+.ending-results__stats dt {
+  color: #858e89;
+  font-size: 12px;
+  letter-spacing: .16em;
+}
+.ending-results__stats dd {
+  margin: 0;
+  color: #f0efe6;
+  font-size: 18px;
+  font-variant-numeric: tabular-nums;
+}
+.ending-results__rank-label {
+  margin: 0 !important;
+  color: #858e89;
+  font-size: 12px !important;
+  letter-spacing: .22em;
+}
+.ending-results__rank {
+  display: block;
+  margin: -4px 0 20px;
+  color: #d7dfd5;
+  font: 700 clamp(70px, 10vw, 132px)/1 Georgia, serif;
+  text-shadow: 0 0 30px #9fc1aa26;
+}
+.ending-results__info small {
+  color: #6f7772;
+  letter-spacing: .18em;
+}
+@media (max-width: 760px) {
+  .ending-overlay.ending-results {
+    grid-template-columns: 1fr;
+    overflow: auto;
+    align-content: start;
+  }
+  .ending-results__image {
+    max-height: 52vh;
+    width: auto;
+    max-width: 100%;
+    margin: 0 auto;
+  }
+  .ending-results__info { text-align: center; }
+  .ending-results__stats { text-align: left; }
+}
