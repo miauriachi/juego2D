@@ -2,7 +2,7 @@ import * as THREE from 'three';
 import { Vehicle } from '../game/Vehicle.js';
 import { Snowfall } from '../environment/Snowfall.js';
 import { buildSnowForest } from '../environment/SnowForest.js';
-import { buildPaintedSnowForest } from '../environment/PaintedSnowForest.js';
+import { ForestStreaming } from '../environment/ForestStreaming.js';
 import { VehicleCamera } from '../game/VehicleCamera.js';
 
 // Snow forest route; cinematic variant keeps the alternative ending independent.
@@ -10,7 +10,7 @@ export class SnowRoad {
   constructor({ cinematic = false, settings = {}, length = 760 } = {}) {
     this.cinematic = cinematic; this.length = cinematic ? 180 : length; this.halfWidth = 4.7; this.bankWidth = 6.6;
     this.scene = new THREE.Scene(); this.scene.background = new THREE.Color(0x050b12);
-    this.scene.fog = new THREE.Fog(0x071018, 8, 42);
+    this.scene.fog = new THREE.Fog(0x071018, 9, 50);
     this.vehicleCamera = new VehicleCamera(settings); this.camera = this.vehicleCamera.camera;
     this.vehicle = new Vehicle(); this.scene.add(this.vehicle.group);
     this.completed = false; this.driveEnabled = true; this.restartVersion = 0;
@@ -57,7 +57,7 @@ export class SnowRoad {
     }
     this.scene.add(posts, caps, banks);
     const proceduralForest = buildSnowForest(this.scene, this);
-    this.forest = buildPaintedSnowForest(this.scene, this, proceduralForest);
+    this.forest = new ForestStreaming(this.scene, this, proceduralForest);
     this.scene.add(new THREE.HemisphereLight(0xabc9eb, 0x1a2639, this.cinematic ? 0.65 : 0.16));
     const moon = new THREE.DirectionalLight(0xa1c3ef, this.cinematic ? 0.5 : 0.13); moon.position.set(-10, 20, 5); this.scene.add(moon);
     const headlights = new THREE.SpotLight(0xe3e0c8, 220, 54, 0.55, 0.55, 1.3);
@@ -77,6 +77,7 @@ export class SnowRoad {
       }
     }
     this.snowfall.update(dt, this.vehicle.position);
+    this.forest?.update(dt, this.vehicle);
     this.updateCamera(dt);
   }
 
