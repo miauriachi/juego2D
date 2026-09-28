@@ -285,12 +285,12 @@ export class BryanModel {
     if (!this.rigged || !this.bones?.length) return;
 
     const moving = speed > 0.05;
-    const targetBlend = moving ? (running ? 0.70 : 0.42) : 0;
-    const smooth = dt > 0 ? 1 - Math.exp(-7.5 * dt) : 1;
+    const targetBlend = moving ? (running ? 1 : 0.56) : 0;
+    const smooth = dt > 0 ? 1 - Math.exp(-9 * dt) : 1;
     this.motionBlend = THREE.MathUtils.lerp(this.motionBlend, targetBlend, smooth);
 
     if (moving && dt > 0) {
-      const cycle = running ? Math.max(0.82, BRYAN_RUN_DURATION * 1.16) : 1.24;
+      const cycle = running ? BRYAN_RUN_DURATION : 1.12;
       this.phase = (this.phase + dt / cycle) % 1;
     }
 
@@ -301,36 +301,36 @@ export class BryanModel {
     const alpha = frameFloat - Math.floor(frameFloat);
     const frameA = BRYAN_RUN_FRAMES[index];
     const frameB = BRYAN_RUN_FRAMES[next];
-    const idleA = BRYAN_RUN_FRAMES[0];
-    const idleB = BRYAN_RUN_FRAMES[Math.floor(count / 2)];
+    const idleFrame = BRYAN_RUN_FRAMES[0];
+    const idleBlend = moving ? 0 : THREE.MathUtils.clamp(1 - this.motionBlend, 0, 1);
 
     for (let i = 0; i < this.bones.length; i += 1) {
       const bind = this.bindQuaternions[i];
-      const idleLeft = idleA.r[i];
-      const idleRight = idleB.r[i];
-      const isArm = [5, 6, 7, 8, 10, 11, 12, 13].includes(i);
-      const isTorso = [2, 3, 14, 15, 16].includes(i);
-
-      this._idle.copy(bind);
-      if ((isArm || isTorso) && idleLeft && idleRight) {
-        this._qa.fromArray(idleLeft).normalize();
-        this._qb.fromArray(idleRight).normalize();
-        this._sample.slerpQuaternions(this._qa, this._qb, 0.5);
-        this._idle.slerp(this._sample, isArm ? 0.62 : 0.12);
-      }
-
       const a = frameA.r[i];
       const b = frameB.r[i];
+
       if (BRYAN_RUN_DYNAMIC_BONES.includes(i) && a && b) {
         this._qa.fromArray(a).normalize();
         this._qb.fromArray(b).normalize();
         this._sample.slerpQuaternions(this._qa, this._qb, alpha);
-        const runWeight = isArm ? 0.78 : isTorso ? 0.55 : 0.82;
-        this._final.slerpQuaternions(this._idle, this._sample, this.motionBlend * runWeight);
-        this.bones[i].quaternion.copy(this._final);
+        this._final.slerpQuaternions(bind, this._sample, this.motionBlend);
       } else {
-        this.bones[i].quaternion.copy(this._idle);
+        this._final.copy(bind);
       }
+
+      if (idleBlend > 0 && idleFrame.r[i]) {
+        let poseWeight = 0;
+        if (i === 7 || i === 12) poseWeight = 0.36;
+        else if (i === 6 || i === 11) poseWeight = 0.13;
+        else if (i === 8 || i === 13) poseWeight = 0.08;
+
+        if (poseWeight > 0) {
+          this._idle.fromArray(idleFrame.r[i]).normalize();
+          this._final.slerp(this._idle, idleBlend * poseWeight);
+        }
+      }
+
+      this.bones[i].quaternion.copy(this._final);
     }
 
     const hipY = THREE.MathUtils.lerp(frameA.h[1], frameB.h[1], alpha);
@@ -339,11 +339,8 @@ export class BryanModel {
     hip.position.y = THREE.MathUtils.lerp(
       this.bindHipPosition.y,
       hipY,
-      this.motionBlend * (running ? 0.62 : 0.34),
+      this.motionBlend * (running ? 1 : 0.55),
     );
-    if (!moving && dt > 0) {
-      hip.position.y += Math.sin(performance.now() * 0.0018) * 0.0015;
-    }
 
     this.rigRoot?.updateMatrixWorld(true);
   }
