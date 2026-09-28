@@ -9,8 +9,8 @@ import { VehicleCamera } from '../game/VehicleCamera.js';
 export class SnowRoad {
   constructor({ cinematic = false, settings = {}, length = 760 } = {}) {
     this.cinematic = cinematic; this.length = cinematic ? 180 : length; this.halfWidth = 4.7; this.bankWidth = 6.6;
-    this.scene = new THREE.Scene(); this.scene.background = new THREE.Color(0x050b12);
-    this.scene.fog = new THREE.Fog(0x071018, 9, 50);
+    this.scene = new THREE.Scene(); this.scene.background = new THREE.Color(0x091117);
+    this.scene.fog = new THREE.Fog(0x0b141a, 6, 34);
     this.vehicleCamera = new VehicleCamera(settings); this.camera = this.vehicleCamera.camera;
     this.vehicle = new Vehicle(); this.scene.add(this.vehicle.group);
     this.completed = false; this.driveEnabled = true; this.restartVersion = 0;
@@ -60,11 +60,33 @@ export class SnowRoad {
     this.forest = new ForestStreaming(this.scene, this, proceduralForest);
     this.scene.add(new THREE.HemisphereLight(0xabc9eb, 0x1a2639, this.cinematic ? 0.65 : 0.16));
     const moon = new THREE.DirectionalLight(0xa1c3ef, this.cinematic ? 0.5 : 0.13); moon.position.set(-10, 20, 5); this.scene.add(moon);
-    const headlights = new THREE.SpotLight(0xe3e0c8, 220, 54, 0.55, 0.55, 1.3);
+    const headlights = new THREE.SpotLight(0xe3e0c8, 245, 42, 0.52, 0.62, 1.35);
     this.headlights = headlights;
     headlights.position.set(0, 1.0, -1.7); headlights.target.position.set(0, 0, -18);
     this.vehicle.group.add(headlights, headlights.target);
-    this.snowfall = new Snowfall(this.scene, 850, 28);
+    this.snowfall = new Snowfall(this.scene, 3600, 36, {
+      size: 0.14,
+      opacity: 0.86,
+      height: 16,
+      windX: 4.6,
+      windZ: 1.8,
+      fallSpeed: 3.2,
+      windVariance: 0.55,
+      color: 0xdce7ef,
+      renderOrder: 12,
+    });
+    this.snowfront = new Snowfall(this.scene, 950, 18, {
+      size: 0.30,
+      opacity: 0.58,
+      height: 11,
+      windX: 6.4,
+      windZ: 2.5,
+      fallSpeed: 4.4,
+      windVariance: 0.75,
+      color: 0xffffff,
+      streak: true,
+      renderOrder: 18,
+    });
   }
 
   update(dt, input) {
@@ -77,6 +99,7 @@ export class SnowRoad {
       }
     }
     this.snowfall.update(dt, this.vehicle.position);
+    this.snowfront?.update(dt, this.vehicle.position);
     this.forest?.update(dt, this.vehicle);
     this.updateCamera(dt);
   }
