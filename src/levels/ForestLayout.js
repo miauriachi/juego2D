@@ -220,7 +220,6 @@ export class ForestLayout {
         new THREE.MeshLambertMaterial({
           color: colors[key],
           fog: true,
-          roughness: 1,
         }),
         batches[key].length,
       );
