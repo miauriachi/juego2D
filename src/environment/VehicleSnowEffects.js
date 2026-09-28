@@ -223,6 +223,15 @@ export class VehicleSnowEffects {
     this.wheelSpray.material.size = 0.15 + THREE.MathUtils.clamp(strength, 0, 1) * 0.12;
   }
 
+  reset() {
+    this.spawnAccumulator = 0;
+    for (let i = 0; i < this.sprayLife.length; i += 1) {
+      this.sprayLife[i] = 0;
+      this.sprayPositions[i * 3 + 1] = -50;
+    }
+    this.wheelSpray.geometry.attributes.position.needsUpdate = true;
+  }
+
   update(dt, gust = 0) {
     this.elapsed += Math.max(0, dt);
     this.updateHeadlightSnow(dt, gust);
