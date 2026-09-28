@@ -89,9 +89,9 @@ export class SnowRoad {
     this.forest = new ForestStreaming(this.scene, this, proceduralForest);
     this.scene.add(new THREE.HemisphereLight(0xabc9eb, 0x1a2639, this.cinematic ? 0.65 : 0.16));
     const moon = new THREE.DirectionalLight(0xa1c3ef, this.cinematic ? 0.5 : 0.13); moon.position.set(-10, 20, 5); this.scene.add(moon);
-    const headlights = new THREE.SpotLight(0xe3e0c8, 245, 42, 0.52, 0.62, 1.35);
+    const headlights = new THREE.SpotLight(0xe3e0c8, 252, 46, 0.60, 0.68, 1.32);
     this.headlights = headlights;
-    headlights.position.set(0, 1.0, -1.7); headlights.target.position.set(0, 0, -18);
+    headlights.position.set(0, 1.0, -1.7); headlights.target.position.set(0, -0.05, -20);
     this.vehicle.group.add(headlights, headlights.target);
     this.snowfall = new Snowfall(this.scene, 5200, 38, {
       size: 0.15,
@@ -186,8 +186,8 @@ export class SnowRoad {
     // Whiteout moments aggressively collapse the draw distance, hiding the
     // exact forest recycling in the same spirit as classic fog-heavy horror.
     this.scene.fog.far = THREE.MathUtils.lerp(31, 19, this.stormGust * 0.90);
-    this.headlights.distance = THREE.MathUtils.lerp(40, 29, this.stormGust * 0.80);
-    this.headlights.intensity = THREE.MathUtils.lerp(250, 280, this.stormGust * 0.65);
+    this.headlights.distance = THREE.MathUtils.lerp(44, 33, this.stormGust * 0.80);
+    this.headlights.intensity = THREE.MathUtils.lerp(258, 286, this.stormGust * 0.65);
 
     this.snowfall.update(dt, center);
     this.snowfront?.update(dt, center);
