@@ -10,8 +10,8 @@ import { VehicleCamera } from '../game/VehicleCamera.js';
 export class SnowRoad {
   constructor({ cinematic = false, settings = {}, length = 760 } = {}) {
     this.cinematic = cinematic; this.length = cinematic ? 180 : length; this.halfWidth = 4.7; this.bankWidth = 6.6;
-    this.scene = new THREE.Scene(); this.scene.background = new THREE.Color(0x091117);
-    this.scene.fog = new THREE.Fog(0x0b141a, 6, 34);
+    this.scene = new THREE.Scene(); this.scene.background = new THREE.Color(0x0c151a);
+    this.scene.fog = new THREE.Fog(0x0d171c, 5, 31);
     this.vehicleCamera = new VehicleCamera(settings); this.camera = this.vehicleCamera.camera;
     this.vehicle = new Vehicle(); this.scene.add(this.vehicle.group);
     this.completed = false; this.driveEnabled = true; this.restartVersion = 0; this.stormTime = 0; this.stormGust = 0;
@@ -93,9 +93,9 @@ export class SnowRoad {
     this.headlights = headlights;
     headlights.position.set(0, 1.0, -1.7); headlights.target.position.set(0, 0, -18);
     this.vehicle.group.add(headlights, headlights.target);
-    this.snowfall = new Snowfall(this.scene, 3600, 36, {
-      size: 0.14,
-      opacity: 0.86,
+    this.snowfall = new Snowfall(this.scene, 5200, 38, {
+      size: 0.15,
+      opacity: 0.90,
       height: 16,
       windX: 4.6,
       windZ: 1.8,
@@ -104,9 +104,9 @@ export class SnowRoad {
       color: 0xdce7ef,
       renderOrder: 12,
     });
-    this.snowfront = new Snowfall(this.scene, 950, 18, {
-      size: 0.30,
-      opacity: 0.58,
+    this.snowfront = new Snowfall(this.scene, 1650, 20, {
+      size: 0.34,
+      opacity: 0.66,
       height: 11,
       windX: 6.4,
       windZ: 2.5,
@@ -119,9 +119,9 @@ export class SnowRoad {
 
     // Low drifting snow stays close to the vehicle and hides the exact road
     // edges during strong gusts, which makes the driving feel more hostile.
-    this.groundSnow = new Snowfall(this.scene, 1450, 16, {
-      size: 0.17,
-      opacity: 0.46,
+    this.groundSnow = new Snowfall(this.scene, 2400, 18, {
+      size: 0.19,
+      opacity: 0.54,
       height: 2.6,
       windX: 8.2,
       windZ: 3.6,
@@ -130,6 +130,21 @@ export class SnowRoad {
       color: 0xe8f0f5,
       streak: true,
       renderOrder: 20,
+    });
+
+    // Mid-height crosswind: this is the white curtain that periodically hides
+    // trunks, road edges and distant shapes during the strongest gusts.
+    this.crossSnow = new Snowfall(this.scene, 2200, 24, {
+      size: 0.24,
+      opacity: 0.52,
+      height: 7.5,
+      windX: 10.5,
+      windZ: 5.0,
+      fallSpeed: 2.1,
+      windVariance: 1.10,
+      color: 0xf5f8fa,
+      streak: true,
+      renderOrder: 21,
     });
 
     this.vehicleSnow = new VehicleSnowEffects(this.scene, this.vehicle);
@@ -155,22 +170,29 @@ export class SnowRoad {
   updateWeather(dt, center = this.vehicle.position) {
     // Gusts vary visually but never change vehicle physics. Keeping this in one
     // method lets the exact same storm continue after Bryan exits the car.
-    this.snowfall.windX = 4.2 + this.stormGust * 2.6;
-    this.snowfall.points.material.opacity = 0.72 + this.stormGust * 0.20;
-    this.snowfront.windX = 5.8 + this.stormGust * 4.5;
-    this.snowfront.windZ = 2.2 + this.stormGust * 1.7;
-    this.snowfront.points.material.opacity = 0.44 + this.stormGust * 0.34;
-    this.groundSnow.windX = 7.0 + this.stormGust * 6.5;
-    this.groundSnow.windZ = 3.0 + this.stormGust * 2.6;
-    this.groundSnow.points.material.opacity = 0.34 + this.stormGust * 0.38;
+    this.snowfall.windX = 4.8 + this.stormGust * 3.8;
+    this.snowfall.windZ = 1.8 + this.stormGust * 1.6;
+    this.snowfall.points.material.opacity = 0.78 + this.stormGust * 0.19;
+    this.snowfront.windX = 7.0 + this.stormGust * 6.5;
+    this.snowfront.windZ = 2.6 + this.stormGust * 2.8;
+    this.snowfront.points.material.opacity = 0.52 + this.stormGust * 0.39;
+    this.groundSnow.windX = 8.5 + this.stormGust * 8.0;
+    this.groundSnow.windZ = 3.8 + this.stormGust * 3.3;
+    this.groundSnow.points.material.opacity = 0.42 + this.stormGust * 0.43;
+    this.crossSnow.windX = 10.0 + this.stormGust * 9.5;
+    this.crossSnow.windZ = 4.5 + this.stormGust * 5.2;
+    this.crossSnow.points.material.opacity = 0.36 + this.stormGust * 0.48;
 
-    this.scene.fog.far = THREE.MathUtils.lerp(34, 24, this.stormGust * 0.82);
-    this.headlights.distance = THREE.MathUtils.lerp(42, 35, this.stormGust * 0.72);
-    this.headlights.intensity = THREE.MathUtils.lerp(245, 265, this.stormGust * 0.55);
+    // Whiteout moments aggressively collapse the draw distance, hiding the
+    // exact forest recycling in the same spirit as classic fog-heavy horror.
+    this.scene.fog.far = THREE.MathUtils.lerp(31, 19, this.stormGust * 0.90);
+    this.headlights.distance = THREE.MathUtils.lerp(40, 29, this.stormGust * 0.80);
+    this.headlights.intensity = THREE.MathUtils.lerp(250, 280, this.stormGust * 0.65);
 
     this.snowfall.update(dt, center);
     this.snowfront?.update(dt, center);
     this.groundSnow?.update(dt, center);
+    this.crossSnow?.update(dt, center);
     this.vehicleSnow?.update(dt, this.stormGust);
     this.forest?.update(dt, this.vehicle);
   }
