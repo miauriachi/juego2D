@@ -150,6 +150,31 @@ export class ForestSequence {
     this.cameras.applyToCamera(this.game.cameraRig);
   }
 
+  ensureBryanVisibleOutsideCar() {
+    const g = this.game;
+    const p = g.player;
+
+    if (p.group.parent !== this.level.scene) this.level.scene.add(p.group);
+    p.group.visible = true;
+    p.group.scale.set(1, 1, 1);
+
+    const visual = g.bryanVisual?.group;
+    if (visual) {
+      visual.visible = true;
+      visual.position.set(0, 0, 0);
+      visual.rotation.set(0, 0, 0);
+      visual.scale.set(1, 1, 1);
+    }
+
+    if (g.bryanVisual?.skinnedMesh) g.bryanVisual.skinnedMesh.visible = true;
+
+    if (g.bryanVisual?.loaded) {
+      p.model.visible = false;
+    } else {
+      p.model.visible = true;
+    }
+  }
+
   update(dt) {
     const g = this.game;
     const p = g.player;
@@ -193,29 +218,42 @@ export class ForestSequence {
           this.setNarrativeState(STATE.INVESTIGATE_ROAD);
 
           // Same SnowRoad scene: Bryan appears beside the actual stopped car.
-          this.level.scene.add(p.group);
+          this.ensureBryanVisibleOutsideCar();
           p.position.copy(this.level.exitPosition);
           p.previousPosition.copy(p.position);
           p.velocity.set(0, 0, 0);
           p.rotationY = g.snowRoad.vehicle.heading;
           p.group.rotation.y = p.rotationY;
+          p.animate(0, true);
+          g.bryanVisual?.update(0);
+
           input.keys.delete('KeyE');
           input.justPressed?.delete('KeyE');
         }
       }
     } else if (this.state === 'exiting') {
       const t = this.time;
+      this.ensureBryanVisibleOutsideCar();
+
       this.level.hinge.rotation.y =
-        -Math.sin(Math.min(1, t / 1.8) * Math.PI) * 1.15;
-      p.group.visible = t > 0.6;
+        -Math.sin(Math.min(1, t / 1.35) * Math.PI) * 1.15;
       dialogue.setHint('');
 
-      if (t >= 1.8) {
+      // Hold Bryan at the known-safe exit point during the short door animation.
+      p.position.copy(this.level.exitPosition);
+      p.previousPosition.copy(p.position);
+      p.velocity.set(0, 0, 0);
+
+      if (t >= 1.35) {
         this.state = 'exploring';
         this.time = 0;
         this.level.hinge.rotation.y = 0;
+        this.ensureBryanVisibleOutsideCar();
+        p.previousPosition.copy(p.position);
+        p.velocity.set(0, 0, 0);
         g.audio?.playCue('door_close');
         input.keys.clear();
+        input.clearFrameState();
       }
     } else if (this.state === 'inspectBlood') {
       p.previousPosition.copy(p.position);
@@ -278,6 +316,10 @@ export class ForestSequence {
         ], () => this.beginRescue());
       }
     } else {
+      if (this.state === 'exploring' && !this.firstPerson.active) {
+        this.ensureBryanVisibleOutsideCar();
+      }
+
       if (!wasOpen && this.state === 'exploring') this.interactions.update();
 
       const blocked =
