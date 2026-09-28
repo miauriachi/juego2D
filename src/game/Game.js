@@ -542,7 +542,7 @@ export class Game {
       (!TEMP_EXTERIOR_CHECKPOINT && !this.raccoonDelivery.resolved)) return;
 
     const lastDeliveryEnding =
-      !TEMP_EXTERIOR_CHECKPOINT && this.raccoonDelivery.ending === 'LAST_DELIVERY';
+      this.raccoonDelivery.ending === 'LAST_DELIVERY';
 
     this.mode = 'parkingDeparture';
     this.player.group.visible = false;
