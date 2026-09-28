@@ -21,6 +21,7 @@ export class ForestSequence {
     this.inspectionDialogueStarted = false;
     this.exitNeedsRelease = true;
     this.enteredForest = false;
+    this.objectiveTimer = 3.4;
 
     this.collision = new CollisionSystem();
     this.cameras = new CameraManager(null, game.cameraRig);
@@ -97,6 +98,7 @@ export class ForestSequence {
     if (this.narrativeState === state) return;
     this.narrativeState = state;
     this.history.push(state);
+    this.objectiveTimer = 3.4;
   }
 
   startBloodInspection() {
@@ -186,12 +188,14 @@ export class ForestSequence {
       this.rescue.update(dt);
       input.clearFrameState();
       g.objective.textContent = 'OBJETIVO: Ayuda a la mujer a llegar al auto.';
+      g.objective.hidden = false;
       if (g.mode === 'passengerDriving') g.passengerDrive.update(0);
       else g.renderer.render(this.level.scene, this.rescue.camera);
       return;
     }
 
     this.time += dt;
+    this.objectiveTimer = Math.max(0, this.objectiveTimer - dt);
     this.crouchAmount = 0;
 
     const wasOpen = dialogue.isOpen;
@@ -441,6 +445,12 @@ export class ForestSequence {
     this.applyInspectionPose(this.crouchAmount);
 
     g.objective.textContent = this.objectiveText;
+    // Classic RE framing: objectives appear briefly when the story state changes,
+    // then get out of the composition instead of living permanently on screen.
+    g.objective.hidden =
+      this.objectiveTimer <= 0 ||
+      this.firstPerson.active ||
+      dialogue.isOpen;
     input.clearFrameState();
 
     const visible = p.group.visible;
