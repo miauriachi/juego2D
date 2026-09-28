@@ -4,12 +4,11 @@ import { CollisionSystem } from './CollisionSystem.js';
 import { CameraManager } from './CameraManager.js';
 import { InteractionManager } from './InteractionManager.js';
 import { Interactable } from './Interactable.js';
-import { ForestFirstPerson } from './ForestFirstPerson.js';
 import { WomanRescueSequence } from './WomanRescueSequence.js';
 import { PassengerDriveSequence } from './PassengerDriveSequence.js';
 import { POST_IMPACT as STATE } from './PostImpactState.js';
 
-// Post-stop chapter: same road/storm outside the car, then a short first-person maze.
+// Post-stop chapter: same road/storm outside the car, then classic fixed-camera forest rooms.
 export class ForestSequence {
   constructor(game) {
     this.game = game;
@@ -20,7 +19,6 @@ export class ForestSequence {
     this.crouchAmount = 0;
     this.inspectionDialogueStarted = false;
     this.exitNeedsRelease = true;
-    this.enteredForest = false;
     this.objectiveTimer = 3.4;
 
     this.collision = new CollisionSystem();
@@ -34,12 +32,6 @@ export class ForestSequence {
 
     this.history = [];
     this.setNarrativeState(STATE.IMPACT_OCCURRED);
-
-    this.firstPerson = new ForestFirstPerson(
-      game.player,
-      game.renderer.domElement,
-      game.settings,
-    );
 
     this.interactions = new InteractionManager(game.player, game.input, this.level.scene);
 
@@ -75,7 +67,6 @@ export class ForestSequence {
         this.time = 0;
         this.approachStart = game.player.position.clone();
         this.setNarrativeState(STATE.FOUND_WOMAN);
-        this.firstPerson.active = false;
         this.approachEnd = this.level.bodyPosition.clone().add(new THREE.Vector3(-0.85, 0, 0.1));
       },
       2.0,
@@ -107,7 +98,6 @@ export class ForestSequence {
     this.time = 0;
     this.crouchAmount = 0;
     this.inspectionDialogueStarted = false;
-    this.firstPerson.active = false;
 
     const p = this.game.player;
     const direction = this.level.origin.clone().sub(p.position);
@@ -133,7 +123,6 @@ export class ForestSequence {
   beginRescue() {
     this.state = 'rescue';
     this.setNarrativeState(STATE.HELPING_WOMAN);
-    this.firstPerson.dispose();
     this.stopAmbient?.();
     this.applyInspectionPose(0);
 
@@ -322,7 +311,7 @@ export class ForestSequence {
         ], () => this.beginRescue());
       }
     } else {
-      if (this.state === 'exploring' && !this.firstPerson.active) {
+      if (this.state === 'exploring') {
         this.ensureBryanVisibleOutsideCar();
       }
 
@@ -334,7 +323,7 @@ export class ForestSequence {
         this.state !== 'exploring';
 
       if (!blocked) {
-        p.update(input, dt * (this.firstPerson.active ? 0.68 : 1));
+        p.update(input, dt);
         this.collision.resolve(p);
         this.level.resolveCarCollision(p);
 
@@ -375,43 +364,8 @@ export class ForestSequence {
 
     this.updateCamera(cameraPosition);
 
-    // Enter first person only at the actual forest gate. The previous world-X
-    // test could trigger beside the car after a rotated crash, making Bryan seem
-    // to "disappear" the moment the player tried to move.
-    const forestGate = this.level.layout.points[2];
-    if (
-      !this.enteredForest &&
-      this.examined &&
-      this.state === 'exploring' &&
-      forestGate &&
-      p.position.distanceTo(forestGate) < 3.25 &&
-      p.position.distanceTo(this.level.car.position) > 6.0
-    ) {
-      this.enteredForest = true;
-    }
-
-    this.firstPerson.active =
-      this.enteredForest &&
-      this.state === 'exploring';
-
-    if (
-      this.firstPerson.active &&
-      !dialogue.isOpen &&
-      !this.interactions.currentHintText
-    ) {
-      dialogue.setHint('W/S · Caminar   A/D · Girar   Arrastra el ratón · Mirar');
-    }
-
-    if (this.firstPerson.active) {
-      this.setNarrativeState(STATE.FOREST_FIRST_PERSON);
-    } else if (this.examined && this.state === 'exploring') {
-      this.setNarrativeState(STATE.FOLLOW_BLOOD);
-    }
-
-    this.firstPerson.update(
-      dt,
-      p.position.distanceTo(p.previousPosition) > 0.001 && !dialogue.isOpen,
-    );
+    // Forest exploration stays on authored fixed cameras, just like the hospital.
+    // CameraManager changes shot automatically as Bryan crosses each outdoor room.
 
     // Continue the SAME storm/forest while Bryan is on foot.
     this.level.update(dt, { position: cameraPosition });
@@ -435,7 +389,7 @@ export class ForestSequence {
       );
 
       if (quiet) g.audio?.playCue('injured_breathing');
-      else if (this.firstPerson.active) g.audio?.playCue('forest_breathing');
+      else if (this.examined) g.audio?.playCue('forest_breathing');
       if (!quiet && this.examined) g.audio?.playCue('distant_branches');
     }
 
@@ -449,18 +403,10 @@ export class ForestSequence {
     // then get out of the composition instead of living permanently on screen.
     g.objective.hidden =
       this.objectiveTimer <= 0 ||
-      this.firstPerson.active ||
       dialogue.isOpen;
     input.clearFrameState();
 
-    const visible = p.group.visible;
-    if (this.firstPerson.active) p.group.visible = false;
-
-    g.renderer.render(
-      this.level.scene,
-      this.firstPerson.active ? this.firstPerson.camera : g.cameraRig.camera,
-    );
-
-    p.group.visible = visible;
+    this.ensureBryanVisibleOutsideCar();
+    g.renderer.render(this.level.scene, g.cameraRig.camera);
   }
 }
