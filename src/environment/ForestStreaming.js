@@ -66,15 +66,15 @@ function buildFarPaintedForest(road, baseTexture) {
     const buckets = Array.from({ length: VARIANT_COUNT }, () => []);
     let slot = 0;
 
-    for (let s = -34; s <= road.length + 86; s += 13.5, slot += 1) {
+    for (let s = -36; s <= road.length + 90; s += 10.8, slot += 1) {
       const r1 = hash(slot * 17 + side * 11, 14011);
       const r2 = hash(slot * 23 + side * 19, 19001);
       const r3 = hash(slot * 29 + side * 31, 23003);
       const sampleS = s + (r1 - 0.5) * 7;
       const { tangent, normal } = sideFrame(road, sampleS);
-      const offset = 39 + r2 * 13;
-      const width = 38 + r3 * 18;
-      const height = 20 + r1 * 9;
+      const offset = 42 + r2 * 14;
+      const width = 44 + r3 * 20;
+      const height = 23 + r1 * 10;
       const variant = (slot + (side < 0 ? 1 : 0)) % VARIANT_COUNT;
 
       buckets[variant].push({
@@ -114,10 +114,11 @@ function buildMidForest(road) {
   group.name = 'forest-mid-3d';
 
   const bands = [
-    { offsetMin: 9.2, offsetMax: 12.2, spacing: 2.05, heightMin: 7.5, heightMax: 13.5, seed: 21101 },
-    { offsetMin: 12.8, offsetMax: 17.5, spacing: 2.25, heightMin: 8.5, heightMax: 15.5, seed: 31111 },
-    { offsetMin: 18.0, offsetMax: 24.5, spacing: 2.55, heightMin: 9.5, heightMax: 17.0, seed: 41113 },
-    { offsetMin: 25.0, offsetMax: 34.0, spacing: 2.9, heightMin: 11.0, heightMax: 19.0, seed: 51131 },
+    { offsetMin: 7.8, offsetMax: 10.6, spacing: 1.72, heightMin: 8.0, heightMax: 14.5, seed: 19121 },
+    { offsetMin: 10.8, offsetMax: 14.8, spacing: 1.88, heightMin: 8.8, heightMax: 15.8, seed: 21101 },
+    { offsetMin: 15.0, offsetMax: 20.5, spacing: 2.05, heightMin: 9.8, heightMax: 17.5, seed: 31111 },
+    { offsetMin: 20.8, offsetMax: 28.0, spacing: 2.25, heightMin: 10.8, heightMax: 18.5, seed: 41113 },
+    { offsetMin: 28.5, offsetMax: 38.0, spacing: 2.55, heightMin: 12.0, heightMax: 20.5, seed: 51131 },
   ];
 
   const placements = [];
@@ -137,7 +138,7 @@ function buildMidForest(road) {
           z: -sampleS + normal.z * offset * side,
           height: band.heightMin + r3 * (band.heightMax - band.heightMin),
           width: 0.95 + r1 * 1.15,
-          pine: r2 > (bandIndex === 0 ? 0.42 : 0.25),
+          pine: r2 > (bandIndex === 0 ? 0.34 : bandIndex === 1 ? 0.28 : 0.20),
           lean: (r3 - 0.5) * 0.12,
           band: bandIndex,
         });
@@ -232,18 +233,18 @@ function buildRoadEdgeTrunks(road) {
 
   const placements = [];
   let slot = 0;
-  for (let s = -10; s <= road.length + 28; s += 4.9, slot += 1) {
+  for (let s = -12; s <= road.length + 30; s += 3.85, slot += 1) {
     for (const side of [-1, 1]) {
       if (hash(slot * 13 + side * 17, 91201) < 0.10) continue;
       const r1 = hash(slot * 19 + side * 23, 93203);
       const r2 = hash(slot * 29 + side * 31, 97213);
       const { normal } = sideFrame(road, s);
-      const offset = 6.75 + r1 * 2.4;
+      const offset = 6.25 + r1 * 2.35;
       placements.push({
         x: road.centerX(s) + normal.x * offset * side,
         z: -s + normal.z * offset * side,
-        height: 11 + r2 * 10,
-        radius: 0.55 + r1 * 0.90,
+        height: 12 + r2 * 11,
+        radius: 0.62 + r1 * 0.95,
         side,
       });
     }
@@ -312,13 +313,13 @@ function buildForestFloor(road) {
   const stumps = [];
 
   let slot = 0;
-  for (let s = -14; s <= road.length + 34; s += 2.1, slot += 1) {
+  for (let s = -16; s <= road.length + 36; s += 1.65, slot += 1) {
     for (const side of [-1, 1]) {
       const r1 = hash(slot * 17 + side * 7, 62119);
       const r2 = hash(slot * 23 + side * 11, 63127);
       const r3 = hash(slot * 31 + side * 13, 64157);
       const { tangent, normal } = sideFrame(road, s);
-      const offset = 6.4 + r1 * 10.5;
+      const offset = 5.9 + r1 * 12.5;
       const x = road.centerX(s) + normal.x * offset * side;
       const z = -s + normal.z * offset * side;
 
@@ -423,9 +424,9 @@ function buildSnags(road) {
 
   const snags = [];
   let slot = 0;
-  for (let s = 6; s <= road.length + 18; s += 14.5, slot += 1) {
+  for (let s = 4; s <= road.length + 22; s += 10.5, slot += 1) {
     for (const side of [-1, 1]) {
-      if (hash(slot * 11 + side * 17, 45361) < 0.30) continue;
+      if (hash(slot * 11 + side * 17, 45361) < 0.18) continue;
       const r1 = hash(slot * 17 + side * 23, 46349);
       const r2 = hash(slot * 23 + side * 31, 47351);
       const { normal } = sideFrame(road, s);
@@ -487,8 +488,8 @@ function buildCanopy(road) {
   const twigs = [];
   let slot = 0;
 
-  for (let s = 6; s <= road.length + 18; s += 8.5, slot += 1) {
-    if (hash(slot * 7, 12391) < 0.12) continue;
+  for (let s = 4; s <= road.length + 20; s += 6.4, slot += 1) {
+    if (hash(slot * 7, 12391) < 0.06) continue;
 
     for (const side of [-1, 1]) {
       const r1 = hash(slot * 19 + side * 5, 15313);
@@ -505,11 +506,11 @@ function buildCanopy(road) {
       };
       branches.push(branch);
 
-      for (let j = 0; j < 2; j += 1) {
+      for (let j = 0; j < 3; j += 1) {
         const rr = hash(slot * 31 + side * 13 + j * 17, 18433);
         twigs.push({
           x: branch.x + (rr - 0.5) * 1.4,
-          y: branch.y + j * 0.65,
+          y: branch.y + j * 0.52,
           z: branch.z + (rr - 0.5) * 1.2,
           length: 3.0 + rr * 3.0,
           side: side * (j ? -1 : 1),
