@@ -1,6 +1,7 @@
 import * as THREE from 'three';
 import { ForestLayout } from './ForestLayout.js';
 import { BloodTrail } from '../environment/BloodTrail.js';
+import { ForestPrerenderBackdrop } from '../game/ForestPrerenderBackdrop.js';
 import { DEBUG_MODE, PLAYER_RADIUS } from '../config/constants.js';
 
 function buildForegroundFrame(scene, cameraPosition, lookAt, name, flip = 1) {
@@ -319,6 +320,9 @@ export class ForestAftermath {
       'foreground-body-frame',
       1,
     );
+
+    this.backdrop = new ForestPrerenderBackdrop(this.scene, cameras.cameraRig.camera);
+    this.backdrop.preload();
 
     cameras.setDebugVisibility(DEBUG_MODE);
 
