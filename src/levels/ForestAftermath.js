@@ -166,8 +166,8 @@ export class ForestAftermath {
 
     cameras.scene = this.scene;
 
-    // Lower, tighter fixed cameras: the car/Bryan occupy more of the frame and
-    // the forest becomes negative space around them instead of an empty wide shot.
+    // Fixed-camera forest rooms. Each bend gets its own authored composition
+    // so the entire on-foot section keeps the same visual language as the hospital.
     const crashCamera = this.car.localToWorld(new THREE.Vector3(-4.05, 2.25, 3.35));
     const crashLook = this.exitPosition.clone().lerp(this.origin, 0.48).setY(0.92);
     cameras.addZone({
@@ -176,9 +176,9 @@ export class ForestAftermath {
       cameraPosition: crashCamera.toArray(),
       lookAt: crashLook.toArray(),
       minX: this.origin.x - 10,
-      maxX: this.origin.x + 6.5,
-      minZ: this.origin.z - 13,
-      maxZ: this.origin.z + 13,
+      maxX: this.origin.x + 5.0,
+      minZ: this.origin.z - 12,
+      maxZ: this.origin.z + 12,
       priority: 10,
       fov: 52,
       color: 0xa4c7df,
@@ -192,27 +192,95 @@ export class ForestAftermath {
       cameraPosition: bloodCamera.toArray(),
       lookAt: bloodLook.toArray(),
       minX: this.origin.x - 2.5,
-      maxX: this.origin.x + 2.5,
-      minZ: this.origin.z - 2.7,
-      maxZ: this.origin.z + 2.7,
+      maxX: this.origin.x + 3.8,
+      minZ: this.origin.z - 3.2,
+      maxZ: this.origin.z + 3.2,
       priority: 16,
       fov: 48,
       color: 0x92abc0,
     });
 
-    const bodyCamera = this.bodyPosition.clone().add(new THREE.Vector3(-3.45, 2.35, 3.55));
-    const bodyLook = this.bodyPosition.clone().setY(0.62);
+    const forestA = this.layout.points[3];
+    const forestACamera = forestA.clone().add(new THREE.Vector3(-5.8, 4.1, 6.6));
+    const forestALook = this.layout.points[4].clone().setY(0.72);
+    cameras.addZone({
+      id: 'CAM_FOREST_A',
+      name: 'CAM_FOREST_A',
+      cameraPosition: forestACamera.toArray(),
+      lookAt: forestALook.toArray(),
+      minX: this.origin.x + 4.5,
+      maxX: this.origin.x + 15.8,
+      minZ: this.origin.z - 4.8,
+      maxZ: this.origin.z + 8.5,
+      priority: 20,
+      fov: 50,
+      color: 0x7f9caf,
+    });
+
+    const forestB = this.layout.points[5];
+    const forestBCamera = forestB.clone().add(new THREE.Vector3(4.8, 4.7, -7.2));
+    const forestBLook = this.layout.points[6].clone().setY(0.78);
+    cameras.addZone({
+      id: 'CAM_FOREST_B',
+      name: 'CAM_FOREST_B',
+      cameraPosition: forestBCamera.toArray(),
+      lookAt: forestBLook.toArray(),
+      minX: this.origin.x + 14.0,
+      maxX: this.origin.x + 26.0,
+      minZ: this.origin.z - 2.5,
+      maxZ: this.origin.z + 10.5,
+      priority: 21,
+      fov: 49,
+      color: 0x7692a5,
+    });
+
+    const forestC = this.layout.points[8];
+    const forestCCamera = forestC.clone().add(new THREE.Vector3(-5.4, 3.75, -6.8));
+    const forestCLook = this.layout.points[9].clone().setY(0.72);
+    cameras.addZone({
+      id: 'CAM_FOREST_C',
+      name: 'CAM_FOREST_C',
+      cameraPosition: forestCCamera.toArray(),
+      lookAt: forestCLook.toArray(),
+      minX: this.origin.x + 24.0,
+      maxX: this.origin.x + 36.5,
+      minZ: this.origin.z - 8.5,
+      maxZ: this.origin.z + 6.0,
+      priority: 22,
+      fov: 50,
+      color: 0x6d879a,
+    });
+
+    const forestD = this.layout.points[10];
+    const forestDCamera = forestD.clone().add(new THREE.Vector3(5.0, 4.0, 6.4));
+    const forestDLook = this.layout.points[11].clone().setY(0.68);
+    cameras.addZone({
+      id: 'CAM_FOREST_D',
+      name: 'CAM_FOREST_D',
+      cameraPosition: forestDCamera.toArray(),
+      lookAt: forestDLook.toArray(),
+      minX: this.origin.x + 34.0,
+      maxX: this.origin.x + 44.8,
+      minZ: this.origin.z - 6.5,
+      maxZ: this.origin.z + 7.0,
+      priority: 23,
+      fov: 48,
+      color: 0x657f91,
+    });
+
+    const bodyCamera = this.bodyPosition.clone().add(new THREE.Vector3(-4.1, 2.65, 4.8));
+    const bodyLook = this.bodyPosition.clone().setY(0.58);
     cameras.addZone({
       id: 'CAM_FOREST_BODY',
       name: 'CAM_FOREST_BODY',
       cameraPosition: bodyCamera.toArray(),
       lookAt: bodyLook.toArray(),
-      minX: this.origin.x + 7,
-      maxX: this.origin.x + 52,
-      minZ: this.origin.z - 16,
-      maxZ: this.origin.z + 16,
-      priority: 18,
-      fov: 50,
+      minX: this.origin.x + 40.0,
+      maxX: this.origin.x + 48.5,
+      minZ: this.origin.z - 6.0,
+      maxZ: this.origin.z + 7.0,
+      priority: 30,
+      fov: 46,
       color: 0x94b9d2,
     });
 
@@ -223,12 +291,33 @@ export class ForestAftermath {
       'foreground-crash-frame',
       1,
     );
+    this.forestAForeground = buildForegroundFrame(
+      this.scene,
+      forestACamera,
+      forestALook,
+      'foreground-forest-a',
+      -1,
+    );
+    this.forestBForeground = buildForegroundFrame(
+      this.scene,
+      forestBCamera,
+      forestBLook,
+      'foreground-forest-b',
+      1,
+    );
+    this.forestCForeground = buildForegroundFrame(
+      this.scene,
+      forestCCamera,
+      forestCLook,
+      'foreground-forest-c',
+      -1,
+    );
     this.bodyForeground = buildForegroundFrame(
       this.scene,
       bodyCamera,
       bodyLook,
       'foreground-body-frame',
-      -1,
+      1,
     );
 
     cameras.setDebugVisibility(DEBUG_MODE);
