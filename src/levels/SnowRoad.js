@@ -10,7 +10,7 @@ export class SnowRoad {
   constructor({ cinematic = false, settings = {}, length = 760 } = {}) {
     this.cinematic = cinematic; this.length = cinematic ? 180 : length; this.halfWidth = 4.7; this.bankWidth = 6.6;
     this.scene = new THREE.Scene(); this.scene.background = new THREE.Color(0x060c14);
-    this.scene.fog = new THREE.Fog(0x060c14, 18, 65);
+    this.scene.fog = new THREE.Fog(0x08111b, 10, 48);
     this.vehicleCamera = new VehicleCamera(settings); this.camera = this.vehicleCamera.camera;
     this.vehicle = new Vehicle(); this.scene.add(this.vehicle.group);
     this.completed = false; this.driveEnabled = true; this.restartVersion = 0;
@@ -38,20 +38,21 @@ export class SnowRoad {
     road.setAttribute('color', new THREE.Float32BufferAttribute(colors, 3));
     road.setIndex(indices); road.computeVertexNormals();
     this.scene.add(new THREE.Mesh(road, new THREE.MeshLambertMaterial({ vertexColors: true, side: THREE.DoubleSide })));
-    const snow = new THREE.MeshLambertMaterial({ color: 0xb1c1ce });
+    const snow = new THREE.MeshLambertMaterial({ color: 0x8497a6 });
     const ground = new THREE.Mesh(new THREE.PlaneGeometry(100, this.length + 80), snow);
     ground.rotation.x = -Math.PI / 2; ground.position.z = -this.length / 2; this.scene.add(ground);
     const cube = new THREE.BoxGeometry(1, 1, 1), matrix = new THREE.Matrix4();
-    const instances = (Math.floor((this.length + 12) / 4) + 1) * 2;
-    const posts = new THREE.InstancedMesh(cube, new THREE.MeshLambertMaterial({ color: 0x73828b }), instances);
-    const caps = new THREE.InstancedMesh(cube, new THREE.MeshBasicMaterial({ color: 0x938b70 }), instances);
+    const roadsideStep = 9;
+    const instances = (Math.floor((this.length + 18) / roadsideStep) + 2) * 2;
+    const posts = new THREE.InstancedMesh(cube, new THREE.MeshLambertMaterial({ color: 0x394b56 }), instances);
+    const caps = new THREE.InstancedMesh(cube, new THREE.MeshBasicMaterial({ color: 0x8b8167 }), instances);
     const banks = new THREE.InstancedMesh(cube, snow, instances);
     let count = 0;
-    for (let s = -8; s <= this.length + 4; s += 4) for (const side of [-1, 1]) {
+    for (let s = -8; s <= this.length + 4; s += roadsideStep) for (const side of [-1, 1]) {
       const x = this.centerX(s) + side * 6.7;
-      matrix.compose(new THREE.Vector3(x, 0.55, -s), new THREE.Quaternion(), new THREE.Vector3(0.12, 1.1, 0.12)); posts.setMatrixAt(count, matrix);
-      matrix.compose(new THREE.Vector3(x, 0.93, -s), new THREE.Quaternion(), new THREE.Vector3(0.15, 0.15, 0.15)); caps.setMatrixAt(count, matrix);
-      matrix.compose(new THREE.Vector3(x + side * 0.35, 0.25, -s), new THREE.Quaternion(), new THREE.Vector3(0.8, 0.5, 4.1)); banks.setMatrixAt(count, matrix);
+      matrix.compose(new THREE.Vector3(x, 0.38, -s), new THREE.Quaternion(), new THREE.Vector3(0.08, 0.76, 0.08)); posts.setMatrixAt(count, matrix);
+      matrix.compose(new THREE.Vector3(x, 0.66, -s), new THREE.Quaternion(), new THREE.Vector3(0.11, 0.10, 0.11)); caps.setMatrixAt(count, matrix);
+      matrix.compose(new THREE.Vector3(x + side * 0.28, 0.12, -s), new THREE.Quaternion(), new THREE.Vector3(0.58, 0.24, 3.3)); banks.setMatrixAt(count, matrix);
       count++;
     }
     this.scene.add(posts, caps, banks);
