@@ -24,9 +24,24 @@ export class ForestAftermath {
     });
 
     // Driver-side exit stays beside the stopped car in the original scene.
-    this.exitPosition = this.car.localToWorld(new THREE.Vector3(-1.9, 0, 0.5));
-    this.exitPosition.x = Math.min(this.exitPosition.x, carBox.min.x - 0.65);
+    // Use the car's LOCAL left side, then push the point clear of the car AABB.
+    // The previous world-X clamp could place Bryan inside/behind a rotated car.
+    this.exitPosition = this.car.localToWorld(new THREE.Vector3(-2.35, 0, 0.35));
     this.exitPosition.y = 0;
+
+    const expandedCar = carBox.clone().expandByScalar(0.48);
+    if (expandedCar.containsPoint(this.exitPosition)) {
+      const carWorld = this.car.getWorldPosition(new THREE.Vector3());
+      const push = this.exitPosition.clone().sub(carWorld);
+      push.y = 0;
+      if (push.lengthSq() < 0.001) {
+        push.set(-1, 0, 0).applyQuaternion(this.car.getWorldQuaternion(new THREE.Quaternion()));
+      }
+      push.normalize();
+      for (let i = 0; i < 8 && expandedCar.containsPoint(this.exitPosition); i += 1) {
+        this.exitPosition.addScaledVector(push, 0.35);
+      }
+    }
 
     // Blood begins BEHIND the car, then bends into the woods.
     this.origin = this.car.localToWorld(new THREE.Vector3(0.55, 0, 3.25));
