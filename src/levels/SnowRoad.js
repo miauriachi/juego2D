@@ -80,6 +80,7 @@ export class SnowRoad {
         drifts.setMatrixAt(driftIndex++, matrix);
       }
     }
+    drifts.count = driftIndex;
     drifts.instanceMatrix.needsUpdate = true;
     drifts.name = 'roadside-snow-drifts';
     this.scene.add(drifts);
@@ -172,6 +173,7 @@ export class SnowRoad {
   reset() {
     this.vehicle.reset(); this.completed = false; this.driveEnabled = true; this.restartVersion++;
     this.stormTime = 0; this.stormGust = 0;
+    this.vehicleSnow?.reset();
     this.vehicleCamera.initialized = false; this.vehicleCamera.shake = 0;
   }
 
