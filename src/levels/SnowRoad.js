@@ -2,6 +2,7 @@ import * as THREE from 'three';
 import { Vehicle } from '../game/Vehicle.js';
 import { Snowfall } from '../environment/Snowfall.js';
 import { buildSnowForest } from '../environment/SnowForest.js';
+import { buildPaintedSnowForest } from '../environment/PaintedSnowForest.js';
 import { VehicleCamera } from '../game/VehicleCamera.js';
 
 // Snow forest route; cinematic variant keeps the alternative ending independent.
@@ -54,7 +55,8 @@ export class SnowRoad {
       count++;
     }
     this.scene.add(posts, caps, banks);
-    this.forest = buildSnowForest(this.scene, this);
+    const proceduralForest = buildSnowForest(this.scene, this);
+    this.forest = buildPaintedSnowForest(this.scene, this, proceduralForest);
     this.scene.add(new THREE.HemisphereLight(0xabc9eb, 0x1a2639, this.cinematic ? 0.65 : 0.16));
     const moon = new THREE.DirectionalLight(0xa1c3ef, this.cinematic ? 0.5 : 0.13); moon.position.set(-10, 20, 5); this.scene.add(moon);
     const headlights = new THREE.SpotLight(0xe3e0c8, 220, 54, 0.55, 0.55, 1.3);
