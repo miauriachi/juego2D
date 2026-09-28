@@ -12,6 +12,7 @@ import {
 } from './BryanRigProfile.js';
 
 const ROOT_BONE = 27;
+const BRYAN_TARGET_HEIGHT = 1.72;
 
 function distanceToSegment(point, a, b) {
   const ab = new THREE.Vector3().subVectors(b, a);
@@ -215,7 +216,7 @@ export class BryanModel {
 
     const rigRoot = new THREE.Group();
     rigRoot.name = 'bryanRigRoot';
-    rigRoot.scale.setScalar(1.78 / BRYAN_RIG_SOURCE_HEIGHT);
+    rigRoot.scale.setScalar(BRYAN_TARGET_HEIGHT / BRYAN_RIG_SOURCE_HEIGHT);
     // Same authored forward axis as the previous Bryan asset.
     rigRoot.rotation.y = Math.PI;
 
@@ -255,7 +256,7 @@ export class BryanModel {
     if (!Number.isFinite(size.y) || size.y <= 0) throw new Error('Altura GLB inválida.');
 
     this.detectedHeight = size.y;
-    this.scale = 1.78 / size.y;
+    this.scale = BRYAN_TARGET_HEIGHT / size.y;
     model.scale.multiplyScalar(this.scale);
     model.rotation.y += Math.PI;
     model.updateMatrixWorld(true);
