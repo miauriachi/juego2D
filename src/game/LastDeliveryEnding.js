@@ -1,129 +1,54 @@
-import * as THREE from 'three';
-import { SnowRoad } from '../levels/SnowRoad.js';
 import { CreditsSequence } from './CreditsSequence.js';
-import resultImage from './LastDeliveryResultImage.js';
 
-// Alternate ending. It can either play its legacy road departure or start after
-// the shared hospital parking-lot departure animation has already finished.
+const RESULT_ART = new URL('../../assets/endings/last_delivery.webp', import.meta.url).href;
+
+function formatTime(totalSeconds) {
+  const seconds = Math.floor(totalSeconds % 60);
+  const minutes = Math.floor(totalSeconds / 60) % 60;
+  const hours = Math.floor(totalSeconds / 3600);
+  return [hours, minutes, seconds].map(value => String(value).padStart(2, '0')).join(':');
+}
+
+// Alternate ending AFTER the shared parking-lot departure.
+// Flow: ending title -> credits -> supplied artwork + run statistics.
 export class LastDeliveryEnding {
-  constructor(container, input, { skipDeparture = false, stats = null } = {}) {
+  constructor(container, input, runStats) {
     this.input = input;
-    this.stats = stats || {
-      timeText: '00:00:00',
-      saves: 0,
-      healingItemsUsed: 0,
-      rank: 'C',
-    };
-    this.phase = skipDeparture ? 'title' : 'boarding';
+    this.phase = 'title';
     this.time = 0;
+    this.finalStats = runStats.finish();
 
     this.overlay = document.createElement('section');
     this.overlay.className = 'ending-overlay';
-    this.overlay.style.opacity = skipDeparture ? '1' : '0';
     this.overlay.setAttribute('aria-live', 'polite');
     container.append(this.overlay);
+    this.showText(['RE NOCHE CERO', 'FINAL ALTERNATIVO', '«ÚLTIMA ENTREGA»']);
 
-    if (skipDeparture) {
-      this.showText(['RE NOCHE CERO', 'FINAL ALTERNATIVO', '«ÚLTIMA ENTREGA»']);
-    }
-
-    this.credits = new CreditsSequence(container, input, () => {
-      this.phase = 'finished';
-      this.overlay.style.opacity = '1';
-      this.showResults();
-    });
-  }
-
-  buildDeparture() {
-    this.road = new SnowRoad({ cinematic: true });
-    this.camera = new THREE.PerspectiveCamera(58, window.innerWidth / window.innerHeight, 0.1, 240);
-    this.camera.position.set(16, 8, 24);
-    this.camera.lookAt(-2, 1, -24);
-
-    const facade = new THREE.Mesh(
-      new THREE.BoxGeometry(14, 6, 8),
-      new THREE.MeshLambertMaterial({ color: 0x56656c }),
-    );
-    facade.position.set(-14, 3, 5);
-    this.road.scene.add(facade);
-
-    const roof = new THREE.Mesh(
-      new THREE.BoxGeometry(14.4, 0.22, 8.4),
-      new THREE.MeshLambertMaterial({ color: 0xb1c1ce }),
-    );
-    roof.position.set(-14, 6.1, 5);
-    this.road.scene.add(roof);
-
-    const windowGeometry = new THREE.BoxGeometry(1.4, 1.35, 0.06);
-    const windowMaterial = new THREE.MeshBasicMaterial({ color: 0x92a9ae });
-    for (const x of [-19, -16, -12, -9]) {
-      const window = new THREE.Mesh(windowGeometry, windowMaterial);
-      window.position.set(x, 3.6, 9.04);
-      this.road.scene.add(window);
-    }
-
-    const canvas = document.createElement('canvas');
-    canvas.width = 512;
-    canvas.height = 96;
-    const ctx = canvas.getContext('2d');
-    ctx.fillStyle = '#263c43';
-    ctx.fillRect(0, 0, 512, 96);
-    ctx.fillStyle = '#d5e2df';
-    ctx.font = 'bold 48px Arial';
-    ctx.textAlign = 'center';
-    ctx.fillText('HOSPITAL', 256, 66);
-
-    const texture = new THREE.CanvasTexture(canvas);
-    texture.colorSpace = THREE.SRGBColorSpace;
-    const sign = new THREE.Mesh(
-      new THREE.PlaneGeometry(7, 1.3),
-      new THREE.MeshBasicMaterial({ map: texture }),
-    );
-    sign.position.set(-14, 5.25, 9.05);
-    this.road.scene.add(sign);
-    this.road.scene.fog.near = 38;
-    this.road.scene.fog.far = 105;
-  }
-
-  showText(lines) {
-    this.overlay.classList.remove('ending-results');
-    this.overlay.replaceChildren(...lines.map(text => {
-      const line = document.createElement('p');
-      line.textContent = text;
-      return line;
-    }));
-  }
-
-  showResults() {
-    this.overlay.classList.add('ending-results');
+    this.results = document.createElement('section');
+    this.results.className = 'ending-results';
+    this.results.hidden = true;
 
     const image = document.createElement('img');
     image.className = 'ending-results__image';
-    image.src = resultImage;
-    image.alt = 'Bryan y su pareja en casa durante una noche lluviosa.';
+    image.src = RESULT_ART;
+    image.alt = 'Bryan y su pareja en casa después de su última entrega.';
 
-    const info = document.createElement('div');
-    info.className = 'ending-results__info';
+    const panel = document.createElement('div');
+    panel.className = 'ending-results__panel';
 
-    const kicker = document.createElement('p');
-    kicker.className = 'ending-results__kicker';
-    kicker.textContent = 'FINAL ALTERNATIVO';
-
-    const title = document.createElement('h1');
-    title.textContent = 'ÚLTIMA ENTREGA';
+    const title = document.createElement('h2');
+    title.textContent = 'RESULTADOS';
 
     const stats = document.createElement('dl');
-    stats.className = 'ending-results__stats';
-
     const rows = [
-      ['TIEMPO', this.stats.timeText],
-      ['GUARDADOS', String(this.stats.saves)],
-      ['OBJETOS CURATIVOS', String(this.stats.healingItemsUsed)],
+      ['TIEMPO', formatTime(this.finalStats.elapsedSeconds)],
+      ['GUARDADOS', String(this.finalStats.saves)],
+      ['OBJETOS CURATIVOS', String(this.finalStats.healingItemsUsed)],
     ];
     for (const [label, value] of rows) {
       const dt = document.createElement('dt');
-      dt.textContent = label;
       const dd = document.createElement('dd');
+      dt.textContent = label;
       dd.textContent = value;
       stats.append(dt, dd);
     }
@@ -134,13 +59,31 @@ export class LastDeliveryEnding {
 
     const rank = document.createElement('strong');
     rank.className = 'ending-results__rank';
-    rank.textContent = this.stats.rank;
+    rank.textContent = this.finalStats.rank;
 
-    const thanks = document.createElement('small');
-    thanks.textContent = 'THANK YOU FOR PLAYING';
+    const help = document.createElement('small');
+    help.textContent = 'Gracias por jugar RE NOCHE CERO';
 
-    info.append(kicker, title, stats, rankLabel, rank, thanks);
-    this.overlay.replaceChildren(image, info);
+    panel.append(title, stats, rankLabel, rank, help);
+    this.results.append(image, panel);
+    container.append(this.results);
+
+    this.credits = new CreditsSequence(container, input, () => this.showResults());
+  }
+
+  showText(lines) {
+    this.overlay.replaceChildren(...lines.map(text => {
+      const line = document.createElement('p');
+      line.textContent = text;
+      return line;
+    }));
+  }
+
+  showResults() {
+    this.phase = 'results';
+    this.overlay.hidden = true;
+    this.results.hidden = false;
+    this.input.clearFrameState();
   }
 
   update(dt) {
@@ -148,51 +91,17 @@ export class LastDeliveryEnding {
       this.credits.update(dt);
       return;
     }
-    if (this.phase === 'finished') return;
+    if (this.phase === 'results') return;
 
     this.time += dt;
-
-    if (this.phase === 'boarding') {
-      this.overlay.style.opacity = String(Math.min(1, this.time / 1.2));
-      if (this.time >= 1.2) {
-        this.buildDeparture();
-        this.phase = 'departure';
-        this.time = 0;
-      }
-    } else if (this.phase === 'departure') {
-      this.overlay.style.opacity = String(
-        this.time < 1 ? 1 - this.time : Math.max(0, (this.time - 13) / 1.5),
-      );
-      const s = 2 + this.time * 4 + this.time * this.time * 0.32;
-      const car = this.road.vehicle.group;
-      car.position.set(this.road.centerX(s), 0, -s);
-      car.rotation.y = -Math.atan(this.road.tangentX(s));
-      for (const wheel of car.userData.wheels) {
-        wheel.tire.rotation.x -= (4 + this.time * 0.64) * dt / 0.34;
-      }
-      this.road.snowfall.update(dt, this.camera.position);
-      if (this.time >= 14.5) {
-        this.phase = 'title';
-        this.time = 0;
-        this.overlay.style.opacity = '1';
-        this.showText(['RE NOCHE CERO', 'FINAL ALTERNATIVO', '«ÚLTIMA ENTREGA»']);
-      }
-    } else if (this.phase === 'title' && this.time >= 4) {
-      this.overlay.replaceChildren();
+    if (this.phase === 'title' && this.time >= 4) {
       this.phase = 'credits';
+      this.overlay.hidden = true;
       this.credits.start();
     }
   }
 
-  render(renderer, exteriorScene, exteriorCamera) {
-    if (this.phase === 'boarding') renderer.render(exteriorScene, exteriorCamera);
-    else if (this.phase === 'departure') renderer.render(this.road.scene, this.camera);
-  }
+  render() {}
 
-  onResize() {
-    if (this.camera) {
-      this.camera.aspect = window.innerWidth / window.innerHeight;
-      this.camera.updateProjectionMatrix();
-    }
-  }
+  onResize() {}
 }
