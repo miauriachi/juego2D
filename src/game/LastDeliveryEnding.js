@@ -1,7 +1,7 @@
 import * as THREE from 'three';
 import { SnowRoad } from '../levels/SnowRoad.js';
 import { CreditsSequence } from './CreditsSequence.js';
-const resultImage = new URL('../../assets/endings/last_delivery.webp', import.meta.url).href;
+import resultImage from './LastDeliveryResultImage.js';
 
 // Alternate ending. It can either play its legacy road departure or start after
 // the shared hospital parking-lot departure animation has already finished.
