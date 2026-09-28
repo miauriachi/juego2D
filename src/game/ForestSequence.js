@@ -20,6 +20,7 @@ export class ForestSequence {
     this.crouchAmount = 0;
     this.inspectionDialogueStarted = false;
     this.exitNeedsRelease = true;
+    this.enteredForest = false;
 
     this.collision = new CollisionSystem();
     this.cameras = new CameraManager(null, game.cameraRig);
@@ -299,6 +300,7 @@ export class ForestSequence {
         Math.min(1, this.time / 1.2),
       );
       this.collision.resolve(p);
+      this.level.resolveCarCollision(p);
 
       const direction = this.level.bodyPosition.clone().sub(p.position);
       p.rotationY = Math.atan2(-direction.x, -direction.z);
@@ -330,9 +332,17 @@ export class ForestSequence {
       if (!blocked) {
         p.update(input, dt * (this.firstPerson.active ? 0.68 : 1));
         this.collision.resolve(p);
+        this.level.resolveCarCollision(p);
 
         // Bryan must inspect the rear-car blood before entering the maze.
-        if (!this.examined && p.position.x > this.level.origin.x + 5.5) {
+        // Gate against the authored trail entry instead of raw world X, because
+        // the crashed car can finish at many different headings.
+        const forestGate = this.level.layout.points[2];
+        if (
+          !this.examined &&
+          forestGate &&
+          p.position.distanceTo(forestGate) < 3.6
+        ) {
           p.position.copy(p.previousPosition);
           p.velocity.set(0, 0, 0);
         }
@@ -361,12 +371,23 @@ export class ForestSequence {
 
     this.updateCamera(cameraPosition);
 
-    const insideForest =
+    // Enter first person only at the actual forest gate. The previous world-X
+    // test could trigger beside the car after a rotated crash, making Bryan seem
+    // to "disappear" the moment the player tried to move.
+    const forestGate = this.level.layout.points[2];
+    if (
+      !this.enteredForest &&
       this.examined &&
-      p.position.x > this.level.origin.x + (this.firstPerson.active ? 5.2 : 6.2);
+      this.state === 'exploring' &&
+      forestGate &&
+      p.position.distanceTo(forestGate) < 3.25 &&
+      p.position.distanceTo(this.level.car.position) > 6.0
+    ) {
+      this.enteredForest = true;
+    }
 
     this.firstPerson.active =
-      insideForest &&
+      this.enteredForest &&
       this.state === 'exploring';
 
     if (
@@ -379,7 +400,7 @@ export class ForestSequence {
 
     if (this.firstPerson.active) {
       this.setNarrativeState(STATE.FOREST_FIRST_PERSON);
-    } else if (!insideForest && this.examined && this.state === 'exploring') {
+    } else if (this.examined && this.state === 'exploring') {
       this.setNarrativeState(STATE.FOLLOW_BLOOD);
     }
 
