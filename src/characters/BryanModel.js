@@ -34,6 +34,8 @@ export class BryanModel {
     this.rigged = false;
     this.phase = 0;
     this.motionBlend = 0;
+    this.runBlend = 0;
+    this.idleTime = 0;
     this._qa = new THREE.Quaternion();
     this._qb = new THREE.Quaternion();
     this._sample = new THREE.Quaternion();
@@ -57,7 +59,7 @@ export class BryanModel {
           this.loaded = true;
           this.rigged = true;
           player.model.visible = false;
-          this.setupDebug(container, 'RIG WALK/RUN');
+          this.setupDebug(container, 'RIG CLASSIC WALK/RUN');
           this.update();
           console.info('Bryan rigged locomotion enabled', {
             source: 'user Mixamo rig profile',
@@ -285,12 +287,20 @@ export class BryanModel {
     if (!this.rigged || !this.bones?.length) return;
 
     const moving = speed > 0.05;
-    const targetBlend = moving ? (running ? 1 : 0.56) : 0;
-    const smooth = dt > 0 ? 1 - Math.exp(-9 * dt) : 1;
-    this.motionBlend = THREE.MathUtils.lerp(this.motionBlend, targetBlend, smooth);
+    const motionTarget = moving ? 1 : 0;
+    const runTarget = moving && running ? 1 : 0;
+    const motionSmooth = dt > 0 ? 1 - Math.exp(-12 * dt) : 1;
+    const runSmooth = dt > 0 ? 1 - Math.exp(-9 * dt) : 1;
+
+    this.motionBlend = THREE.MathUtils.lerp(this.motionBlend, motionTarget, motionSmooth);
+    this.runBlend = THREE.MathUtils.lerp(this.runBlend, runTarget, runSmooth);
+    this.idleTime += Math.max(0, dt);
 
     if (moving && dt > 0) {
-      const cycle = running ? BRYAN_RUN_DURATION : 1.12;
+      // Classic survival-horror cadence: deliberate walk, compact fast run.
+      const walkCycle = 1.00;
+      const runCycle = Math.max(0.68, BRYAN_RUN_DURATION * 0.98);
+      const cycle = THREE.MathUtils.lerp(walkCycle, runCycle, this.runBlend);
       this.phase = (this.phase + dt / cycle) % 1;
     }
 
@@ -298,11 +308,32 @@ export class BryanModel {
     const frameFloat = this.phase * count;
     const index = Math.floor(frameFloat) % count;
     const next = (index + 1) % count;
-    const alpha = frameFloat - Math.floor(frameFloat);
+    const rawAlpha = frameFloat - Math.floor(frameFloat);
+    // Keep interpolation, but favor held key poses slightly instead of a
+    // perfectly modern/even blend.
+    const alpha = THREE.MathUtils.smoothstep(rawAlpha, 0.06, 0.94);
     const frameA = BRYAN_RUN_FRAMES[index];
     const frameB = BRYAN_RUN_FRAMES[next];
     const idleFrame = BRYAN_RUN_FRAMES[0];
-    const idleBlend = moving ? 0 : THREE.MathUtils.clamp(1 - this.motionBlend, 0, 1);
+
+    const walkAmount = {
+      head: 0.18,
+      torso: 0.28,
+      shoulder: 0.44,
+      arm: 0.62,
+      leg: 0.74,
+      root: 0.36,
+      other: 0.46,
+    };
+    const runAmount = {
+      head: 0.26,
+      torso: 0.46,
+      shoulder: 0.62,
+      arm: 0.86,
+      leg: 0.96,
+      root: 0.68,
+      other: 0.72,
+    };
 
     for (let i = 0; i < this.bones.length; i += 1) {
       const bind = this.bindQuaternions[i];
@@ -313,33 +344,70 @@ export class BryanModel {
         this._qa.fromArray(a).normalize();
         this._qb.fromArray(b).normalize();
         this._sample.slerpQuaternions(this._qa, this._qb, alpha);
-        this._final.slerpQuaternions(bind, this._sample, this.motionBlend);
+
+        let walk = walkAmount.other;
+        let run = runAmount.other;
+
+        if (i === 2 || i === 3) {
+          walk = walkAmount.head;
+          run = runAmount.head;
+        } else if ([14, 15, 16].includes(i)) {
+          walk = walkAmount.torso;
+          run = runAmount.torso;
+        } else if (i === 8 || i === 13) {
+          walk = walkAmount.shoulder;
+          run = runAmount.shoulder;
+        } else if ([5, 6, 7, 10, 11, 12].includes(i)) {
+          walk = walkAmount.arm;
+          run = runAmount.arm;
+        } else if ([18, 19, 20, 21, 23, 24, 25, 26].includes(i)) {
+          walk = walkAmount.leg;
+          run = runAmount.leg;
+        } else if (i === ROOT_BONE) {
+          walk = walkAmount.root;
+          run = runAmount.root;
+        }
+
+        const amount = THREE.MathUtils.lerp(walk, run, this.runBlend) * this.motionBlend;
+        this._final.slerpQuaternions(bind, this._sample, amount);
       } else {
         this._final.copy(bind);
       }
 
-      if (idleBlend > 0 && idleFrame.r[i]) {
-        let poseWeight = 0;
-        if (i === 7 || i === 12) poseWeight = 0.36;
-        else if (i === 6 || i === 11) poseWeight = 0.13;
-        else if (i === 8 || i === 13) poseWeight = 0.08;
+      if (!moving && idleFrame.r[i]) {
+        // Relax the arms/shoulders while standing without borrowing the full
+        // running pose, which was what made the previous attempt look rigid.
+        let idleWeight = 0;
+        if (i === 7 || i === 12) idleWeight = 0.42;
+        else if (i === 6 || i === 11) idleWeight = 0.20;
+        else if (i === 8 || i === 13) idleWeight = 0.14;
+        else if (i === 14 || i === 15) idleWeight = 0.05;
 
-        if (poseWeight > 0) {
+        if (idleWeight > 0) {
           this._idle.fromArray(idleFrame.r[i]).normalize();
-          this._final.slerp(this._idle, idleBlend * poseWeight);
+          this._final.slerp(this._idle, idleWeight);
         }
       }
 
-      this.bones[i].quaternion.copy(this._final);
+      this.bones[i].quaternion.slerp(
+        this._final,
+        dt > 0 ? 1 - Math.exp(-22 * dt) : 1,
+      );
     }
 
     const hipY = THREE.MathUtils.lerp(frameA.h[1], frameB.h[1], alpha);
     const hip = this.bones[ROOT_BONE];
-    hip.position.copy(this.bindHipPosition);
+    hip.position.x = this.bindHipPosition.x;
+    hip.position.z = this.bindHipPosition.z;
+
+    const hipAmount = THREE.MathUtils.lerp(0.42, 0.82, this.runBlend) * this.motionBlend;
+    let targetHipY = THREE.MathUtils.lerp(this.bindHipPosition.y, hipY, hipAmount);
+    if (!moving) targetHipY += Math.sin(this.idleTime * 1.6) * 0.0011;
+
     hip.position.y = THREE.MathUtils.lerp(
-      this.bindHipPosition.y,
-      hipY,
-      this.motionBlend * (running ? 1 : 0.55),
+      hip.position.y,
+      targetHipY,
+      dt > 0 ? 1 - Math.exp(-20 * dt) : 1,
     );
 
     this.rigRoot?.updateMatrixWorld(true);
