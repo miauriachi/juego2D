@@ -113,14 +113,16 @@ export class ForestSequence {
     if (!visual) return;
 
     const a = THREE.MathUtils.clamp(amount, 0, 1);
-    // The rig continues using its real animation underneath. This transform
-    // only supplies the short crouch/stand gesture for the blood inspection.
-    visual.position.set(0, -0.22 * a, 0);
-    visual.rotation.set(0.16 * a, 0, 0);
-    visual.scale.set(1, 1 - 0.14 * a, 1);
+    // Clear, readable RE-style inspect gesture: Bryan lowers his body toward
+    // the stain, leans forward, holds briefly, then returns to full height.
+    visual.position.set(0, -0.34 * a, -0.08 * a);
+    visual.rotation.set(0.30 * a, 0, 0);
+    visual.scale.set(1, 1 - 0.08 * a, 1);
   }
 
   beginRescue() {
+    this.level.backdrop?.disable();
+    this.level.woman.visible = true;
     this.state = 'rescue';
     this.setNarrativeState(STATE.HELPING_WOMAN);
     this.stopAmbient?.();
@@ -140,6 +142,7 @@ export class ForestSequence {
   updateCamera(position) {
     this.cameras.update({ position });
     this.cameras.applyToCamera(this.game.cameraRig);
+    this.level.backdrop?.update(this.cameras.activeZone?.id);
   }
 
   ensureBryanVisibleOutsideCar() {
