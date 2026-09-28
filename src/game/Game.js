@@ -563,7 +563,7 @@ export class Game {
   startLastDeliveryEnding() {
     this.lastDeliveryEnding = new LastDeliveryEnding(this.container, this.input, {
       skipDeparture: true,
-      stats: this.stats.finish(),
+      stats: this.stats.finish({ ending: 'LAST_DELIVERY' }),
     });
     this.mode = 'ending';
     this.player.group.visible = false;
