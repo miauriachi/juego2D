@@ -12,6 +12,23 @@ import {
 } from './BryanRigProfile.js';
 
 const ROOT_BONE = 27;
+const ARM_BONES = new Set([5, 6, 7, 8, 10, 11, 12, 13]);
+const SHOULDER_BONES = new Set([8, 13]);
+const TORSO_BONES = new Set([2, 3, 14, 15, 16]);
+const LEG_BONES = new Set([18, 19, 20, 21, 23, 24, 25, 26]);
+
+function averageRunQuaternion(index, fallback) {
+  const samples = BRYAN_RUN_FRAMES.map(frame => frame.r[index]).filter(Boolean);
+  if (!samples.length) return fallback.clone();
+
+  const result = new THREE.Quaternion().fromArray(samples[0]).normalize();
+  for (let i = 1; i < samples.length; i += 1) {
+    const sample = new THREE.Quaternion().fromArray(samples[i]).normalize();
+    if (result.dot(sample) < 0) sample.set(-sample.x, -sample.y, -sample.z, -sample.w);
+    result.slerp(sample, 1 / (i + 1));
+  }
+  return result.normalize();
+}
 
 function distanceToSegment(point, a, b) {
   const ab = new THREE.Vector3().subVectors(b, a);
@@ -34,11 +51,17 @@ export class BryanModel {
     this.rigged = false;
     this.phase = 0;
     this.motionBlend = 0;
+    this.runBlend = 0;
+    this.idleTime = 0;
     this._qa = new THREE.Quaternion();
     this._qb = new THREE.Quaternion();
     this._sample = new THREE.Quaternion();
     this._final = new THREE.Quaternion();
     this._idle = new THREE.Quaternion();
+    this._neutral = new THREE.Quaternion();
+    this._target = new THREE.Quaternion();
+    this._walk = new THREE.Quaternion();
+    this._run = new THREE.Quaternion();
 
     this.ready = new Promise(resolve => {
       const failed = error => {
@@ -57,13 +80,15 @@ export class BryanModel {
           this.loaded = true;
           this.rigged = true;
           player.model.visible = false;
-          this.setupDebug(container, 'RIG WALK/RUN');
+          this.setupDebug(container, 'RIG RE2-STYLE IDLE/WALK/RUN');
           this.update();
           console.info('Bryan rigged locomotion enabled', {
             source: 'user Mixamo rig profile',
             bones: this.bones.length,
+            idle: true,
             walk: true,
             run: true,
+            style: 'classic PS1 survival-horror',
             fallback: 'bryan_original.glb',
           });
           resolve(true);
@@ -130,7 +155,29 @@ export class BryanModel {
 
     this.bindQuaternions = BRYAN_BONES.map(definition =>
       new THREE.Quaternion().fromArray(definition.r).normalize());
+
+    // The source clip is a modern run, but its average pose is a much safer
+    // neutral than the GLB bind/T-pose. We use it as the center of all classic
+    // locomotion and only let the limbs travel a controlled distance around it.
+    this.runNeutralQuaternions = this.bindQuaternions.map((bind, index) =>
+      averageRunQuaternion(index, bind));
+
+    this.idleQuaternions = this.bindQuaternions.map((bind, index) => {
+      const neutral = this.runNeutralQuaternions[index];
+      let weight = 0;
+      if (SHOULDER_BONES.has(index)) weight = 0.72;
+      else if (index === 7 || index === 12) weight = 0.62;
+      else if (index === 6 || index === 11) weight = 0.38;
+      else if (index === 5 || index === 10) weight = 0.20;
+      else if (TORSO_BONES.has(index)) weight = 0.08;
+      return weight > 0
+        ? new THREE.Quaternion().slerpQuaternions(bind, neutral, weight).normalize()
+        : bind.clone();
+    });
+
     this.bindHipPosition = new THREE.Vector3().fromArray(BRYAN_BONES[ROOT_BONE].t);
+    this.runNeutralHipY = BRYAN_RUN_FRAMES.reduce((sum, frame) => sum + frame.h[1], 0) /
+      Math.max(1, BRYAN_RUN_FRAMES.length);
 
     // Build world-space bind locations before assigning skin influences.
     const bindRoot = new THREE.Group();
@@ -285,62 +332,103 @@ export class BryanModel {
     if (!this.rigged || !this.bones?.length) return;
 
     const moving = speed > 0.05;
-    const targetBlend = moving ? (running ? 1 : 0.56) : 0;
-    const smooth = dt > 0 ? 1 - Math.exp(-9 * dt) : 1;
-    this.motionBlend = THREE.MathUtils.lerp(this.motionBlend, targetBlend, smooth);
+    const motionTarget = moving ? 1 : 0;
+    const runTarget = moving && running ? 1 : 0;
+    const motionSmooth = dt > 0 ? 1 - Math.exp(-12 * dt) : 1;
+    const runSmooth = dt > 0 ? 1 - Math.exp(-10 * dt) : 1;
+    const poseSmooth = dt > 0 ? 1 - Math.exp(-19 * dt) : 1;
+
+    this.motionBlend = THREE.MathUtils.lerp(this.motionBlend, motionTarget, motionSmooth);
+    this.runBlend = THREE.MathUtils.lerp(this.runBlend, runTarget, runSmooth);
+    this.idleTime += Math.max(0, dt);
 
     if (moving && dt > 0) {
-      const cycle = running ? BRYAN_RUN_DURATION : 1.12;
+      // Distinct cadence: compact walk, quicker but still heavy run.
+      const walkCycle = 0.96;
+      const runCycle = Math.max(0.70, BRYAN_RUN_DURATION * 1.02);
+      const cycle = THREE.MathUtils.lerp(walkCycle, runCycle, this.runBlend);
       this.phase = (this.phase + dt / cycle) % 1;
     }
 
     const count = BRYAN_RUN_FRAMES.length;
-    const frameFloat = this.phase * count;
-    const index = Math.floor(frameFloat) % count;
-    const next = (index + 1) % count;
-    const alpha = frameFloat - Math.floor(frameFloat);
-    const frameA = BRYAN_RUN_FRAMES[index];
-    const frameB = BRYAN_RUN_FRAMES[next];
-    const idleFrame = BRYAN_RUN_FRAMES[0];
-    const idleBlend = moving ? 0 : THREE.MathUtils.clamp(1 - this.motionBlend, 0, 1);
+
+    // Slightly stepped target poses keep the old-console read without making
+    // the mesh literally stutter. The actual bones still interpolate smoothly.
+    const visualSteps = this.runBlend > 0.5 ? 12 : 10;
+    const steppedPhase = Math.floor(this.phase * visualSteps) / visualSteps;
+    const frameFloat = steppedPhase * count;
+    const frameIndex = Math.floor(frameFloat) % count;
+    const frameNext = (frameIndex + 1) % count;
+    const frameAlpha = frameFloat - Math.floor(frameFloat);
+    const frameA = BRYAN_RUN_FRAMES[frameIndex];
+    const frameB = BRYAN_RUN_FRAMES[frameNext];
+
+    // Walking gets a smaller, more rigid stride centered on the same authored
+    // cycle; running uses more of the source but keeps the upper body restrained.
+    const walkPhase = (this.phase + 0.02) % 1;
+    const walkFloat = walkPhase * count;
+    const walkIndex = Math.floor(walkFloat) % count;
+    const walkNext = (walkIndex + 1) % count;
+    const walkAlpha = walkFloat - Math.floor(walkFloat);
+    const walkA = BRYAN_RUN_FRAMES[walkIndex];
+    const walkB = BRYAN_RUN_FRAMES[walkNext];
 
     for (let i = 0; i < this.bones.length; i += 1) {
       const bind = this.bindQuaternions[i];
-      const a = frameA.r[i];
-      const b = frameB.r[i];
+      const idle = this.idleQuaternions[i] || bind;
+      const neutral = this.runNeutralQuaternions[i] || bind;
 
-      if (BRYAN_RUN_DYNAMIC_BONES.includes(i) && a && b) {
-        this._qa.fromArray(a).normalize();
-        this._qb.fromArray(b).normalize();
-        this._sample.slerpQuaternions(this._qa, this._qb, alpha);
-        this._final.slerpQuaternions(bind, this._sample, this.motionBlend);
-      } else {
-        this._final.copy(bind);
+      this._walk.copy(neutral);
+      if (BRYAN_RUN_DYNAMIC_BONES.includes(i) && walkA.r[i] && walkB.r[i]) {
+        this._qa.fromArray(walkA.r[i]).normalize();
+        this._qb.fromArray(walkB.r[i]).normalize();
+        this._sample.slerpQuaternions(this._qa, this._qb, walkAlpha);
+
+        let amplitude = 0.10;
+        if (LEG_BONES.has(i)) amplitude = 0.43;
+        else if (ARM_BONES.has(i)) amplitude = SHOULDER_BONES.has(i) ? 0.20 : 0.30;
+        else if (TORSO_BONES.has(i)) amplitude = 0.075;
+        else if (i === ROOT_BONE) amplitude = 0.04;
+
+        this._walk.slerp(this._sample, amplitude);
       }
 
-      if (idleBlend > 0 && idleFrame.r[i]) {
-        let poseWeight = 0;
-        if (i === 7 || i === 12) poseWeight = 0.36;
-        else if (i === 6 || i === 11) poseWeight = 0.13;
-        else if (i === 8 || i === 13) poseWeight = 0.08;
+      this._run.copy(neutral);
+      if (BRYAN_RUN_DYNAMIC_BONES.includes(i) && frameA.r[i] && frameB.r[i]) {
+        this._qa.fromArray(frameA.r[i]).normalize();
+        this._qb.fromArray(frameB.r[i]).normalize();
+        this._sample.slerpQuaternions(this._qa, this._qb, frameAlpha);
 
-        if (poseWeight > 0) {
-          this._idle.fromArray(idleFrame.r[i]).normalize();
-          this._final.slerp(this._idle, idleBlend * poseWeight);
-        }
+        let amplitude = 0.22;
+        if (LEG_BONES.has(i)) amplitude = 0.78;
+        else if (ARM_BONES.has(i)) amplitude = SHOULDER_BONES.has(i) ? 0.40 : 0.56;
+        else if (TORSO_BONES.has(i)) amplitude = 0.16;
+        else if (i === ROOT_BONE) amplitude = 0.12;
+
+        this._run.slerp(this._sample, amplitude);
       }
 
-      this.bones[i].quaternion.copy(this._final);
+      this._target.copy(this._walk).slerp(this._run, this.runBlend);
+      this._target.copy(idle).slerp(this._target, this.motionBlend);
+      this.bones[i].quaternion.slerp(this._target, poseSmooth);
     }
 
-    const hipY = THREE.MathUtils.lerp(frameA.h[1], frameB.h[1], alpha);
-    const hip = this.bones[ROOT_BONE];
-    hip.position.copy(this.bindHipPosition);
-    hip.position.y = THREE.MathUtils.lerp(
+    const hipSample = THREE.MathUtils.lerp(frameA.h[1], frameB.h[1], frameAlpha);
+    const walkHip = this.runNeutralHipY + (hipSample - this.runNeutralHipY) * 0.16;
+    const runHip = this.runNeutralHipY + (hipSample - this.runNeutralHipY) * 0.34;
+    const locomotionHip = THREE.MathUtils.lerp(walkHip, runHip, this.runBlend);
+
+    let targetHipY = THREE.MathUtils.lerp(
       this.bindHipPosition.y,
-      hipY,
-      this.motionBlend * (running ? 1 : 0.55),
+      locomotionHip,
+      this.motionBlend,
     );
+    if (!moving) targetHipY += Math.sin(this.idleTime * 1.55) * 0.0012;
+
+    const hip = this.bones[ROOT_BONE];
+    hip.position.x = this.bindHipPosition.x;
+    hip.position.z = this.bindHipPosition.z;
+    hip.position.y = THREE.MathUtils.lerp(hip.position.y, targetHipY, poseSmooth);
 
     this.rigRoot?.updateMatrixWorld(true);
   }
