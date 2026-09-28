@@ -10,7 +10,11 @@ export class BloodTrail extends THREE.Group {
       dummy.rotation.set(-Math.PI / 2, 0, marks.length * 1.7); dummy.scale.set(size, size * 0.57, 1);
       dummy.updateMatrix(); marks.push(dummy.matrix.clone());
     };
-    add(points[0], 0.6, 0);
+    // Large impact smear begins behind the stopped car, then breaks into a
+    // thinner drag trail toward the forest.
+    add(points[0], 0.82, 0);
+    add(points[0].clone().add(new THREE.Vector3(0.42, 0, 0.18)), 0.46, 0.06);
+    add(points[0].clone().add(new THREE.Vector3(-0.28, 0, -0.22)), 0.34, -0.04);
     for (let i = 1; i < points.length; i++) {
       const a = points[i - 1], b = points[i], steps = Math.ceil(a.distanceTo(b) / 0.9);
       for (let j = 1; j <= steps; j++) {
