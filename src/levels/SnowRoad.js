@@ -3,6 +3,7 @@ import { Vehicle } from '../game/Vehicle.js';
 import { Snowfall } from '../environment/Snowfall.js';
 import { buildSnowForest } from '../environment/SnowForest.js';
 import { ForestStreaming } from '../environment/ForestStreaming.js';
+import { VehicleSnowEffects } from '../environment/VehicleSnowEffects.js';
 import { VehicleCamera } from '../game/VehicleCamera.js';
 
 // Snow forest route; cinematic variant keeps the alternative ending independent.
@@ -13,7 +14,7 @@ export class SnowRoad {
     this.scene.fog = new THREE.Fog(0x0b141a, 6, 34);
     this.vehicleCamera = new VehicleCamera(settings); this.camera = this.vehicleCamera.camera;
     this.vehicle = new Vehicle(); this.scene.add(this.vehicle.group);
-    this.completed = false; this.driveEnabled = true; this.restartVersion = 0;
+    this.completed = false; this.driveEnabled = true; this.restartVersion = 0; this.stormTime = 0; this.stormGust = 0;
     this.build(); this.updateCamera();
   }
 
@@ -56,6 +57,33 @@ export class SnowRoad {
       count++;
     }
     this.scene.add(posts, caps, banks);
+
+    // Irregular roadside snow banks make the corridor feel half-buried instead
+    // of bordered by two clean geometric strips.
+    const driftGeometry = new THREE.IcosahedronGeometry(1, 1);
+    const driftMaterial = new THREE.MeshLambertMaterial({ color: 0x7f919d, fog: true });
+    const driftCount = (Math.floor((this.length + 24) / 8) + 2) * 2;
+    const drifts = new THREE.InstancedMesh(driftGeometry, driftMaterial, driftCount);
+    let driftIndex = 0;
+    for (let s = -10, slot = 0; s <= this.length + 12; s += 8, slot++) {
+      for (const side of [-1, 1]) {
+        const a = ((slot * 0.61803398875 + (side > 0 ? 0.21 : 0.67)) % 1);
+        const b = ((slot * 0.41421356237 + (side > 0 ? 0.43 : 0.13)) % 1);
+        const x = this.centerX(s) + side * (5.85 + a * 1.15);
+        const z = -s + (b - 0.5) * 2.8;
+        const q = new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0, 1, 0), b * Math.PI);
+        matrix.compose(
+          new THREE.Vector3(x, 0.06 + b * 0.08, z),
+          q,
+          new THREE.Vector3(1.25 + a * 1.35, 0.32 + b * 0.28, 1.9 + a * 1.8),
+        );
+        drifts.setMatrixAt(driftIndex++, matrix);
+      }
+    }
+    drifts.instanceMatrix.needsUpdate = true;
+    drifts.name = 'roadside-snow-drifts';
+    this.scene.add(drifts);
+
     const proceduralForest = buildSnowForest(this.scene, this);
     this.forest = new ForestStreaming(this.scene, this, proceduralForest);
     this.scene.add(new THREE.HemisphereLight(0xabc9eb, 0x1a2639, this.cinematic ? 0.65 : 0.16));
@@ -87,10 +115,31 @@ export class SnowRoad {
       streak: true,
       renderOrder: 18,
     });
+
+    // Low drifting snow stays close to the vehicle and hides the exact road
+    // edges during strong gusts, which makes the driving feel more hostile.
+    this.groundSnow = new Snowfall(this.scene, 1450, 16, {
+      size: 0.17,
+      opacity: 0.46,
+      height: 2.6,
+      windX: 8.2,
+      windZ: 3.6,
+      fallSpeed: 0.65,
+      windVariance: 0.95,
+      color: 0xe8f0f5,
+      streak: true,
+      renderOrder: 20,
+    });
+
+    this.vehicleSnow = new VehicleSnowEffects(this.scene, this.vehicle);
   }
 
   update(dt, input) {
     if (input.isJustPressed('KeyR')) this.reset();
+    this.stormTime += Math.max(0, dt);
+    const gustA = 0.5 + 0.5 * Math.sin(this.stormTime * 0.36);
+    const gustB = 0.5 + 0.5 * Math.sin(this.stormTime * 0.91 + 1.7);
+    this.stormGust = THREE.MathUtils.clamp(gustA * 0.62 + gustB * 0.38, 0, 1);
     if (!this.completed && this.driveEnabled) {
       this.vehicle.update(input, dt, this);
       if (-this.vehicle.position.z >= this.length) {
@@ -98,14 +147,31 @@ export class SnowRoad {
         this.vehicle.velocity.set(0, 0, 0); this.vehicle.speed = 0; this.completed = true;
       }
     }
+    // Gusts vary visually but never change the vehicle physics.
+    this.snowfall.windX = 4.2 + this.stormGust * 2.6;
+    this.snowfall.points.material.opacity = 0.72 + this.stormGust * 0.20;
+    this.snowfront.windX = 5.8 + this.stormGust * 4.5;
+    this.snowfront.windZ = 2.2 + this.stormGust * 1.7;
+    this.snowfront.points.material.opacity = 0.44 + this.stormGust * 0.34;
+    this.groundSnow.windX = 7.0 + this.stormGust * 6.5;
+    this.groundSnow.windZ = 3.0 + this.stormGust * 2.6;
+    this.groundSnow.points.material.opacity = 0.34 + this.stormGust * 0.38;
+
+    this.scene.fog.far = THREE.MathUtils.lerp(34, 24, this.stormGust * 0.82);
+    this.headlights.distance = THREE.MathUtils.lerp(42, 35, this.stormGust * 0.72);
+    this.headlights.intensity = THREE.MathUtils.lerp(245, 265, this.stormGust * 0.55);
+
     this.snowfall.update(dt, this.vehicle.position);
     this.snowfront?.update(dt, this.vehicle.position);
+    this.groundSnow?.update(dt, this.vehicle.position);
+    this.vehicleSnow?.update(dt, this.stormGust);
     this.forest?.update(dt, this.vehicle);
     this.updateCamera(dt);
   }
 
   reset() {
     this.vehicle.reset(); this.completed = false; this.driveEnabled = true; this.restartVersion++;
+    this.stormTime = 0; this.stormGust = 0;
     this.vehicleCamera.initialized = false; this.vehicleCamera.shake = 0;
   }
 
