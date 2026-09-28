@@ -29,7 +29,7 @@ export class ForestAftermath {
     this.exitPosition = this.car.localToWorld(new THREE.Vector3(-2.35, 0, 0.35));
     this.exitPosition.y = 0;
 
-    const expandedCar = carBox.clone().expandByScalar(0.48);
+    const expandedCar = carBox.clone().expandByScalar(0.85);
     if (expandedCar.containsPoint(this.exitPosition)) {
       const carWorld = this.car.getWorldPosition(new THREE.Vector3());
       const push = this.exitPosition.clone().sub(carWorld);
