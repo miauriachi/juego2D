@@ -9,8 +9,8 @@ import { VehicleCamera } from '../game/VehicleCamera.js';
 export class SnowRoad {
   constructor({ cinematic = false, settings = {}, length = 760 } = {}) {
     this.cinematic = cinematic; this.length = cinematic ? 180 : length; this.halfWidth = 4.7; this.bankWidth = 6.6;
-    this.scene = new THREE.Scene(); this.scene.background = new THREE.Color(0x060c14);
-    this.scene.fog = new THREE.Fog(0x08111b, 10, 48);
+    this.scene = new THREE.Scene(); this.scene.background = new THREE.Color(0x050b12);
+    this.scene.fog = new THREE.Fog(0x071018, 8, 42);
     this.vehicleCamera = new VehicleCamera(settings); this.camera = this.vehicleCamera.camera;
     this.vehicle = new Vehicle(); this.scene.add(this.vehicle.group);
     this.completed = false; this.driveEnabled = true; this.restartVersion = 0;
@@ -38,7 +38,7 @@ export class SnowRoad {
     road.setAttribute('color', new THREE.Float32BufferAttribute(colors, 3));
     road.setIndex(indices); road.computeVertexNormals();
     this.scene.add(new THREE.Mesh(road, new THREE.MeshLambertMaterial({ vertexColors: true, side: THREE.DoubleSide })));
-    const snow = new THREE.MeshLambertMaterial({ color: 0x8497a6 });
+    const snow = new THREE.MeshLambertMaterial({ color: 0x748795 });
     const ground = new THREE.Mesh(new THREE.PlaneGeometry(100, this.length + 80), snow);
     ground.rotation.x = -Math.PI / 2; ground.position.z = -this.length / 2; this.scene.add(ground);
     const cube = new THREE.BoxGeometry(1, 1, 1), matrix = new THREE.Matrix4();
