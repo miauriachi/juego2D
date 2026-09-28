@@ -70,7 +70,7 @@ export class WomanRescueSequence {
       this.level.hinge.rotation.y = -Math.sin(THREE.MathUtils.smoothstep(t, 0.7, 1) * Math.PI);
       this.setCamera(this.level.car.localToWorld(new THREE.Vector3(-5, 3, 5)), this.level.car.position.clone().setY(0.8));
     }
-    this.game.bryanVisual.update(); this.level.snowfall.update(dt, p.position);
+    this.game.bryanVisual.update(dt); this.level.updateStorm?.(dt, p.position);
     if (this.time >= duration) {
       this.time = 0; this.shot++;
       if (this.shot === this.durations.length) {
