@@ -1,7 +1,7 @@
 import * as THREE from 'three';
 import { ForestLayout } from './ForestLayout.js';
 import { BloodTrail } from '../environment/BloodTrail.js';
-import { DEBUG_MODE } from '../config/constants.js';
+import { DEBUG_MODE, PLAYER_RADIUS } from '../config/constants.js';
 
 // Post-impact chapter now stays inside the SAME snowy-road scene. The car,
 // distant forest, headlights, storm and roadside dressing therefore never pop
@@ -15,33 +15,16 @@ export class ForestAftermath {
     this.car = road.vehicle.group;
     this.car.updateMatrixWorld(true);
 
-    const carBox = new THREE.Box3().setFromObject(this.car);
-    collision.addCollider({
-      minX: carBox.min.x,
-      maxX: carBox.max.x,
-      minZ: carBox.min.z,
-      maxZ: carBox.max.z,
-    });
+    // The car is rotated after impact, so an axis-aligned world collider creates
+    // a huge invisible rectangle around it. Keep collision in CAR LOCAL SPACE
+    // instead; this also lets Bryan spawn right beside the driver's door.
+    this.carCollisionHalfWidth = 0.91 + PLAYER_RADIUS;
+    this.carCollisionHalfLength = 2.08 + PLAYER_RADIUS;
 
-    // Driver-side exit stays beside the stopped car in the original scene.
-    // Use the car's LOCAL left side, then push the point clear of the car AABB.
-    // The previous world-X clamp could place Bryan inside/behind a rotated car.
-    this.exitPosition = this.car.localToWorld(new THREE.Vector3(-2.35, 0, 0.35));
+    // Car body is ~1.8 m wide. Bryan's center sits just outside the left side,
+    // leaving only a small visual gap instead of throwing him meters away.
+    this.exitPosition = this.car.localToWorld(new THREE.Vector3(-1.62, 0, -0.62));
     this.exitPosition.y = 0;
-
-    const expandedCar = carBox.clone().expandByScalar(0.85);
-    if (expandedCar.containsPoint(this.exitPosition)) {
-      const carWorld = this.car.getWorldPosition(new THREE.Vector3());
-      const push = this.exitPosition.clone().sub(carWorld);
-      push.y = 0;
-      if (push.lengthSq() < 0.001) {
-        push.set(-1, 0, 0).applyQuaternion(this.car.getWorldQuaternion(new THREE.Quaternion()));
-      }
-      push.normalize();
-      for (let i = 0; i < 8 && expandedCar.containsPoint(this.exitPosition); i += 1) {
-        this.exitPosition.addScaledVector(push, 0.35);
-      }
-    }
 
     // Blood begins BEHIND the car, then bends into the woods.
     this.origin = this.car.localToWorld(new THREE.Vector3(0.55, 0, 3.25));
@@ -163,6 +146,30 @@ export class ForestAftermath {
     this.snowfall = road.snowfall;
     this.snowfront = road.snowfront;
     this.groundSnow = road.groundSnow;
+  }
+
+  resolveCarCollision(player) {
+    const position = player?.position ?? player?.group?.position;
+    if (!position) return;
+
+    const local = this.car.worldToLocal(position.clone());
+    const halfW = this.carCollisionHalfWidth;
+    const halfL = this.carCollisionHalfLength;
+
+    if (Math.abs(local.x) >= halfW || Math.abs(local.z) >= halfL) return;
+
+    const pushX = halfW - Math.abs(local.x);
+    const pushZ = halfL - Math.abs(local.z);
+
+    if (pushX < pushZ) {
+      local.x = (local.x < 0 ? -1 : 1) * (halfW + 0.015);
+    } else {
+      local.z = (local.z < 0 ? -1 : 1) * (halfL + 0.015);
+    }
+
+    const world = this.car.localToWorld(local);
+    position.x = world.x;
+    position.z = world.z;
   }
 
   updateStorm(dt, center) {
