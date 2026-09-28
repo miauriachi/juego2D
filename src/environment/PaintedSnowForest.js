@@ -3,7 +3,7 @@ import { FOREST_SIDE_ATLAS } from './ForestArtData.js';
 
 const VARIANT_COUNT = 4;
 
-function createForestMaterial(loader, variant, onLoaded, onError) {
+function createForestMaterial(loader, variant, opacity, onLoaded, onError) {
   const texture = loader.load(FOREST_SIDE_ATLAS, onLoaded, undefined, onError);
   texture.colorSpace = THREE.SRGBColorSpace;
   texture.wrapS = THREE.ClampToEdgeWrapping;
@@ -16,6 +16,10 @@ function createForestMaterial(loader, variant, onLoaded, onError) {
   return new THREE.MeshBasicMaterial({
     map: texture,
     side: THREE.DoubleSide,
+    transparent: true,
+    opacity,
+    alphaTest: 0.018,
+    depthWrite: false,
     fog: true,
     toneMapped: false,
   });
@@ -28,142 +32,67 @@ function hideProceduralForest(fallbackForest) {
   }
 }
 
-function sidePoint(road, s, side, offset) {
+function sideFrame(road, s) {
   const tangent = new THREE.Vector3(road.tangentX(s), 0, -1).normalize();
   const normal = new THREE.Vector3(-tangent.z, 0, tangent.x).normalize();
-  return new THREE.Vector3(
-    road.centerX(s) + normal.x * offset * side,
-    0,
-    -s + normal.z * offset * side,
-  );
+  return { tangent, normal };
 }
 
-function buildCurtain(road, materials, {
-  name,
-  side,
-  offset,
-  height,
-  segmentLength,
-  phase = 0,
-  bottom = -0.35,
-  variantOffset = 0,
-}) {
-  const positions = [];
-  const uvs = [];
-  const indices = [];
-  const geometry = new THREE.BufferGeometry();
-  let segmentIndex = 0;
+function addClusterLayer(group, road, materials, options) {
+  const {
+    name,
+    side,
+    offsetMin,
+    offsetMax,
+    widthMin,
+    widthMax,
+    spacingMin,
+    spacingMax,
+    phase,
+    yInset,
+    yawJitter,
+    renderOrder,
+    seed: initialSeed,
+  } = options;
 
-  for (let s0 = -42 + phase; s0 < road.length + 92; s0 += segmentLength, segmentIndex++) {
-    const s1 = Math.min(road.length + 92, s0 + segmentLength);
-    const p0 = sidePoint(road, s0, side, offset);
-    const p1 = sidePoint(road, s1, side, offset);
-    const base = positions.length / 3;
-
-    positions.push(
-      p0.x, bottom, p0.z,
-      p1.x, bottom, p1.z,
-      p0.x, height, p0.z,
-      p1.x, height, p1.z,
-    );
-
-    const mirrored = (segmentIndex + (side < 0 ? 1 : 0) + variantOffset) % 2 === 1;
-    if (mirrored) uvs.push(1, 0, 0, 0, 1, 1, 0, 1);
-    else uvs.push(0, 0, 1, 0, 0, 1, 1, 1);
-
-    indices.push(base, base + 1, base + 2, base + 2, base + 1, base + 3);
-    geometry.addGroup(indices.length - 6, 6,
-      (segmentIndex + variantOffset + (side < 0 ? 2 : 0)) % materials.length);
-  }
-
-  geometry.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3));
-  geometry.setAttribute('uv', new THREE.Float32BufferAttribute(uvs, 2));
-  geometry.setIndex(indices);
-  geometry.computeBoundingSphere();
-
-  const mesh = new THREE.Mesh(geometry, materials);
-  mesh.name = name;
-  mesh.frustumCulled = true;
-  mesh.renderOrder = offset > 20 ? -3 : -2;
-  return mesh;
-}
-
-function buildForegroundSilhouettes(road) {
-  let seed = 197709;
+  let seed = initialSeed;
   const random = () => {
     seed = (Math.imul(seed, 1664525) + 1013904223) >>> 0;
     return seed / 4294967296;
   };
 
-  const group = new THREE.Group();
-  group.name = 'painted-forest-foreground';
-  const trunkGeometry = new THREE.CylinderGeometry(0.15, 0.26, 1, 6);
-  const branchGeometry = new THREE.CylinderGeometry(0.035, 0.075, 1, 5);
-  const material = new THREE.MeshLambertMaterial({ color: 0x16232b, fog: true });
-
-  const placements = [];
-  for (let s = -8; s <= road.length + 20;) {
-    s += 11 + random() * 10;
-    for (const side of [-1, 1]) {
-      if (random() < 0.25) continue;
-      placements.push({
-        s: s + (random() - 0.5) * 5,
-        side,
-        offset: 8.4 + random() * 3.1,
-        height: 7.5 + random() * 7.5,
-        radius: 0.65 + random() * 1.05,
-        lean: (random() - 0.5) * 0.16,
-      });
-    }
-  }
-
-  const trunks = new THREE.InstancedMesh(trunkGeometry, material, placements.length);
-  const branches = new THREE.InstancedMesh(branchGeometry, material, placements.length * 2);
-  const matrix = new THREE.Matrix4();
-  const quaternion = new THREE.Quaternion();
-  const euler = new THREE.Euler();
-  let branchIndex = 0;
-
-  placements.forEach((item, index) => {
-    const p = sidePoint(road, item.s, item.side, item.offset);
-    euler.set(item.lean, 0, item.lean * 0.55);
-    quaternion.setFromEuler(euler);
-    matrix.compose(
-      new THREE.Vector3(p.x, item.height * 0.5 - 0.05, p.z),
-      quaternion,
-      new THREE.Vector3(item.radius, item.height, item.radius),
+  let s = -38 + phase;
+  let index = 0;
+  while (s < road.length + 80) {
+    s += spacingMin + random() * (spacingMax - spacingMin);
+    const sampleS = s + (random() - 0.5) * 5.5;
+    const { tangent, normal } = sideFrame(road, sampleS);
+    const offset = offsetMin + random() * (offsetMax - offsetMin);
+    const width = widthMin + random() * (widthMax - widthMin);
+    const height = width * 0.50;
+    const p = new THREE.Vector3(
+      road.centerX(sampleS) + normal.x * offset * side,
+      height * 0.5 - yInset,
+      -sampleS + normal.z * offset * side,
     );
-    trunks.setMatrixAt(index, matrix);
 
-    for (let j = 0; j < 2; j++) {
-      const branchHeight = item.height * (0.48 + j * 0.19);
-      const length = item.height * (0.22 + random() * 0.08);
-      const outward = item.side * (j ? -1 : 1);
-      euler.set(0.12 * (j ? -1 : 1), random() * Math.PI, outward * (0.78 + random() * 0.28));
-      quaternion.setFromEuler(euler);
-      matrix.compose(
-        new THREE.Vector3(
-          p.x + outward * item.radius * 0.35,
-          branchHeight,
-          p.z + (random() - 0.5) * 0.7,
-        ),
-        quaternion,
-        new THREE.Vector3(0.75, length, 0.75),
-      );
-      branches.setMatrixAt(branchIndex++, matrix);
-    }
-  });
-
-  trunks.name = 'painted-forest-near-trunks';
-  branches.name = 'painted-forest-near-branches';
-  trunks.castShadow = false;
-  branches.castShadow = false;
-  group.add(trunks, branches);
-  return group;
+    const geometry = new THREE.PlaneGeometry(width, height, 1, 1);
+    const variant = (index + (side < 0 ? 2 : 0) + Math.floor(random() * VARIANT_COUNT)) % VARIANT_COUNT;
+    const panel = new THREE.Mesh(geometry, materials[variant]);
+    panel.name = `${name}-${side < 0 ? 'left' : 'right'}-${index}`;
+    panel.position.copy(p);
+    panel.rotation.y = Math.atan2(-tangent.z, tangent.x) + (random() - 0.5) * yawJitter;
+    panel.renderOrder = renderOrder;
+    panel.frustumCulled = true;
+    if (random() > 0.5) panel.scale.x = -1;
+    group.add(panel);
+    index += 1;
+  }
 }
 
-// Painted roadside forest art pass. This only changes the presentation layer:
-// road geometry, vehicle physics, collision, camera logic and narrative timing stay untouched.
+// 2.5D painted roadside forest. Instead of continuous opaque walls, this uses
+// overlapping soft-edged art clusters at different depths. Road geometry,
+// vehicle physics, camera logic, collisions and narrative remain untouched.
 export function buildPaintedSnowForest(scene, road, fallbackForest = null) {
   const group = new THREE.Group();
   group.name = 'painted-snow-forest';
@@ -171,45 +100,61 @@ export function buildPaintedSnowForest(scene, road, fallbackForest = null) {
   const loader = new THREE.TextureLoader();
   let loaded = 0;
   let failed = false;
+  const expectedLoads = VARIANT_COUNT * 3;
   const onLoaded = () => {
     loaded += 1;
-    if (!failed && loaded === VARIANT_COUNT) hideProceduralForest(fallbackForest);
+    if (!failed && loaded === expectedLoads) hideProceduralForest(fallbackForest);
   };
   const onError = () => {
     failed = true;
     group.visible = false;
   };
-  const materials = Array.from({ length: VARIANT_COUNT }, (_, variant) =>
-    createForestMaterial(loader, variant, onLoaded, onError));
 
-  // Far curtain: tall enough that its top edge never enters the chase-camera frame.
+  const farMaterials = Array.from({ length: VARIANT_COUNT }, (_, variant) =>
+    createForestMaterial(loader, variant, 0.48, onLoaded, onError));
+  const midMaterials = Array.from({ length: VARIANT_COUNT }, (_, variant) =>
+    createForestMaterial(loader, variant, 0.74, onLoaded, onError));
+  const nearMaterials = Array.from({ length: VARIANT_COUNT }, (_, variant) =>
+    createForestMaterial(loader, variant, 0.96, onLoaded, onError));
+
   for (const side of [-1, 1]) {
-    group.add(buildCurtain(road, materials, {
-      name: `painted-forest-far-${side < 0 ? 'left' : 'right'}`,
-      side,
-      offset: 24.5,
-      height: 24,
-      segmentLength: 30,
-      phase: 0,
-      variantOffset: 1,
-    }));
+    addClusterLayer(group, road, farMaterials, {
+      name: 'forest-far', side,
+      offsetMin: 23, offsetMax: 31,
+      widthMin: 31, widthMax: 40,
+      spacingMin: 18, spacingMax: 24,
+      phase: side < 0 ? -4 : 7,
+      yInset: 0.55,
+      yawJitter: 0.14,
+      renderOrder: -5,
+      seed: side < 0 ? 9173 : 11939,
+    });
+
+    addClusterLayer(group, road, midMaterials, {
+      name: 'forest-mid', side,
+      offsetMin: 16, offsetMax: 22,
+      widthMin: 25, widthMax: 33,
+      spacingMin: 14, spacingMax: 19,
+      phase: side < 0 ? 5 : -7,
+      yInset: 0.42,
+      yawJitter: 0.18,
+      renderOrder: -4,
+      seed: side < 0 ? 27811 : 31517,
+    });
+
+    addClusterLayer(group, road, nearMaterials, {
+      name: 'forest-near', side,
+      offsetMin: 11.4, offsetMax: 15.8,
+      widthMin: 19, widthMax: 27,
+      spacingMin: 11, spacingMax: 16,
+      phase: side < 0 ? -2 : 4,
+      yInset: 0.30,
+      yawJitter: 0.22,
+      renderOrder: -3,
+      seed: side < 0 ? 44357 : 49991,
+    });
   }
 
-  // Mid curtain: closer, slightly shorter and phase-shifted so the two layers never
-  // expose the same vertical join at the same place.
-  for (const side of [-1, 1]) {
-    group.add(buildCurtain(road, materials, {
-      name: `painted-forest-mid-${side < 0 ? 'left' : 'right'}`,
-      side,
-      offset: 16.2,
-      height: 18.5,
-      segmentLength: 24,
-      phase: -9,
-      variantOffset: 3,
-    }));
-  }
-
-  group.add(buildForegroundSilhouettes(road));
   scene.add(group);
   return group;
 }
