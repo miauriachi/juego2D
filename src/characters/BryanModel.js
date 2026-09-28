@@ -62,6 +62,8 @@ export class BryanModel {
     this._idle = new THREE.Quaternion();
     this._neutral = new THREE.Quaternion();
     this._target = new THREE.Quaternion();
+    this._walk = new THREE.Quaternion();
+    this._run = new THREE.Quaternion();
 
     this.ready = new Promise(resolve => {
       const failed = error => {
