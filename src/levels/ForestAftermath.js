@@ -3,6 +3,64 @@ import { ForestLayout } from './ForestLayout.js';
 import { BloodTrail } from '../environment/BloodTrail.js';
 import { DEBUG_MODE, PLAYER_RADIUS } from '../config/constants.js';
 
+function buildForegroundFrame(scene, cameraPosition, lookAt, name, flip = 1) {
+  const group = new THREE.Group();
+  group.name = name;
+
+  const forward = lookAt.clone().sub(cameraPosition).normalize();
+  const right = new THREE.Vector3().crossVectors(forward, new THREE.Vector3(0, 1, 0)).normalize();
+
+  const bark = new THREE.MeshLambertMaterial({ color: 0x071014, fog: true });
+  const barkNear = new THREE.MeshBasicMaterial({ color: 0x030709, fog: false });
+  const snow = new THREE.MeshLambertMaterial({ color: 0x8ea0aa, fog: true });
+
+  const trunkGeometry = new THREE.CylinderGeometry(0.34, 0.52, 1, 6);
+  const branchGeometry = new THREE.CylinderGeometry(0.045, 0.095, 1, 5);
+
+  const addTrunk = (side, distance, height, radius, lean) => {
+    const base = cameraPosition.clone()
+      .addScaledVector(forward, distance)
+      .addScaledVector(right, side);
+
+    const trunk = new THREE.Mesh(trunkGeometry, distance < 2.8 ? barkNear : bark);
+    trunk.position.set(base.x, height * 0.5 - 0.15, base.z);
+    trunk.scale.set(radius, height, radius);
+    trunk.rotation.z = lean;
+    trunk.renderOrder = 30;
+    group.add(trunk);
+
+    for (let i = 0; i < 3; i += 1) {
+      const branch = new THREE.Mesh(branchGeometry, barkNear);
+      branch.position.set(
+        base.x + (i % 2 ? -0.15 : 0.15),
+        height * (0.44 + i * 0.16),
+        base.z + (i - 1) * 0.12,
+      );
+      branch.scale.set(1, 2.5 + i * 0.7, 1);
+      branch.rotation.set((i - 1) * 0.13, Math.atan2(forward.x, forward.z), flip * (i % 2 ? 1.08 : -1.02));
+      branch.renderOrder = 31;
+      group.add(branch);
+
+      if (i === 1) {
+        const snowCap = new THREE.Mesh(branchGeometry, snow);
+        snowCap.position.copy(branch.position).add(new THREE.Vector3(0, 0.07, 0));
+        snowCap.scale.set(1.22, branch.scale.y * 0.92, 1.22);
+        snowCap.rotation.copy(branch.rotation);
+        snowCap.renderOrder = 29;
+        group.add(snowCap);
+      }
+    }
+  };
+
+  // Intentionally asymmetric: classic fixed-camera compositions use foreground
+  // silhouettes to frame the playable area rather than centering everything.
+  addTrunk(3.15 * flip, 2.35, 12.5, 1.0, -0.055 * flip);
+  addTrunk(-4.05 * flip, 3.15, 10.5, 0.78, 0.07 * flip);
+
+  scene.add(group);
+  return group;
+}
+
 // Post-impact chapter now stays inside the SAME snowy-road scene. The car,
 // distant forest, headlights, storm and roadside dressing therefore never pop
 // away when Bryan opens the door.
@@ -95,42 +153,83 @@ export class ForestAftermath {
       maxZ: this.origin.z + 16,
     };
 
-    // A tiny cold fill keeps Bryan readable near the car without flattening
-    // the forest darkness. Road headlights remain the dominant light source.
-    this.localFill = new THREE.PointLight(0x9dbed4, 2.2, 10, 2);
-    this.localFill.position.copy(this.exitPosition).add(new THREE.Vector3(0, 2.8, 0));
-    this.scene.add(this.localFill);
+    // Character separation: Bryan gets a restrained cold edge light while the
+    // headlights remain the dominant source. This prevents him from becoming a
+    // black cutout without flattening the night scene.
+    this.localFill = new THREE.PointLight(0x9dbed4, 3.6, 8.5, 2);
+    this.localFill.position.copy(this.exitPosition).add(new THREE.Vector3(0, 2.35, 0));
+
+    this.rearRim = new THREE.PointLight(0xc7d9e4, 2.7, 7.5, 2);
+    this.rearRim.position.copy(this.origin).add(new THREE.Vector3(0, 1.65, 0));
+
+    this.scene.add(this.localFill, this.rearRim);
 
     cameras.scene = this.scene;
 
-    const crashCamera = this.car.localToWorld(new THREE.Vector3(-5.4, 3.0, 4.4));
-    const crashLook = this.car.position.clone().lerp(this.origin, 0.42).setY(0.8);
+    // Lower, tighter fixed cameras: the car/Bryan occupy more of the frame and
+    // the forest becomes negative space around them instead of an empty wide shot.
+    const crashCamera = this.car.localToWorld(new THREE.Vector3(-4.05, 2.25, 3.35));
+    const crashLook = this.exitPosition.clone().lerp(this.origin, 0.48).setY(0.92);
     cameras.addZone({
       id: 'CAM_CRASH_EXIT',
       name: 'CAM_CRASH_EXIT',
       cameraPosition: crashCamera.toArray(),
       lookAt: crashLook.toArray(),
       minX: this.origin.x - 10,
-      maxX: this.origin.x + 7.5,
-      minZ: this.origin.z - 14,
-      maxZ: this.origin.z + 14,
+      maxX: this.origin.x + 6.5,
+      minZ: this.origin.z - 13,
+      maxZ: this.origin.z + 13,
       priority: 10,
+      fov: 52,
       color: 0xa4c7df,
     });
 
-    const bodyCamera = this.bodyPosition.clone().add(new THREE.Vector3(-4.2, 3.4, 4.5));
+    const bloodCamera = this.car.localToWorld(new THREE.Vector3(-2.65, 1.72, 5.10));
+    const bloodLook = this.origin.clone().setY(0.34);
+    cameras.addZone({
+      id: 'CAM_BLOOD_TRAIL',
+      name: 'CAM_BLOOD_TRAIL',
+      cameraPosition: bloodCamera.toArray(),
+      lookAt: bloodLook.toArray(),
+      minX: this.origin.x - 3.8,
+      maxX: this.origin.x + 4.2,
+      minZ: this.origin.z - 4.5,
+      maxZ: this.origin.z + 4.5,
+      priority: 16,
+      fov: 48,
+      color: 0x92abc0,
+    });
+
+    const bodyCamera = this.bodyPosition.clone().add(new THREE.Vector3(-3.45, 2.35, 3.55));
+    const bodyLook = this.bodyPosition.clone().setY(0.62);
     cameras.addZone({
       id: 'CAM_FOREST_BODY',
       name: 'CAM_FOREST_BODY',
       cameraPosition: bodyCamera.toArray(),
-      lookAt: this.bodyPosition.clone().setY(0.75).toArray(),
+      lookAt: bodyLook.toArray(),
       minX: this.origin.x + 7,
       maxX: this.origin.x + 52,
       minZ: this.origin.z - 16,
       maxZ: this.origin.z + 16,
       priority: 18,
+      fov: 50,
       color: 0x94b9d2,
     });
+
+    this.crashForeground = buildForegroundFrame(
+      this.scene,
+      crashCamera,
+      crashLook,
+      'foreground-crash-frame',
+      1,
+    );
+    this.bodyForeground = buildForegroundFrame(
+      this.scene,
+      bodyCamera,
+      bodyLook,
+      'foreground-body-frame',
+      -1,
+    );
 
     cameras.setDebugVisibility(DEBUG_MODE);
 
