@@ -33,6 +33,7 @@ import { exteriorConfig } from './ExteriorConfig.js';
 import { SceneNpcAnchors } from './SceneNpcAnchors.js';
 import { PrerenderRoom } from './PrerenderRoom.js';
 import { PrerenderRoomView } from './PrerenderRoomView.js';
+import { GameStats } from './GameStats.js';
 
 // TEMP CHECKPOINT: exterior calibration only. Set false/remove after Bryan/car are fixed.
 const TEMP_EXTERIOR_CHECKPOINT = true;
@@ -41,6 +42,7 @@ export class Game {
   constructor(container, { input = null, settings = { sound: true, cameraMotion: true }, audio = null } = {}) {
     this.container = container;
     this.settings = settings; this.audio = audio;
+    this.stats = new GameStats();
     this.scene = new THREE.Scene();
     this.scene.background = new THREE.Color(0x0c1116);
     this.scene.fog = new THREE.Fog(0x0c1116, 18, 38);
@@ -538,13 +540,10 @@ export class Game {
   beginDriving() {
     if (this.area !== 'exterior' || this.mode !== 'onFoot' || this.dialogueManager.isOpen ||
       (!TEMP_EXTERIOR_CHECKPOINT && !this.raccoonDelivery.resolved)) return;
-    if (!TEMP_EXTERIOR_CHECKPOINT && this.raccoonDelivery.ending === 'LAST_DELIVERY') {
-      this.lastDeliveryEnding = new LastDeliveryEnding(this.container, this.input);
-      this.mode = 'ending'; this.player.group.visible = false;
-      this.objective.hidden = true; this.dialogueManager.setHint('');
-      this.input.keys.clear(); this.input.clearFrameState();
-      return;
-    }
+
+    const lastDeliveryEnding =
+      !TEMP_EXTERIOR_CHECKPOINT && this.raccoonDelivery.ending === 'LAST_DELIVERY';
+
     this.mode = 'parkingDeparture';
     this.player.group.visible = false;
     this.exteriorLevel.car.visible = true;
@@ -552,12 +551,26 @@ export class Game {
     this.objective.hidden = true;
     this.input.keys.clear();
     this.input.clearFrameState();
+
     this.parkingDeparture = new ParkingDepartureSequence(
       this.container,
       this.exteriorLevel,
       this.audio,
-      () => this.startRoad(),
+      () => lastDeliveryEnding ? this.startLastDeliveryEnding() : this.startRoad(),
     );
+  }
+
+  startLastDeliveryEnding() {
+    this.lastDeliveryEnding = new LastDeliveryEnding(this.container, this.input, {
+      skipDeparture: true,
+      stats: this.stats.finish(),
+    });
+    this.mode = 'ending';
+    this.player.group.visible = false;
+    this.objective.hidden = true;
+    this.dialogueManager.setHint('');
+    this.input.keys.clear();
+    this.input.clearFrameState();
   }
 
   startRoad() {
