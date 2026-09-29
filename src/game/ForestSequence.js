@@ -8,6 +8,18 @@ import { WomanRescueSequence } from './WomanRescueSequence.js';
 import { PassengerDriveSequence } from './PassengerDriveSequence.js';
 import { POST_IMPACT as STATE } from './PostImpactState.js';
 
+const FOREST_CAMERA_ORDER = [
+  'CAM_CRASH_EXIT',
+  'CAM_BLOOD_TRAIL',
+  'CAM_FOREST_A',
+  'CAM_FOREST_B',
+  'CAM_FOREST_C',
+  'CAM_FOREST_D',
+  'CAM_FOREST_BODY',
+];
+
+const FOREST_ACTOR_SCALE = 1.28;
+
 // Post-stop chapter: same road/storm outside the car, then classic fixed-camera forest rooms.
 export class ForestSequence {
   constructor(game) {
@@ -21,6 +33,7 @@ export class ForestSequence {
     this.exitNeedsRelease = true;
     this.objectiveTimer = 3.4;
     this.maxForestProgress = 0;
+    this.maxForestCameraIndex = 0;
 
     // The driving phone/dialogue UI must never leak into the post-crash room.
     // A stale line was stealing E and making the blood inspection look broken.
@@ -196,24 +209,49 @@ export class ForestSequence {
       this.maxForestProgress = Math.max(this.maxForestProgress, routeProgress);
     }
 
-    const desiredId = this.level.getCameraZoneId(
+    let desiredId = this.level.getCameraZoneId(
       position,
       this.state,
       Boolean(this.examined),
       this.maxForestProgress,
     );
+
+    let desiredIndex = FOREST_CAMERA_ORDER.indexOf(desiredId);
+    if (desiredIndex < 0) desiredIndex = this.maxForestCameraIndex;
+
+    // Before the blood inspection, the first two roadside shots may alternate.
+    // Once the forest is unlocked, camera progression is one-way. A bad route
+    // sample can never throw the game back onto the crash/car shot.
+    if (this.examined) {
+      desiredIndex = Math.max(1, desiredIndex);
+      this.maxForestCameraIndex = Math.max(
+        this.maxForestCameraIndex,
+        desiredIndex,
+      );
+      desiredId = FOREST_CAMERA_ORDER[this.maxForestCameraIndex];
+    } else {
+      this.maxForestCameraIndex = Math.max(
+        0,
+        Math.min(1, desiredIndex),
+      );
+    }
+
     const desiredZone = this.cameras.zones.find(zone => zone.id === desiredId);
 
+    // Never invoke CameraManager's zones[0] fallback in this chapter. If a shot
+    // id is missing for any reason, retain the current shot instead of jumping
+    // to CAM_CRASH_EXIT.
     if (desiredZone) {
       this.cameras.setActiveZone(desiredZone);
-    } else {
-      this.cameras.update({ position });
+    } else if (!this.cameras.activeZone) {
+      const safeZone = this.cameras.zones.find(
+        zone => zone.id === 'CAM_CRASH_EXIT',
+      );
+      if (safeZone) this.cameras.setActiveZone(safeZone);
     }
 
     this.cameras.applyToCamera(this.game.cameraRig);
 
-    // Keep the shot truly fixed. The background, floor anchor and camera were
-    // authored together; do not chase Bryan with the camera at runtime.
     const zoneId = this.cameras.activeZone?.id;
     this.level.backdrop?.update(zoneId);
     this.level.backdrop?.applyActorCalibration(this.game.player.group, zoneId);
@@ -225,8 +263,8 @@ export class ForestSequence {
 
     if (p.group.parent !== this.level.scene) this.level.scene.add(p.group);
     p.group.visible = true;
-    // Presentation scale from the failed backplate experiment must not survive.
-    p.group.scale.set(1, 1, 1);
+    // Same visual size in every prerendered forest room.
+    p.group.scale.setScalar(FOREST_ACTOR_SCALE);
 
     const visual = g.bryanVisual?.group;
     if (visual) {
