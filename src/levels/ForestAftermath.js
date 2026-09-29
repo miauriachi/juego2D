@@ -555,7 +555,7 @@ export class ForestAftermath {
     }
 
     const routeProgress = this.layout.progress(position);
-    const progress = Math.max(routeProgress, lockedProgress);
+    const progress = routeProgress;
 
     if (progress < 6.5) return 'CAM_BLOOD_TRAIL';
 
@@ -589,7 +589,7 @@ export class ForestAftermath {
       .addScaledVector(this.forestAVisualDirection, depth)
       .addScaledVector(this.forestAVisualRight, lateral);
 
-    return Math.max(0, depth);
+    return depth;
   }
 
   resolveForestBVisualPath(player, startPosition) {
@@ -612,7 +612,7 @@ export class ForestAftermath {
       .addScaledVector(this.forestBVisualDirection, depth)
       .addScaledVector(this.forestBVisualRight, lateral);
 
-    return Math.max(0, depth);
+    return depth;
   }
 
   resolveCarCollision(player) {
