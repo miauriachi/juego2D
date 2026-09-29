@@ -38,14 +38,14 @@ export const exteriorConfig = {
   car: {
     // Calibrated to the foreground empty bay. Heading matches the baked parked cars.
     position: [1.05, 0, 4.08],
-    rotationY: 1.23,
-    scale: 0.66,
+    rotationY: 0.45,
+    scale: 0.74,
 
     // Door-side interaction point, outside the collision footprint.
     interaction: {
       // Interaction is intentionally broad around the car body; the old
       // side-anchor could sit behind the collider and never expose [E].
-      radius: 2.25,
+      radius: 2.40,
     },
   },
 
