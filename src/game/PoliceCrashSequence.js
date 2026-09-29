@@ -39,12 +39,23 @@ export class PoliceCrashSequence {
     const g = this.game, v = this.vehicle, scene = this.road.scene;
     this.collision = new CollisionSystem();
 
-    // Build the walkable aftermath area around the ACTUAL positions of both
-    // vehicles. The old fixed rectangle could create an invisible wall between
-    // Bryan and the overturned patrol.
     v.group.updateMatrixWorld(true);
     this.police.group.updateMatrixWorld(true);
-    const carBox = new THREE.Box3().setFromObject(v.group);
+
+    // Use the sedan's authored PHYSICAL footprint, not Box3.setFromObject(v.group).
+    // The vehicle group also contains presentation/interior nodes that can make
+    // its visual bounds much larger than the actual car and throw Bryan far away.
+    const carCorners = [
+      new THREE.Vector3(-1.05, 0, -2.2),
+      new THREE.Vector3(1.05, 0, -2.2),
+      new THREE.Vector3(-1.05, 0, 2.2),
+      new THREE.Vector3(1.05, 0, 2.2),
+    ].map(point => v.group.localToWorld(point));
+
+    const carBox = new THREE.Box3();
+    carCorners.forEach(point => carBox.expandByPoint(point));
+
+    // Patrol bounds are safe to derive from the wreck itself.
     const patrolBox = new THREE.Box3().setFromObject(this.police.group);
 
     this.collision.bounds = {
@@ -63,35 +74,16 @@ export class PoliceCrashSequence {
       });
     }
 
-    // Spawn Bryan beside his sedan on the side nearest the patrol, regardless
-    // of how the car ended up rotated when he parked.
-    const carCenter = carBox.getCenter(new THREE.Vector3());
-    const patrolCenter = patrolBox.getCenter(new THREE.Vector3());
-    const towardPatrol = patrolCenter.clone().sub(carCenter).setY(0);
-
-    if (towardPatrol.lengthSq() < 0.0001) {
-      towardPatrol.set(-Math.sin(v.heading), 0, -Math.cos(v.heading));
-    } else {
-      towardPatrol.normalize();
-    }
-
-    const carHalf = carBox.getSize(new THREE.Vector3()).multiplyScalar(0.5);
-    const edgeX = Math.abs(towardPatrol.x) > 0.0001
-      ? carHalf.x / Math.abs(towardPatrol.x)
-      : Infinity;
-    const edgeZ = Math.abs(towardPatrol.z) > 0.0001
-      ? carHalf.z / Math.abs(towardPatrol.z)
-      : Infinity;
-    const edgeDistance = Math.min(edgeX, edgeZ);
-
-    this.exitPosition = carCenter
-      .clone()
-      .addScaledVector(towardPatrol, edgeDistance + 1.05);
+    // Always get Bryan out at the driver's door. This is the point marked in
+    // the QA capture: immediately beside his sedan, facing the overturned patrol.
+    this.exitPosition = v.group.localToWorld(
+      new THREE.Vector3(-1.62, 0, 0.35),
+    );
     this.exitPosition.y = 0;
 
     this.drive.interior.unseatBryan(scene, this.exitPosition);
 
-    // Face Bryan toward the wreck immediately after he gets out.
+    const patrolCenter = patrolBox.getCenter(new THREE.Vector3());
     const facePatrol = patrolCenter.clone().sub(this.exitPosition).setY(0);
     if (facePatrol.lengthSq() > 0.0001) {
       g.player.rotationY = Math.atan2(-facePatrol.x, -facePatrol.z);
@@ -101,15 +93,19 @@ export class PoliceCrashSequence {
     g.player.group.visible = false; this.exitTime = 0;
     this.exitCamera = new THREE.PerspectiveCamera(60, innerWidth / innerHeight, 0.1, 100);
     this.exitCamera.position.copy(
-      this.exitPosition.clone()
-        .addScaledVector(towardPatrol, -5.5)
-        .add(new THREE.Vector3(0, 3.2, 0)),
+      v.group.localToWorld(new THREE.Vector3(-5.0, 3.2, 4.2)),
     );
     this.exitCamera.lookAt(this.exitPosition.clone().setY(0.8));
+
     this.wreckCamera = new THREE.PerspectiveCamera(60, innerWidth / innerHeight, 0.1, 100);
-    this.wreckCamera.position.copy(this.target).add(new THREE.Vector3(5, 3.5, 6)); this.wreckCamera.lookAt(this.target.clone().add(new THREE.Vector3(1, 0.8, 0)));
-    this.drive.transition(STATE.INVESTIGATE_POLICE); g.container.classList.remove('driving-mode'); g.input.keys.clear();
-    g.audio?.playCue('door_open'); this.parkingPatch.visible = false;
+    this.wreckCamera.position.copy(this.target).add(new THREE.Vector3(5, 3.5, 6));
+    this.wreckCamera.lookAt(this.target.clone().add(new THREE.Vector3(1, 0.8, 0)));
+
+    this.drive.transition(STATE.INVESTIGATE_POLICE);
+    g.container.classList.remove('driving-mode');
+    g.input.keys.clear();
+    g.audio?.playCue('door_open');
+    this.parkingPatch.visible = false;
   }
   update(dt) {
     if (this.aftermath) { this.aftermath.update(dt); return; }
