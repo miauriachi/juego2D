@@ -38,18 +38,74 @@ export class PoliceCrashSequence {
   setupOnFoot() {
     const g = this.game, v = this.vehicle, scene = this.road.scene;
     this.collision = new CollisionSystem();
-    const center = this.road.centerX(this.crashS);
-    this.collision.bounds = { minX: center - 16, maxX: center + 8, minZ: -this.crashS - 12, maxZ: -this.parkS + 8 };
-    for (const object of [v.group, this.police.group]) {
-      object.updateMatrixWorld(true); const box = new THREE.Box3().setFromObject(object);
-      this.collision.addCollider({ minX: box.min.x, maxX: box.max.x, minZ: box.min.z, maxZ: box.max.z });
+
+    // Build the walkable aftermath area around the ACTUAL positions of both
+    // vehicles. The old fixed rectangle could create an invisible wall between
+    // Bryan and the overturned patrol.
+    v.group.updateMatrixWorld(true);
+    this.police.group.updateMatrixWorld(true);
+    const carBox = new THREE.Box3().setFromObject(v.group);
+    const patrolBox = new THREE.Box3().setFromObject(this.police.group);
+
+    this.collision.bounds = {
+      minX: Math.min(carBox.min.x, patrolBox.min.x) - 10,
+      maxX: Math.max(carBox.max.x, patrolBox.max.x) + 10,
+      minZ: Math.min(carBox.min.z, patrolBox.min.z) - 12,
+      maxZ: Math.max(carBox.max.z, patrolBox.max.z) + 12,
+    };
+
+    for (const box of [carBox, patrolBox]) {
+      this.collision.addCollider({
+        minX: box.min.x,
+        maxX: box.max.x,
+        minZ: box.min.z,
+        maxZ: box.max.z,
+      });
     }
-    this.exitPosition = v.group.localToWorld(new THREE.Vector3(-1.85, 0, 0.4)); this.exitPosition.y = 0;
-    this.exitPosition.x = Math.min(this.exitPosition.x, this.collision.colliders[0].minX - 0.65);
+
+    // Spawn Bryan beside his sedan on the side nearest the patrol, regardless
+    // of how the car ended up rotated when he parked.
+    const carCenter = carBox.getCenter(new THREE.Vector3());
+    const patrolCenter = patrolBox.getCenter(new THREE.Vector3());
+    const towardPatrol = patrolCenter.clone().sub(carCenter).setY(0);
+
+    if (towardPatrol.lengthSq() < 0.0001) {
+      towardPatrol.set(-Math.sin(v.heading), 0, -Math.cos(v.heading));
+    } else {
+      towardPatrol.normalize();
+    }
+
+    const carHalf = carBox.getSize(new THREE.Vector3()).multiplyScalar(0.5);
+    const edgeX = Math.abs(towardPatrol.x) > 0.0001
+      ? carHalf.x / Math.abs(towardPatrol.x)
+      : Infinity;
+    const edgeZ = Math.abs(towardPatrol.z) > 0.0001
+      ? carHalf.z / Math.abs(towardPatrol.z)
+      : Infinity;
+    const edgeDistance = Math.min(edgeX, edgeZ);
+
+    this.exitPosition = carCenter
+      .clone()
+      .addScaledVector(towardPatrol, edgeDistance + 1.05);
+    this.exitPosition.y = 0;
+
     this.drive.interior.unseatBryan(scene, this.exitPosition);
+
+    // Face Bryan toward the wreck immediately after he gets out.
+    const facePatrol = patrolCenter.clone().sub(this.exitPosition).setY(0);
+    if (facePatrol.lengthSq() > 0.0001) {
+      g.player.rotationY = Math.atan2(-facePatrol.x, -facePatrol.z);
+      g.player.group.rotation.y = g.player.rotationY;
+    }
+
     g.player.group.visible = false; this.exitTime = 0;
     this.exitCamera = new THREE.PerspectiveCamera(60, innerWidth / innerHeight, 0.1, 100);
-    this.exitCamera.position.copy(v.group.localToWorld(new THREE.Vector3(-5.5, 3.2, 4.5))); this.exitCamera.lookAt(this.exitPosition.clone().setY(0.8));
+    this.exitCamera.position.copy(
+      this.exitPosition.clone()
+        .addScaledVector(towardPatrol, -5.5)
+        .add(new THREE.Vector3(0, 3.2, 0)),
+    );
+    this.exitCamera.lookAt(this.exitPosition.clone().setY(0.8));
     this.wreckCamera = new THREE.PerspectiveCamera(60, innerWidth / innerHeight, 0.1, 100);
     this.wreckCamera.position.copy(this.target).add(new THREE.Vector3(5, 3.5, 6)); this.wreckCamera.lookAt(this.target.clone().add(new THREE.Vector3(1, 0.8, 0)));
     this.drive.transition(STATE.INVESTIGATE_POLICE); g.container.classList.remove('driving-mode'); g.input.keys.clear();
