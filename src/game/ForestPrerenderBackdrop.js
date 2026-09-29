@@ -25,10 +25,10 @@ const SHOTS = {
     key: 'scene4', url: scene4, zoom: 1.03, actorScale: 1.62,
   },
   CAM_FOREST_C: {
-    key: 'scene5', url: scene5, zoom: 1.03,
+    key: 'scene5', url: scene5, zoom: 1.03, actorScale: 1.78,
   },
   CAM_FOREST_D: {
-    key: 'scene5-flip', url: scene5, zoom: 1.08, flipX: true,
+    key: 'scene5-flip', url: scene5, zoom: 1.08, flipX: true, actorScale: 1.90,
   },
   CAM_FOREST_BODY: {
     key: 'scene6', url: scene6, zoom: 1.025,
