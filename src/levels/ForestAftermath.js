@@ -374,8 +374,8 @@ export class ForestAftermath {
       forestBCamera,
       forestBLook,
       forestBFov,
-      0.07,
-      0.10,
+      0.00,
+      -0.02,
     );
     this.forestBVisualDirection = this.forestBVisualEndPoint.clone()
       .sub(this.forestBVisualStartPoint)
