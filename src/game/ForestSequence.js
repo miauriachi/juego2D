@@ -197,7 +197,8 @@ export class ForestSequence {
   }
 
   beginRescue() {
-    this.level.backdrop?.disable();
+    // Keep CAM_FOREST_BODY alive for shot 0. Bryan lifts the live NPC over the
+    // exact same fixed-camera scene; WomanRescueSequence disables it at shot 1.
     this.game.player.group.scale.set(1, 1, 1);
     this.level.woman.visible = true;
     this.level.woman.scale.setScalar(1);
@@ -351,8 +352,17 @@ export class ForestSequence {
       input.clearFrameState();
       g.objective.textContent = 'OBJETIVO: Ayuda a la mujer a llegar al auto.';
       g.objective.hidden = false;
-      if (g.mode === 'passengerDriving') g.passengerDrive.update(0);
-      else g.renderer.render(this.level.scene, this.rescue.camera);
+      if (g.mode === 'passengerDriving') {
+        g.passengerDrive.update(0);
+      } else {
+        // Shot 0 must preserve the exact fixed CAM_FOREST_BODY composition.
+        // Once shot 1 begins, the rescue sequence owns its cinematic camera.
+        const rescueCamera =
+          this.rescue.shot === 0 || !this.rescue.backdropInitialized
+            ? g.cameraRig.camera
+            : this.rescue.camera;
+        g.renderer.render(this.level.scene, rescueCamera);
+      }
       return;
     }
 
