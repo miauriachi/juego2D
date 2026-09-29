@@ -180,6 +180,12 @@ export class ForestAftermath {
     this.woman.position.y += 0.035 - new THREE.Box3().setFromObject(this.woman).min.y;
     this.woman.userData.state = 'INJURED_LYING';
 
+    // The final prerender is now environment-only. Keep the actual gameplay NPC
+    // visible over it and size her for this fixed-camera shot.
+    this.woman.userData.preserveForestZones = ['CAM_FOREST_BODY'];
+    this.woman.userData.bodyShotScale = 1.48;
+    this.woman.scale.setScalar(this.woman.userData.bodyShotScale);
+
     const damageShape = new THREE.Shape();
     damageShape.moveTo(-0.08, -0.1);
     damageShape.lineTo(-0.06, 0.09);
@@ -494,16 +500,47 @@ export class ForestAftermath {
       color: 0x657f91,
     });
 
-    const bodyAnchor = this.layout.points[10].clone();
+    const bodyAnchor = this.bodyPosition.clone();
     const bodyFov = 48;
     const bodyCamera = bodyAnchor.clone().add(new THREE.Vector3(-6.2, 3.8, 7.1));
+
+    // Put the real injured woman low-right in the authored clearing. Bryan gets
+    // his own ground-projected entry/approach points, so he cannot float over the
+    // baked rocks anymore.
     const bodyLook = composeLookAtForScreen(
       bodyCamera,
-      bodyAnchor,
+      this.bodyPosition,
       bodyFov,
-      0.06,
-      -0.50,
+      0.31,
+      -0.57,
     );
+
+    this.bodyEntryPoint = groundPointForScreen(
+      bodyCamera,
+      bodyLook,
+      bodyFov,
+      -0.18,
+      -0.70,
+    );
+    this.bodyApproachPoint = groundPointForScreen(
+      bodyCamera,
+      bodyLook,
+      bodyFov,
+      0.03,
+      -0.62,
+    );
+    this.bodyVisualDirection = this.bodyApproachPoint.clone()
+      .sub(this.bodyEntryPoint)
+      .setY(0)
+      .normalize();
+    this.bodyVisualRight = new THREE.Vector3(
+      -this.bodyVisualDirection.z,
+      0,
+      this.bodyVisualDirection.x,
+    );
+    this.bodyVisualLength = this.bodyEntryPoint.distanceTo(this.bodyApproachPoint);
+    this.bodyVisualHalfWidth = 1.25;
+
     cameras.addZone({
       id: 'CAM_FOREST_BODY',
       name: 'CAM_FOREST_BODY',
@@ -674,6 +711,29 @@ export class ForestAftermath {
     position.copy(startPosition)
       .addScaledVector(this.forestCVisualDirection, depth)
       .addScaledVector(this.forestCVisualRight, lateral);
+
+    return depth;
+  }
+
+  resolveBodyVisualPath(player, startPosition) {
+    const position = player?.position ?? player?.group?.position;
+    if (!position || !startPosition || !this.bodyVisualDirection) return 0;
+
+    const delta = position.clone().sub(startPosition);
+    const depth = THREE.MathUtils.clamp(
+      delta.dot(this.bodyVisualDirection),
+      -0.35,
+      this.bodyVisualLength,
+    );
+    const lateral = THREE.MathUtils.clamp(
+      delta.dot(this.bodyVisualRight),
+      -this.bodyVisualHalfWidth,
+      this.bodyVisualHalfWidth,
+    );
+
+    position.copy(startPosition)
+      .addScaledVector(this.bodyVisualDirection, depth)
+      .addScaledVector(this.bodyVisualRight, lateral);
 
     return depth;
   }
