@@ -40,6 +40,7 @@ export class ForestSequence {
       this.cameras,
       this.collision,
       game.player.group,
+      game.renderer,
     );
 
     this.history = [];
@@ -127,25 +128,45 @@ export class ForestSequence {
 
     const a = THREE.MathUtils.clamp(amount, 0, 1);
 
-    // Restore the old readable crouch, but make the vertical change impossible
-    // to miss: Bryan lowers his center of mass, leans toward the stain, holds,
-    // then the exact same values return smoothly to zero.
-    visual.position.set(0, -0.24 * a, -0.055 * a);
-    visual.rotation.set(0.18 * a, 0, 0);
-    visual.scale.set(1, 1 - 0.12 * a, 1);
-
-    // The reconstructed rig gets an additional hip drop after locomotion is
-    // evaluated. Player position/collision are untouched.
-    if (rig.rigged && rig.bones?.[27]) {
-      rig.bones[27].position.y -= 0.13 * a;
-
-      const bend = new THREE.Quaternion()
-        .setFromAxisAngle(new THREE.Vector3(1, 0, 0), 0.12 * a);
-      for (const index of [16, 15]) {
-        if (rig.bones[index]) rig.bones[index].quaternion.multiply(bend);
-      }
-      rig.rigRoot?.updateMatrixWorld(true);
+    if (!rig.rigged || !rig.bones?.length) {
+      // Rigid fallback still gets the old clearly readable crouch.
+      visual.position.set(0, -0.25 * a, -0.06 * a);
+      visual.rotation.set(0.19 * a, 0, 0);
+      visual.scale.set(1, 1 - 0.13 * a, 1);
+      return;
     }
+
+    // Real rig crouch: lower the hips, bend both knees and lean the spine toward
+    // the stain. This runs AFTER locomotion each frame, so it never accumulates.
+    visual.position.set(0, -0.055 * a, -0.055 * a);
+    visual.rotation.set(0.055 * a, 0, 0);
+    visual.scale.set(1, 1, 1);
+
+    const axisX = new THREE.Vector3(1, 0, 0);
+    const rotateBone = (index, radians) => {
+      const bone = rig.bones[index];
+      if (!bone) return;
+      bone.quaternion.multiply(
+        new THREE.Quaternion().setFromAxisAngle(axisX, radians * a),
+      );
+    };
+
+    // hips / thighs / knees / ankles
+    rig.bones[27].position.y -= 0.18 * a;
+    rotateBone(21, 0.28);
+    rotateBone(26, 0.28);
+    rotateBone(20, -0.48);
+    rotateBone(25, -0.48);
+    rotateBone(19, 0.18);
+    rotateBone(24, 0.18);
+
+    // torso and head look down toward the blood.
+    rotateBone(16, 0.10);
+    rotateBone(15, 0.12);
+    rotateBone(14, 0.08);
+    rotateBone(3, -0.055);
+
+    rig.rigRoot?.updateMatrixWorld(true);
   }
 
   beginRescue() {
@@ -285,6 +306,8 @@ export class ForestSequence {
     } else if (this.state === 'inspectBlood') {
       p.previousPosition.copy(p.position);
       p.velocity.set(0, 0, 0);
+      // Force locomotion state to idle while the scripted crouch owns the rig.
+      p.animate(dt, true);
       dialogue.setHint('');
 
       const direction = this.level.origin.clone().sub(p.position);
@@ -293,17 +316,17 @@ export class ForestSequence {
         p.group.rotation.y = p.rotationY;
       }
 
-      // 0-.75s crouch, .75-1.45 hold, 1.45-2.35 stand.
-      if (this.time < 0.75) {
-        this.crouchAmount = THREE.MathUtils.smoothstep(this.time / 0.75, 0, 1);
-      } else if (this.time < 1.45) {
+      // Deliberate readable animation: crouch, inspect/hold, then stand again.
+      if (this.time < 0.85) {
+        this.crouchAmount = THREE.MathUtils.smoothstep(this.time / 0.85, 0, 1);
+      } else if (this.time < 1.70) {
         this.crouchAmount = 1;
       } else {
-        const rise = THREE.MathUtils.clamp((this.time - 1.45) / 0.90, 0, 1);
+        const rise = THREE.MathUtils.clamp((this.time - 1.70) / 0.95, 0, 1);
         this.crouchAmount = 1 - THREE.MathUtils.smoothstep(rise, 0, 1);
       }
 
-      if (this.time >= 2.35 && !this.inspectionDialogueStarted) {
+      if (this.time >= 2.65 && !this.inspectionDialogueStarted) {
         this.inspectionDialogueStarted = true;
         this.state = 'inspectDialogue';
         this.time = 0;
