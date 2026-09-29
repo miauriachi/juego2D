@@ -425,15 +425,15 @@ export class ForestAftermath {
       forestCCamera,
       forestCLook,
       forestCFov,
-      0.31,
-      -0.43,
+      0.08,
+      -0.82,
     );
     this.forestCVisualEndPoint = groundPointForScreen(
       forestCCamera,
       forestCLook,
       forestCFov,
-      0.20,
-      0.16,
+      0.34,
+      -0.02,
     );
     this.forestCVisualDirection = this.forestCVisualEndPoint.clone()
       .sub(this.forestCVisualStartPoint)
