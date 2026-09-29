@@ -48,6 +48,49 @@ export class ForestLayout {
     return nearest;
   }
 
+  // Distance travelled along the authored forest route. This is used by the
+  // fixed-camera system so camera changes follow the path itself instead of
+  // brittle world-axis rectangles.
+  progress(position) {
+    if (!position || this.points.length < 2) return 0;
+
+    let bestDistanceSq = Infinity;
+    let bestProgress = 0;
+    let accumulated = 0;
+
+    for (let i = 1; i < this.points.length; i += 1) {
+      const a = this.points[i - 1];
+      const b = this.points[i];
+      const abX = b.x - a.x;
+      const abZ = b.z - a.z;
+      const lengthSq = abX * abX + abZ * abZ;
+      const length = Math.sqrt(lengthSq);
+
+      const t = lengthSq > 1e-8
+        ? THREE.MathUtils.clamp(
+          ((position.x - a.x) * abX + (position.z - a.z) * abZ) / lengthSq,
+          0,
+          1,
+        )
+        : 0;
+
+      const px = a.x + abX * t;
+      const pz = a.z + abZ * t;
+      const dx = position.x - px;
+      const dz = position.z - pz;
+      const distanceSq = dx * dx + dz * dz;
+
+      if (distanceSq < bestDistanceSq) {
+        bestDistanceSq = distanceSq;
+        bestProgress = accumulated + length * t;
+      }
+
+      accumulated += length;
+    }
+
+    return bestProgress;
+  }
+
   build(scene, collision) {
     let seed = 5149;
     const random = () => {
