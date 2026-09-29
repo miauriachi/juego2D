@@ -48,6 +48,9 @@ export class WomanRescueSequence {
     const detailed = car.userData?.detailedVisual;
     if (detailed) {
       detailed.visible = true;
+      detailed.traverse(object => {
+        if (object.isMesh || object.isLine || object.isPoints) object.visible = true;
+      });
       car.traverse(object => {
         if (object.userData?.proceduralCarVisual) object.visible = false;
       });
@@ -64,6 +67,7 @@ export class WomanRescueSequence {
     const material = new THREE.MeshBasicMaterial({
       color: 0xffffff,
       depthWrite: false,
+      depthTest: false,
       fog: false,
       toneMapped: false,
     });
@@ -74,6 +78,15 @@ export class WomanRescueSequence {
     this.backdrop.frustumCulled = false;
     this.camera.add(this.backdrop);
     this.level.scene.add(this.camera);
+
+    // The checkpoint can jump directly to the woman before the rescue-specific
+    // textures finish decoding. Seed the cinematic plane with whatever forest
+    // plate is already on screen so the first rescue frame can never go black.
+    const currentForestTexture = this.level.backdrop?.material?.map ?? null;
+    if (currentForestTexture) {
+      this.backdrop.material.map = currentForestTexture;
+      this.backdrop.material.needsUpdate = true;
+    }
 
     const loader = new THREE.TextureLoader();
     this.backdropFallback = new Map();
