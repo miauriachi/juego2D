@@ -31,7 +31,7 @@ const SHOTS = {
     key: 'scene5-flip', url: scene5, zoom: 1.08, flipX: true, actorScale: 1.90,
   },
   CAM_FOREST_BODY: {
-    key: 'scene6', url: scene6, zoom: 1.025,
+    key: 'scene6-clean', url: scene6, zoom: 1.025, actorScale: 2.08, cleanBodyPlate: true,
   },
 };
 
@@ -112,7 +112,12 @@ export class ForestPrerenderBackdrop {
           }
 
           texture.needsUpdate = true;
-          this.cache.set(cacheKey, texture);
+
+          const finalTexture = config.cleanBodyPlate
+            ? this.makeBodyPlateWithoutBakedWoman(texture)
+            : texture;
+
+          this.cache.set(cacheKey, finalTexture);
           this.pending.delete(cacheKey);
           resolve(true);
         },
@@ -131,6 +136,71 @@ export class ForestPrerenderBackdrop {
 
   hasShot(zoneId) {
     return Boolean(SHOTS[zoneId]);
+  }
+
+  makeBodyPlateWithoutBakedWoman(texture) {
+    const image = texture?.image;
+    if (!image?.width || !image?.height) return texture;
+
+    const source = document.createElement('canvas');
+    source.width = image.width;
+    source.height = image.height;
+    const sctx = source.getContext('2d');
+    sctx.drawImage(image, 0, 0);
+
+    const canvas = document.createElement('canvas');
+    canvas.width = image.width;
+    canvas.height = image.height;
+    const ctx = canvas.getContext('2d');
+    ctx.drawImage(image, 0, 0);
+
+    const w = image.width;
+    const h = image.height;
+
+    // Scene 6 was originally painted with a woman baked into the right-lower
+    // quadrant. Replace only that region with nearby snow/rock texture from the
+    // same authored plate. No new generated art is used here; this is a runtime
+    // cleanup so the live injured-woman NPC can occupy the shot instead.
+    ctx.save();
+    ctx.filter = 'blur(2px)';
+
+    ctx.drawImage(
+      source,
+      w * 0.39, h * 0.34, w * 0.24, h * 0.28,
+      w * 0.59, h * 0.35, w * 0.25, h * 0.30,
+    );
+    ctx.drawImage(
+      source,
+      w * 0.38, h * 0.52, w * 0.28, h * 0.36,
+      w * 0.57, h * 0.53, w * 0.30, h * 0.38,
+    );
+    ctx.drawImage(
+      source,
+      w * 0.46, h * 0.70, w * 0.22, h * 0.22,
+      w * 0.65, h * 0.72, w * 0.22, h * 0.22,
+    );
+    ctx.restore();
+
+    const clean = new THREE.CanvasTexture(canvas);
+    clean.colorSpace = THREE.SRGBColorSpace;
+    clean.wrapS = THREE.ClampToEdgeWrapping;
+    clean.wrapT = THREE.ClampToEdgeWrapping;
+    clean.magFilter = THREE.LinearFilter;
+    clean.minFilter = THREE.LinearMipmapLinearFilter;
+    clean.generateMipmaps = true;
+
+    if (this.renderer?.capabilities?.getMaxAnisotropy) {
+      clean.anisotropy = Math.min(
+        8,
+        this.renderer.capabilities.getMaxAnisotropy(),
+      );
+    } else {
+      clean.anisotropy = 4;
+    }
+
+    clean.needsUpdate = true;
+    texture.dispose?.();
+    return clean;
   }
 
   applyActorCalibration(actorRoot, zoneId = this.currentZoneId) {
