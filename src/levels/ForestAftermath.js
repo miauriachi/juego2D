@@ -302,6 +302,23 @@ export class ForestAftermath {
       0.12,
       -0.52,
     );
+
+    // Scene 3 uses a deep straight-looking prerendered path. Its visual
+    // direction does not match the old hidden 3D maze bend, which was stopping
+    // Bryan around the middle of the image. Give only this shot its own narrow
+    // walk lane aligned with the camera's ground-forward direction.
+    this.forestAVisualDirection = forestALook.clone()
+      .sub(forestACamera)
+      .setY(0)
+      .normalize();
+    this.forestAVisualRight = new THREE.Vector3(
+      -this.forestAVisualDirection.z,
+      0,
+      this.forestAVisualDirection.x,
+    );
+    this.forestAVisualLength = 18.0;
+    this.forestAVisualHalfWidth = 2.35;
+    this.forestANextSpawn = this.layout.points[5].clone();
     cameras.addZone({
       id: 'CAM_FOREST_A',
       name: 'CAM_FOREST_A',
@@ -501,6 +518,29 @@ export class ForestAftermath {
     if (progress < 40.2) return 'CAM_FOREST_C';
     if (progress < 45.5) return 'CAM_FOREST_D';
     return 'CAM_FOREST_BODY';
+  }
+
+  resolveForestAVisualPath(player, startPosition) {
+    const position = player?.position ?? player?.group?.position;
+    if (!position || !startPosition || !this.forestAVisualDirection) return 0;
+
+    const delta = position.clone().sub(startPosition);
+    const depth = THREE.MathUtils.clamp(
+      delta.dot(this.forestAVisualDirection),
+      -0.75,
+      this.forestAVisualLength,
+    );
+    const lateral = THREE.MathUtils.clamp(
+      delta.dot(this.forestAVisualRight),
+      -this.forestAVisualHalfWidth,
+      this.forestAVisualHalfWidth,
+    );
+
+    position.copy(startPosition)
+      .addScaledVector(this.forestAVisualDirection, depth)
+      .addScaledVector(this.forestAVisualRight, lateral);
+
+    return Math.max(0, depth);
   }
 
   resolveCarCollision(player) {
