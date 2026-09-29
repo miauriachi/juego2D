@@ -492,10 +492,14 @@ export class ForestAftermath {
     const progress = Math.max(routeProgress, lockedProgress);
 
     if (progress < 6.5) return 'CAM_BLOOD_TRAIL';
-    if (progress < 15.0) return 'CAM_FOREST_A';
-    if (progress < 25.0) return 'CAM_FOREST_B';
-    if (progress < 35.0) return 'CAM_FOREST_C';
-    if (progress < 42.0) return 'CAM_FOREST_D';
+
+    // Let Bryan travel almost the full visible depth of scene 3 before cutting.
+    // At constant model scale, perspective now makes him shrink naturally as he
+    // walks away instead of switching shots around the middle of the path.
+    if (progress < 21.4) return 'CAM_FOREST_A';
+    if (progress < 31.0) return 'CAM_FOREST_B';
+    if (progress < 40.2) return 'CAM_FOREST_C';
+    if (progress < 45.5) return 'CAM_FOREST_D';
     return 'CAM_FOREST_BODY';
   }
 
