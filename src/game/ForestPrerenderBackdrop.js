@@ -8,7 +8,7 @@ import scene6 from '../environment/forestShots/forestScene6.js';
 
 // Full-resolution individual shots. No atlas crops, no canvas resampling.
 // Every texture is a 1280x720 prerender embedded as a data URI.
-const FOREST_ACTOR_SCALE = 1.28;
+const FOREST_ACTOR_SCALE = 1.38;
 
 const SHOTS = {
   CAM_CRASH_EXIT: {
