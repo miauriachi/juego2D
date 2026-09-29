@@ -56,10 +56,10 @@ export class HospitalExterior extends HospitalIntro {
     // Conservative collider: enough to stop Bryan walking through the body,
     // but small enough that he can still reach the driver's-side interaction point.
     this.collisionSystem.addCollider({
-      minX: exteriorConfig.car.position[0] - 0.56,
-      maxX: exteriorConfig.car.position[0] + 0.56,
-      minZ: exteriorConfig.car.position[2] - 1.00,
-      maxZ: exteriorConfig.car.position[2] + 1.00,
+      minX: exteriorConfig.car.position[0] - 0.64,
+      maxX: exteriorConfig.car.position[0] + 0.64,
+      minZ: exteriorConfig.car.position[2] - 1.10,
+      maxZ: exteriorConfig.car.position[2] + 1.10,
     });
 
     // Dynamic snow is deliberately separate from the baked plate.
