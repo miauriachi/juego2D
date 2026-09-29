@@ -37,7 +37,10 @@ export class WomanRescueSequence {
     // the far distance.
     level.scene.fog.far = Math.max(this.sceneFog, 78);
     this.ensureCarVisual();
-    this.setupBackdrop();
+    // Shot 0 must keep the exact CAM_FOREST_BODY backplate/camera already on
+    // screen while Bryan lifts the live injured-woman NPC. Rescue backdrops
+    // start only once they begin walking away in shot 1.
+    this.backdropInitialized = false;
     game.input.keys.clear(); game.dialogueManager.setHint('');
   }
 
@@ -200,6 +203,9 @@ export class WomanRescueSequence {
 
   cleanupBackdrop() {
     if (this.level.scene.fog) this.level.scene.fog.far = this.sceneFog;
+
+    if (!this.backdropInitialized) return;
+
     this.restoreEnvironment();
     this.backdropEnvironmentHidden = false;
     this.level.scene.background = this.originalSceneBackground ?? null;
@@ -225,7 +231,16 @@ export class WomanRescueSequence {
     this.time += dt; const duration = this.durations[this.shot], t = Math.min(1, this.time / duration);
     this.fade.style.opacity = String(this.time < 0.2 ? 1 - this.time / 0.2 : this.time > duration - 0.2 ? (this.time - duration + 0.2) / 0.2 : 0);
     this.camera.aspect = innerWidth / innerHeight; this.camera.updateProjectionMatrix();
-    this.updateBackdrop();
+
+    if (this.shot > 0) {
+      if (!this.backdropInitialized) {
+        this.level.backdrop?.disable();
+        this.setupBackdrop();
+        this.backdropInitialized = true;
+      }
+      this.updateBackdrop();
+    }
+
     this.ensureCarVisual();
     if (this.shot === 0) {
       const lift = THREE.MathUtils.smoothstep(t, 0.25, 0.9);
