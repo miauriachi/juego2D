@@ -2,29 +2,29 @@ import * as THREE from 'three';
 
 const ATLAS_URL = 'assets/backgrounds/forest/forest_prerender_atlas.jpg';
 
-// The atlas is 3x2. Each shot also carries a small presentation calibration so
-// Bryan reads at a believable scale against the baked environment.
+// Atlas layout: 3 columns x 2 rows.
+// Each camera has its own crop and actor presentation scale.
 const SHOTS = {
   CAM_CRASH_EXIT: {
-    col: 0, row: 0, zoom: 1.05, actorScale: 0.94,
+    col: 0, row: 0, zoom: 1.02, actorScale: 0.94,
   },
   CAM_BLOOD_TRAIL: {
-    col: 2, row: 0, zoom: 1.055, actorScale: 0.90,
+    col: 2, row: 0, zoom: 1.02, actorScale: 0.90,
   },
   CAM_FOREST_A: {
-    col: 1, row: 0, zoom: 1.06, actorScale: 0.89,
+    col: 1, row: 0, zoom: 1.03, actorScale: 0.89,
   },
   CAM_FOREST_B: {
-    col: 0, row: 1, zoom: 1.06, actorScale: 0.84,
+    col: 0, row: 1, zoom: 1.03, actorScale: 0.84,
   },
   CAM_FOREST_C: {
-    col: 1, row: 1, zoom: 1.07, actorScale: 0.82,
+    col: 1, row: 1, zoom: 1.03, actorScale: 0.82,
   },
   CAM_FOREST_D: {
-    col: 0, row: 1, zoom: 1.13, actorScale: 0.80, flipX: true, offsetX: -0.22,
+    col: 0, row: 1, zoom: 1.12, actorScale: 0.80, flipX: true,
   },
   CAM_FOREST_BODY: {
-    col: 2, row: 1, zoom: 1.055, actorScale: 0.86,
+    col: 2, row: 1, zoom: 1.02, actorScale: 0.86,
   },
 };
 
@@ -34,28 +34,11 @@ export class ForestPrerenderBackdrop {
     this.camera = camera;
     this.actorRoot = actorRoot;
     this.loader = new THREE.TextureLoader();
-    this.distance = 28;
     this.cache = new Map();
     this.hidden = new Map();
     this.currentZoneId = null;
     this.ready = false;
-
-    this.material = new THREE.MeshBasicMaterial({
-      color: 0xffffff,
-      side: THREE.DoubleSide,
-      depthWrite: false,
-      depthTest: false,
-      fog: false,
-      toneMapped: false,
-    });
-
-    this.plane = new THREE.Mesh(new THREE.PlaneGeometry(1, 1), this.material);
-    this.plane.name = 'forest-prerender-backplate';
-    this.plane.renderOrder = -10000;
-    this.plane.frustumCulled = false;
-    this.plane.visible = false;
-    this.plane.userData.preserveForForestBackplate = true;
-    scene.add(this.plane);
+    this.originalBackground = scene.background;
   }
 
   preload() {
@@ -85,6 +68,7 @@ export class ForestPrerenderBackdrop {
             crop.magFilter = THREE.LinearFilter;
             crop.minFilter = THREE.LinearFilter;
             crop.generateMipmaps = false;
+            crop.center.set(0.5, 0.5);
 
             if (shot.flipX) {
               crop.repeat.set(-tileW, tileH);
@@ -100,6 +84,9 @@ export class ForestPrerenderBackdrop {
               );
             }
 
+            // Scene.background is much more reliable here than a world-space
+            // plane: it cannot end up behind the camera, outside the frustum or
+            // hidden by depth sorting. The live storm and Bryan still render on top.
             crop.needsUpdate = true;
             this.cache.set(zoneId, crop);
           }
@@ -128,8 +115,7 @@ export class ForestPrerenderBackdrop {
 
   applyActorCalibration(actorRoot, zoneId = this.currentZoneId) {
     if (!actorRoot) return;
-    const scale = this.getActorScale(zoneId);
-    actorRoot.scale.setScalar(scale);
+    actorRoot.scale.setScalar(this.getActorScale(zoneId));
   }
 
   resetActorCalibration(actorRoot) {
@@ -154,52 +140,19 @@ export class ForestPrerenderBackdrop {
     const texture = this.cache.get(zoneId);
     if (!texture) return;
 
-    if (this.material.map !== texture) {
-      this.material.map = texture;
-      this.material.needsUpdate = true;
-    }
-
-    this.plane.visible = true;
-    this.updateTransform(SHOTS[zoneId]);
+    // Use the prerender directly as the scene background.
+    // This fixes the all-black failure seen when the 3D background plane was
+    // being hidden/clipped while the snow particles continued to render.
+    this.scene.background = texture;
     this.applyHide();
-  }
-
-  updateTransform(shot) {
-    const direction = new THREE.Vector3(0, 0, -1)
-      .applyQuaternion(this.camera.quaternion);
-    const right = new THREE.Vector3(1, 0, 0)
-      .applyQuaternion(this.camera.quaternion);
-    const up = new THREE.Vector3(0, 1, 0)
-      .applyQuaternion(this.camera.quaternion);
-
-    this.plane.position.copy(this.camera.position)
-      .addScaledVector(direction, this.distance)
-      .addScaledVector(right, shot.offsetX ?? 0)
-      .addScaledVector(up, shot.offsetY ?? 0);
-    this.plane.quaternion.copy(this.camera.quaternion);
-
-    const fov = THREE.MathUtils.degToRad(this.camera.fov);
-    const viewHeight = 2 * Math.tan(fov / 2) * this.distance;
-    const viewWidth = viewHeight * this.camera.aspect;
-    const imageAspect = 16 / 9;
-
-    let width = viewWidth;
-    let height = width / imageAspect;
-    if (height < viewHeight) {
-      height = viewHeight;
-      width = height * imageAspect;
-    }
-
-    const zoom = shot.zoom ?? 1;
-    this.plane.scale.set(width * zoom, height * zoom, 1);
   }
 
   applyHide() {
     this.restoreHidden();
 
     this.scene.traverse(object => {
-      if (object === this.plane || !object.visible) return;
-      if (object.isPoints) return; // real storm stays animated over the image
+      if (!object.visible) return;
+      if (object.isPoints) return; // keep live snowfall and wheel snow
       if (!(object.isMesh || object.isSprite || object.isLine)) return;
       if (this.isActor(object)) return;
       if (this.isPreserved(object)) return;
@@ -244,14 +197,12 @@ export class ForestPrerenderBackdrop {
 
   disable() {
     this.currentZoneId = null;
-    this.plane.visible = false;
     this.restoreHidden();
+    this.scene.background = this.originalBackground;
     this.resetActorCalibration(this.actorRoot);
   }
 
   onResize() {
-    if (this.currentZoneId && this.plane.visible) {
-      this.updateTransform(SHOTS[this.currentZoneId]);
-    }
+    // Scene.background automatically follows the renderer/camera aspect.
   }
 }
