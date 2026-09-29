@@ -56,10 +56,10 @@ export class HospitalExterior extends HospitalIntro {
     // Conservative collider: enough to stop Bryan walking through the body,
     // but small enough that he can still reach the driver's-side interaction point.
     this.collisionSystem.addCollider({
-      minX: exteriorConfig.car.position[0] - 0.44,
-      maxX: exteriorConfig.car.position[0] + 0.44,
-      minZ: exteriorConfig.car.position[2] - 0.78,
-      maxZ: exteriorConfig.car.position[2] + 0.78,
+      minX: exteriorConfig.car.position[0] - 0.56,
+      maxX: exteriorConfig.car.position[0] + 0.56,
+      minZ: exteriorConfig.car.position[2] - 1.00,
+      maxZ: exteriorConfig.car.position[2] + 1.00,
     });
 
     // Dynamic snow is deliberately separate from the baked plate.
@@ -118,12 +118,15 @@ export class HospitalExterior extends HospitalIntro {
     visual.rotation.x = 0;
     visual.rotation.y = 0;
     visual.rotation.z = exteriorConfig.playerPresentation.rollZ;
+    player.group.scale.setScalar(exteriorConfig.playerPresentation.scale ?? 1);
     visual.updateMatrixWorld(true);
   }
 
   restorePlayerPresentation(bryanVisual) {
     const visual = bryanVisual?.group;
     if (!visual) return;
+    const playerRoot = visual.parent?.parent ?? visual.parent;
+    if (playerRoot?.scale) playerRoot.scale.set(1, 1, 1);
     visual.rotation.set(0, 0, 0);
     visual.updateMatrixWorld(true);
   }
