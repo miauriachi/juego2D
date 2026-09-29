@@ -125,8 +125,7 @@ export class HospitalExterior extends HospitalIntro {
   restorePlayerPresentation(bryanVisual) {
     const visual = bryanVisual?.group;
     if (!visual) return;
-    const playerRoot = visual.parent?.parent ?? visual.parent;
-    if (playerRoot?.scale) playerRoot.scale.set(1, 1, 1);
+    this.player?.group?.scale.set(1, 1, 1);
     visual.rotation.set(0, 0, 0);
     visual.updateMatrixWorld(true);
   }
