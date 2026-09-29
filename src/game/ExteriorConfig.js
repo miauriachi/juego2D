@@ -32,13 +32,13 @@ export const exteriorConfig = {
     // Exterior-only visual calibration. Scale is presentation-only: movement,
     // collision radius and world position stay untouched.
     rollZ: 0.34,
-    scale: 1.32,
+    scale: 1.22,
   },
 
   car: {
     // Calibrated to the foreground empty bay. Heading matches the baked parked cars.
     position: [1.05, 0, 4.08],
-    rotationY: -1.23,
+    rotationY: 1.23,
     scale: 0.66,
 
     // Door-side interaction point, outside the collision footprint.
