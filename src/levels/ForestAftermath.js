@@ -4,6 +4,20 @@ import { BloodTrail } from '../environment/BloodTrail.js';
 import { ForestPrerenderBackdrop } from '../game/ForestPrerenderBackdrop.js';
 import { DEBUG_MODE, PLAYER_RADIUS } from '../config/constants.js';
 
+function groundPointForScreen(cameraPosition, lookAt, fov, ndcX, ndcY) {
+  const camera = new THREE.PerspectiveCamera(fov, 16 / 9, 0.1, 1000);
+  camera.position.copy(cameraPosition);
+  camera.lookAt(lookAt);
+  camera.updateMatrixWorld(true);
+
+  const ray = new THREE.Raycaster();
+  ray.setFromCamera(new THREE.Vector2(ndcX, ndcY), camera);
+
+  const ground = new THREE.Plane(new THREE.Vector3(0, 1, 0), 0);
+  const hit = new THREE.Vector3();
+  return ray.ray.intersectPlane(ground, hit) ? hit : null;
+}
+
 function buildForegroundFrame(scene, cameraPosition, lookAt, name, flip = 1) {
   const group = new THREE.Group();
   group.name = name;
@@ -214,6 +228,33 @@ export class ForestAftermath {
       fov: 52,
       color: 0xa4c7df,
     });
+
+    // Place Bryan at the driver's door as seen in the baked crash image.
+    // This is a visual/world spawn anchor derived from the actual fixed camera,
+    // not an arbitrary car-local offset.
+    const bakedDoorExit = groundPointForScreen(
+      crashCamera,
+      crashLook,
+      52,
+      -0.08,
+      -0.20,
+    );
+    if (bakedDoorExit) {
+      const localExit = this.car.worldToLocal(bakedDoorExit.clone());
+      if (
+        Math.abs(localExit.x) < this.carCollisionHalfWidth &&
+        Math.abs(localExit.z) < this.carCollisionHalfLength
+      ) {
+        localExit.x = (localExit.x < 0 ? -1 : 1) * (this.carCollisionHalfWidth + 0.08);
+        this.exitPosition.copy(this.car.localToWorld(localExit));
+      } else {
+        this.exitPosition.copy(bakedDoorExit);
+      }
+      this.exitPosition.y = 0;
+
+      this.localFill.position.copy(this.exitPosition).add(new THREE.Vector3(0, 2.35, 0));
+      this.actorFill.position.copy(this.exitPosition).add(new THREE.Vector3(0, 2.35, 0.7));
+    }
 
     const bloodCamera = this.car.localToWorld(new THREE.Vector3(-2.65, 1.72, 5.10));
     const bloodLook = this.origin.clone().setY(0.34);
