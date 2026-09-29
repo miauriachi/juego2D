@@ -4,7 +4,7 @@ const scene2 = new URL('../../assets/backgrounds/forest/forest_blood_clean.jpg',
 import scene3 from '../environment/forestShots/forestScene3.js';
 import scene4 from '../environment/forestShots/forestScene4.js';
 import scene5 from '../environment/forestShots/forestScene5.js';
-import scene6 from '../environment/forestShots/forestScene6.js';
+const scene6Clean = new URL('../../assets/backgrounds/forest/forest_scene6_clean_real.jpg', import.meta.url).href;
 
 // The first two roadside shots are clean car-free backplates so the new
 // live 3D sedan can be rendered consistently over them. Deeper shots remain
@@ -31,7 +31,7 @@ const SHOTS = {
     key: 'scene5-flip', url: scene5, zoom: 1.08, flipX: true, actorScale: 1.90,
   },
   CAM_FOREST_BODY: {
-    key: 'scene6-clean', url: scene6, zoom: 1.025, actorScale: 2.08, cleanBodyPlate: true,
+    key: 'scene6-clean', url: scene6Clean, zoom: 1.025, actorScale: 2.08,
   },
 };
 
