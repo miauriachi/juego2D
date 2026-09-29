@@ -8,6 +8,8 @@ import scene6 from '../environment/forestShots/forestScene6.js';
 
 // Full-resolution individual shots. No atlas crops, no canvas resampling.
 // Every texture is a 1280x720 prerender embedded as a data URI.
+const FOREST_ACTOR_SCALE = 1.28;
+
 const SHOTS = {
   CAM_CRASH_EXIT: {
     key: 'scene1', url: scene1, zoom: 1.025,
@@ -132,9 +134,8 @@ export class ForestPrerenderBackdrop {
 
   applyActorCalibration(actorRoot) {
     if (!actorRoot) return;
-    // Bryan keeps his authored 1.72 m world scale in every shot.
-    // Camera perspective now owns apparent size instead of per-shot hacks.
-    actorRoot.scale.set(1, 1, 1);
+    // One stable forest presentation scale. No per-camera shrinking/growing.
+    actorRoot.scale.setScalar(FOREST_ACTOR_SCALE);
   }
 
   resetActorCalibration(actorRoot) {
