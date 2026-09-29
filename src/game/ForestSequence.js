@@ -41,6 +41,7 @@ export class ForestSequence {
     this.forestBVisualProgress = 0;
     this.forestBCompleted = false;
     this.forcedForestZone = null;
+    this.forestBoundaryCooldown = 0;
 
     // The driving phone/dialogue UI must never leak into the post-crash room.
     // A stale line was stealing E and making the blood inspection look broken.
@@ -228,7 +229,8 @@ export class ForestSequence {
       this.examined &&
       !this.forcedForestZone &&
       previousId === 'CAM_FOREST_C' &&
-      desiredId === 'CAM_FOREST_B'
+      desiredId === 'CAM_FOREST_B' &&
+      this.forestBoundaryCooldown <= 0
     ) {
       const p = this.game.player;
       this.forcedForestZone = 'CAM_FOREST_B';
@@ -237,6 +239,7 @@ export class ForestSequence {
       p.position.copy(this.level.forestBVisualEndPoint);
       p.previousPosition.copy(p.position);
       p.velocity.set(0, 0, 0);
+      this.forestBoundaryCooldown = 0.55;
       desiredId = 'CAM_FOREST_B';
     }
 
@@ -302,6 +305,7 @@ export class ForestSequence {
 
     this.time += dt;
     this.objectiveTimer = Math.max(0, this.objectiveTimer - dt);
+    this.forestBoundaryCooldown = Math.max(0, this.forestBoundaryCooldown - dt);
     this.crouchAmount = 0;
 
     const wasOpen = dialogue.isOpen;
@@ -467,6 +471,7 @@ export class ForestSequence {
           ) {
             this.forestACompleted = true;
             this.forcedForestZone = 'CAM_FOREST_B';
+            this.forestBoundaryCooldown = 0.70;
 
             p.position.copy(this.level.forestBVisualStartPoint);
             p.previousPosition.copy(p.position);
@@ -479,7 +484,10 @@ export class ForestSequence {
             const direction = this.level.forestBVisualDirection;
             p.rotationY = Math.atan2(-direction.x, -direction.z);
             p.group.rotation.y = p.rotationY;
-          } else if (this.forestAVisualProgress <= -0.22) {
+          } else if (
+            this.forestBoundaryCooldown <= 0 &&
+            this.forestAVisualProgress <= -0.22
+          ) {
             // Walk back out of A to the previous blood-trail room.
             this.forcedForestZone = null;
             this.forestACompleted = false;
@@ -511,14 +519,19 @@ export class ForestSequence {
             ) {
               this.forestBCompleted = true;
               this.forcedForestZone = null;
+              this.forestBoundaryCooldown = 0.70;
 
               p.position.copy(this.level.forestBNextSpawn);
               p.previousPosition.copy(p.position);
               p.velocity.set(0, 0, 0);
-            } else if (this.forestBVisualProgress <= -0.18) {
+            } else if (
+              this.forestBoundaryCooldown <= 0 &&
+              this.forestBVisualProgress <= -0.28
+            ) {
               // Reverse through the camera boundary back into scene A.
               this.forestBCompleted = false;
               this.forcedForestZone = 'CAM_FOREST_A';
+              this.forestBoundaryCooldown = 0.70;
 
               if (!this.forestAVisualStart) {
                 this.forestAVisualStart = this.level.layout.points[2].clone();
