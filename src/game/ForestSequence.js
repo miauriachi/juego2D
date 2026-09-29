@@ -190,7 +190,22 @@ export class ForestSequence {
   }
 
   updateCamera(position) {
-    this.cameras.update({ position });
+    // The forest is a single authored route. Pick its shot from route progress
+    // instead of CameraManager's rectangular zone fallback, which could jump all
+    // the way back to CAM_CRASH_EXIT when Bryan crossed a gap between rectangles.
+    const desiredId = this.level.getCameraZoneId(
+      position,
+      this.state,
+      Boolean(this.examined),
+    );
+    const desiredZone = this.cameras.zones.find(zone => zone.id === desiredId);
+
+    if (desiredZone) {
+      this.cameras.setActiveZone(desiredZone);
+    } else {
+      this.cameras.update({ position });
+    }
+
     this.cameras.applyToCamera(this.game.cameraRig);
 
     const zoneId = this.cameras.activeZone?.id;
