@@ -20,6 +20,7 @@ export class ForestSequence {
     this.inspectionDialogueStarted = false;
     this.exitNeedsRelease = true;
     this.objectiveTimer = 3.4;
+    this.maxForestProgress = 0;
 
     // The driving phone/dialogue UI must never leak into the post-crash room.
     // A stale line was stealing E and making the blood inspection look broken.
@@ -190,13 +191,16 @@ export class ForestSequence {
   }
 
   updateCamera(position) {
-    // The forest is a single authored route. Pick its shot from route progress
-    // instead of CameraManager's rectangular zone fallback, which could jump all
-    // the way back to CAM_CRASH_EXIT when Bryan crossed a gap between rectangles.
+    if (this.examined && position) {
+      const forward = Math.max(0, position.x - this.level.origin.x);
+      this.maxForestProgress = Math.max(this.maxForestProgress, forward);
+    }
+
     const desiredId = this.level.getCameraZoneId(
       position,
       this.state,
       Boolean(this.examined),
+      this.maxForestProgress,
     );
     const desiredZone = this.cameras.zones.find(zone => zone.id === desiredId);
 
@@ -473,10 +477,14 @@ export class ForestSequence {
     g.bryanVisual.update(dt);
     this.applyInspectionPose(this.crouchAmount);
 
-    // Re-apply the shot calibration after visibility setup. This scales only
-    // Bryan's visual group, never collision or movement.
+    // Re-apply the shot calibration after visibility setup. Player movement and
+    // collision stay untouched; only Bryan's rendered presentation changes.
     this.level.backdrop?.applyActorCalibration(
       p.group,
+      this.cameras.activeZone?.id,
+    );
+    this.level.backdrop?.applyActorGrounding(
+      g.bryanVisual?.group,
       this.cameras.activeZone?.id,
     );
 
