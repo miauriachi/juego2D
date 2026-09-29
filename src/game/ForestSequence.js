@@ -37,6 +37,9 @@ export class ForestSequence {
     this.forestAVisualStart = null;
     this.forestAVisualProgress = 0;
     this.forestACompleted = false;
+    this.forestBVisualStart = null;
+    this.forestBVisualProgress = 0;
+    this.forestBCompleted = false;
 
     // The driving phone/dialogue UI must never leak into the post-crash room.
     // A stale line was stealing E and making the blood inspection look broken.
@@ -207,17 +210,24 @@ export class ForestSequence {
   }
 
   updateCamera(position) {
-    if (this.examined && position) {
+    const forceForestB =
+      this.examined &&
+      this.forestACompleted &&
+      !this.forestBCompleted;
+
+    if (this.examined && position && !forceForestB) {
       const routeProgress = this.level.layout.progress(position);
       this.maxForestProgress = Math.max(this.maxForestProgress, routeProgress);
     }
 
-    let desiredId = this.level.getCameraZoneId(
-      position,
-      this.state,
-      Boolean(this.examined),
-      this.maxForestProgress,
-    );
+    let desiredId = forceForestB
+      ? 'CAM_FOREST_B'
+      : this.level.getCameraZoneId(
+        position,
+        this.state,
+        Boolean(this.examined),
+        this.maxForestProgress,
+      );
 
     let desiredIndex = FOREST_CAMERA_ORDER.indexOf(desiredId);
     if (desiredIndex < 0) desiredIndex = this.maxForestCameraIndex;
@@ -469,9 +479,16 @@ export class ForestSequence {
             // authored route at the start of the next room; later forest rooms,
             // collisions and camera thresholds remain unchanged.
             this.forestACompleted = true;
-            p.position.copy(this.level.forestANextSpawn);
+            p.position.copy(this.level.forestBVisualStartPoint);
             p.previousPosition.copy(p.position);
             p.velocity.set(0, 0, 0);
+            this.forestBVisualStart = p.position.clone();
+            this.forestBVisualProgress = 0;
+
+            const direction = this.level.forestBVisualDirection;
+            p.rotationY = Math.atan2(-direction.x, -direction.z);
+            p.group.rotation.y = p.rotationY;
+
             this.maxForestProgress = Math.max(this.maxForestProgress, 21.5);
             this.maxForestCameraIndex = Math.max(
               this.maxForestCameraIndex,
@@ -479,8 +496,42 @@ export class ForestSequence {
             );
           }
         } else {
-          this.collision.resolve(p);
-          this.level.resolveCarCollision(p);
+          const inForestB =
+            this.examined &&
+            this.forestACompleted &&
+            !this.forestBCompleted &&
+            this.cameras.activeZone?.id === 'CAM_FOREST_B';
+
+          if (inForestB) {
+            if (!this.forestBVisualStart) {
+              this.forestBVisualStart = this.level.forestBVisualStartPoint.clone();
+              p.position.copy(this.forestBVisualStart);
+              p.previousPosition.copy(p.position);
+            }
+
+            this.forestBVisualProgress = this.level.resolveForestBVisualPath(
+              p,
+              this.forestBVisualStart,
+            );
+
+            if (
+              this.forestBVisualProgress >=
+              this.level.forestBVisualLength - 0.05
+            ) {
+              this.forestBCompleted = true;
+              p.position.copy(this.level.forestBNextSpawn);
+              p.previousPosition.copy(p.position);
+              p.velocity.set(0, 0, 0);
+              this.maxForestProgress = Math.max(this.maxForestProgress, 31.2);
+              this.maxForestCameraIndex = Math.max(
+                this.maxForestCameraIndex,
+                FOREST_CAMERA_ORDER.indexOf('CAM_FOREST_C'),
+              );
+            }
+          } else {
+            this.collision.resolve(p);
+            this.level.resolveCarCollision(p);
+          }
         }
 
         // Bryan must inspect the rear-car blood before entering the maze.
