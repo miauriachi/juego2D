@@ -11,7 +11,7 @@ const forestBlood = new URL('../../assets/backgrounds/forest/forest_blood_clean.
 // These are the SAME environments Bryan crossed on the way in, so the return
 // now preserves visual continuity without stretching tiny 320x180 rescue JPGs.
 const RESCUE_BACKDROPS = [
-  { key: 'rescue-body-hd', url: forestScene5, fallbackKey: 'scene5' },
+  { key: 'rescue-opening-current', url: null, keepCurrent: true },
   { key: 'rescue-deep-hd', url: forestScene5, fallbackKey: 'scene5' },
   { key: 'rescue-mid-hd', url: forestScene4, fallbackKey: 'scene4' },
   { key: 'rescue-path-hd', url: forestScene3, fallbackKey: 'scene3' },
@@ -118,10 +118,16 @@ export class WomanRescueSequence {
 
     // If an authored forest plate is already decoded, keep it visible while the
     // rescue-only image loads so there is never a black/empty frame.
-    const currentForestTexture = this.level.backdrop?.material?.map ?? null;
-    if (currentForestTexture?.image) {
-      this.level.scene.background = currentForestTexture;
-      this.activeBackdropTexture = currentForestTexture;
+    const currentForestTexture =
+      this.level.backdrop?.cache?.get('scene6-clean')
+      ?? this.level.backdrop?.material?.map
+      ?? null;
+    this.initialRescueBackdropTexture = currentForestTexture?.image
+      ? currentForestTexture
+      : null;
+    if (this.initialRescueBackdropTexture) {
+      this.level.scene.background = this.initialRescueBackdropTexture;
+      this.activeBackdropTexture = this.initialRescueBackdropTexture;
       this.hideEnvironmentForBackdrop();
       this.backdropEnvironmentHidden = true;
     }
@@ -165,14 +171,18 @@ export class WomanRescueSequence {
     if (!config) return;
 
     const generated = this.backdropTextures?.get(config.key);
-    const fallback = this.level.backdrop?.cache?.get(config.fallbackKey);
-    const texture = generated?.image
-      ? generated
-      : fallback?.image
-        ? fallback
-        : this.activeBackdropTexture?.image
-          ? this.activeBackdropTexture
-          : null;
+    const fallback = config.fallbackKey
+      ? this.level.backdrop?.cache?.get(config.fallbackKey)
+      : null;
+    const texture = config.keepCurrent
+      ? this.initialRescueBackdropTexture
+      : generated?.image
+        ? generated
+        : fallback?.image
+          ? fallback
+          : this.activeBackdropTexture?.image
+            ? this.activeBackdropTexture
+            : null;
 
     // Keep the last valid plate until the requested one is decoded.
     if (!texture) return;
@@ -197,6 +207,7 @@ export class WomanRescueSequence {
     this.backdropTextures?.clear();
     this.backdropTextures = null;
     this.activeBackdropTexture = null;
+    this.initialRescueBackdropTexture = null;
   }
 
   setCamera(position, target) { this.camera.position.copy(position); this.camera.lookAt(target); }
