@@ -1,6 +1,7 @@
 import * as THREE from 'three';
 import { ForestLayout } from './ForestLayout.js';
 import { BloodTrail } from '../environment/BloodTrail.js';
+import { ForestPrerenderBackdrop } from '../game/ForestPrerenderBackdrop.js';
 import { DEBUG_MODE, PLAYER_RADIUS } from '../config/constants.js';
 
 function buildForegroundFrame(scene, cameraPosition, lookAt, name, flip = 1) {
@@ -65,7 +66,7 @@ function buildForegroundFrame(scene, cameraPosition, lookAt, name, flip = 1) {
 // distant forest, headlights, storm and roadside dressing therefore never pop
 // away when Bryan opens the door.
 export class ForestAftermath {
-  constructor(road, incident, cameras, collision, actorRoot = null) {
+  constructor(road, incident, cameras, collision, actorRoot = null, renderer = null) {
     this.road = road;
     this.scene = road.scene;
     this.actorRoot = actorRoot;
@@ -350,11 +351,15 @@ export class ForestAftermath {
       1,
     );
 
-    // The previous forest atlas only supplied ~320x180 pixels per shot and was
-    // being stretched over the viewport. Keep the authored fixed cameras but use
-    // the full 3D road/forest/storm until full-resolution individual backplates
-    // are committed. This prevents the giant mosaic/pixel blocks.
-    this.backdrop = null;
+    // Full-resolution 1280x720 prerenders, one real image per shot.
+    // The live 3D room remains visible until the requested image has decoded.
+    this.backdrop = new ForestPrerenderBackdrop(
+      this.scene,
+      cameras.cameraRig.camera,
+      actorRoot,
+      renderer,
+    );
+    this.backdrop.preload();
 
     cameras.setDebugVisibility(DEBUG_MODE);
 
