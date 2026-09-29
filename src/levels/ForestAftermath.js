@@ -185,6 +185,9 @@ export class ForestAftermath {
     this.woman.userData.preserveForestZones = ['CAM_FOREST_BODY'];
     this.woman.userData.bodyShotScale = 1.48;
     this.woman.scale.setScalar(this.woman.userData.bodyShotScale);
+    this.woman.updateMatrixWorld(true);
+    this.woman.position.y +=
+      0.035 - new THREE.Box3().setFromObject(this.woman).min.y;
 
     const damageShape = new THREE.Shape();
     damageShape.moveTo(-0.08, -0.1);
