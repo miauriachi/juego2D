@@ -8,27 +8,29 @@ import scene6 from '../environment/forestShots/forestScene6.js';
 
 // Full-resolution individual shots. No atlas crops, no canvas resampling.
 // Every texture is a 1280x720 prerender embedded as a data URI.
+const BRYAN_WORLD_HEIGHT = 1.72;
+
 const SHOTS = {
   CAM_CRASH_EXIT: {
-    key: 'scene1', url: scene1, zoom: 1.025, actorScale: 0.98, actorYOffset: 0.00,
+    key: 'scene1', url: scene1, zoom: 1.025, targetScreenHeight: 0.225,
   },
   CAM_BLOOD_TRAIL: {
-    key: 'scene2', url: scene2, zoom: 1.025, actorScale: 1.18, actorYOffset: -0.05,
+    key: 'scene2', url: scene2, zoom: 1.025, targetScreenHeight: 0.210,
   },
   CAM_FOREST_A: {
-    key: 'scene3', url: scene3, zoom: 1.03, actorScale: 1.14, actorYOffset: -0.10,
+    key: 'scene3', url: scene3, zoom: 1.03, targetScreenHeight: 0.195,
   },
   CAM_FOREST_B: {
-    key: 'scene4', url: scene4, zoom: 1.03, actorScale: 1.02, actorYOffset: -0.13,
+    key: 'scene4', url: scene4, zoom: 1.03, targetScreenHeight: 0.185,
   },
   CAM_FOREST_C: {
-    key: 'scene5', url: scene5, zoom: 1.03, actorScale: 1.02, actorYOffset: -0.12,
+    key: 'scene5', url: scene5, zoom: 1.03, targetScreenHeight: 0.180,
   },
   CAM_FOREST_D: {
-    key: 'scene5-flip', url: scene5, zoom: 1.08, actorScale: 0.98, actorYOffset: -0.10, flipX: true,
+    key: 'scene5-flip', url: scene5, zoom: 1.08, targetScreenHeight: 0.180, flipX: true,
   },
   CAM_FOREST_BODY: {
-    key: 'scene6', url: scene6, zoom: 1.025, actorScale: 0.98, actorYOffset: -0.08,
+    key: 'scene6', url: scene6, zoom: 1.025, targetScreenHeight: 0.195,
   },
 };
 
@@ -44,6 +46,10 @@ export class ForestPrerenderBackdrop {
     this.hidden = new Map();
     this.currentZoneId = null;
     this.currentKey = null;
+    this.currentActorScale = 1;
+    this.lastScaleZoneId = null;
+    this._actorFoot = new THREE.Vector3();
+    this._actorHead = new THREE.Vector3();
     this.distance = 36;
 
     this.material = new THREE.MeshBasicMaterial({
@@ -130,25 +136,58 @@ export class ForestPrerenderBackdrop {
     return Boolean(SHOTS[zoneId]);
   }
 
-  getActorScale(zoneId) {
-    return SHOTS[zoneId]?.actorScale ?? 1;
+  getTargetScreenHeight(zoneId) {
+    return SHOTS[zoneId]?.targetScreenHeight ?? 0.19;
   }
 
-  getActorYOffset(zoneId) {
-    return SHOTS[zoneId]?.actorYOffset ?? 0;
+  getProjectedHeightAtUnitScale(actorRoot) {
+    if (!actorRoot || !this.camera) return 0;
+
+    actorRoot.getWorldPosition(this._actorFoot);
+    this._actorHead.copy(this._actorFoot);
+    this._actorHead.y += BRYAN_WORLD_HEIGHT;
+
+    this.camera.updateMatrixWorld(true);
+    this._actorFoot.project(this.camera);
+    this._actorHead.project(this.camera);
+
+    return Math.abs(this._actorHead.y - this._actorFoot.y) * 0.5;
   }
 
   applyActorCalibration(actorRoot, zoneId = this.currentZoneId) {
     if (!actorRoot) return;
-    actorRoot.scale.setScalar(this.getActorScale(zoneId));
-  }
 
-  applyActorGrounding(actorVisual, zoneId = this.currentZoneId) {
-    if (!actorVisual) return;
-    actorVisual.position.y += this.getActorYOffset(zoneId);
+    const projected = this.getProjectedHeightAtUnitScale(actorRoot);
+    if (!Number.isFinite(projected) || projected < 0.001) {
+      actorRoot.scale.setScalar(1);
+      return;
+    }
+
+    const desired = this.getTargetScreenHeight(zoneId);
+    const rawScale = desired / projected;
+
+    // Never let Bryan become a giant or a mouse just because one authored camera
+    // happens to sit much closer/farther than another. Perspective still changes
+    // naturally inside each shot, but presentation stays within a believable band.
+    const targetScale = THREE.MathUtils.clamp(rawScale, 0.88, 1.10);
+
+    if (this.lastScaleZoneId !== zoneId) {
+      this.currentActorScale = targetScale;
+      this.lastScaleZoneId = zoneId;
+    } else {
+      this.currentActorScale = THREE.MathUtils.lerp(
+        this.currentActorScale,
+        targetScale,
+        0.24,
+      );
+    }
+
+    actorRoot.scale.setScalar(this.currentActorScale);
   }
 
   resetActorCalibration(actorRoot) {
+    this.currentActorScale = 1;
+    this.lastScaleZoneId = null;
     if (actorRoot) actorRoot.scale.set(1, 1, 1);
   }
 
