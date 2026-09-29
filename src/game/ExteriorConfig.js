@@ -29,17 +29,17 @@ export const exteriorConfig = {
 
   // Presentation correction is visual-only; physics and GLB source stay untouched.
   playerPresentation: {
-    // Exterior-only visual calibration:
-    // fixed roll around Bryan's local Z axis so his body aligns with the doorway,
-    // without changing his movement/world heading.
+    // Exterior-only visual calibration. Scale is presentation-only: movement,
+    // collision radius and world position stay untouched.
     rollZ: 0.34,
+    scale: 1.32,
   },
 
   car: {
     // Calibrated to the foreground empty bay. Heading matches the baked parked cars.
     position: [1.05, 0, 4.08],
-    rotationY: -0.96,
-    scale: 0.52,
+    rotationY: -1.23,
+    scale: 0.66,
 
     // Door-side interaction point, outside the collision footprint.
     interaction: {
