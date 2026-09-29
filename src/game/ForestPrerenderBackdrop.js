@@ -1,81 +1,48 @@
 import * as THREE from 'three';
+import scene1 from '../environment/forestShots/forestScene1.js';
+import scene2 from '../environment/forestShots/forestScene2.js';
+import scene3 from '../environment/forestShots/forestScene3.js';
+import scene4 from '../environment/forestShots/forestScene4.js';
+import scene5 from '../environment/forestShots/forestScene5.js';
+import scene6 from '../environment/forestShots/forestScene6.js';
 
-const ATLAS_URL = 'assets/backgrounds/forest/forest_prerender_atlas.jpg';
-
+// Full-resolution individual shots. No atlas crops, no canvas resampling.
+// Every texture is a 1280x720 prerender embedded as a data URI.
 const SHOTS = {
-  CAM_CRASH_EXIT: { col: 0, row: 0, zoom: 1.03, actorScale: 0.94 },
-  CAM_BLOOD_TRAIL: { col: 2, row: 0, zoom: 1.03, actorScale: 0.90 },
-  CAM_FOREST_A: { col: 1, row: 0, zoom: 1.04, actorScale: 0.89 },
-  CAM_FOREST_B: { col: 0, row: 1, zoom: 1.04, actorScale: 0.84 },
-  CAM_FOREST_C: { col: 1, row: 1, zoom: 1.04, actorScale: 0.82 },
-  CAM_FOREST_D: { col: 0, row: 1, zoom: 1.12, actorScale: 0.80, flipX: true },
-  CAM_FOREST_BODY: { col: 2, row: 1, zoom: 1.03, actorScale: 0.86 },
+  CAM_CRASH_EXIT: { key: 'scene1', url: scene1, zoom: 1.025, actorScale: 0.94 },
+  CAM_BLOOD_TRAIL: { key: 'scene3', url: scene3, zoom: 1.025, actorScale: 0.90 },
+  CAM_FOREST_A: { key: 'scene2', url: scene2, zoom: 1.03, actorScale: 0.89 },
+  CAM_FOREST_B: { key: 'scene4', url: scene4, zoom: 1.03, actorScale: 0.84 },
+  CAM_FOREST_C: { key: 'scene5', url: scene5, zoom: 1.03, actorScale: 0.82 },
+  CAM_FOREST_D: { key: 'scene4-flip', url: scene4, zoom: 1.10, actorScale: 0.80, flipX: true },
+  CAM_FOREST_BODY: { key: 'scene6', url: scene6, zoom: 1.025, actorScale: 0.86 },
 };
 
-function makeShotTexture(image, shot) {
-  const cols = 3;
-  const rows = 2;
-  const tileW = Math.floor(image.width / cols);
-  const tileH = Math.floor(image.height / rows);
-
-  const canvas = document.createElement('canvas');
-  canvas.width = tileW;
-  canvas.height = tileH;
-
-  const ctx = canvas.getContext('2d');
-  if (!ctx) return null;
-
-  ctx.save();
-  if (shot.flipX) {
-    ctx.translate(tileW, 0);
-    ctx.scale(-1, 1);
-  }
-
-  const sx = shot.col * tileW;
-  // Canvas uses top-left origin. row 0 = top row, row 1 = bottom row.
-  const sy = shot.row * tileH;
-
-  ctx.drawImage(
-    image,
-    sx, sy, tileW, tileH,
-    0, 0, tileW, tileH,
-  );
-  ctx.restore();
-
-  const texture = new THREE.CanvasTexture(canvas);
-  texture.colorSpace = THREE.SRGBColorSpace;
-  texture.wrapS = THREE.ClampToEdgeWrapping;
-  texture.wrapT = THREE.ClampToEdgeWrapping;
-  texture.magFilter = THREE.LinearFilter;
-  texture.minFilter = THREE.LinearFilter;
-  texture.generateMipmaps = false;
-  texture.needsUpdate = true;
-  return texture;
-}
-
 export class ForestPrerenderBackdrop {
-  constructor(scene, camera, actorRoot = null) {
+  constructor(scene, camera, actorRoot = null, renderer = null) {
     this.scene = scene;
     this.camera = camera;
     this.actorRoot = actorRoot;
+    this.renderer = renderer;
     this.loader = new THREE.TextureLoader();
     this.cache = new Map();
+    this.pending = new Map();
     this.hidden = new Map();
     this.currentZoneId = null;
     this.currentKey = null;
-    this.ready = false;
     this.distance = 36;
 
-    const material = new THREE.MeshBasicMaterial({
+    this.material = new THREE.MeshBasicMaterial({
       color: 0xffffff,
       side: THREE.DoubleSide,
       transparent: false,
       depthWrite: false,
+      depthTest: true,
       fog: false,
       toneMapped: false,
     });
 
-    this.plane = new THREE.Mesh(new THREE.PlaneGeometry(1, 1), material);
+    this.plane = new THREE.Mesh(new THREE.PlaneGeometry(1, 1), this.material);
     this.plane.name = 'forest-prerender-backplate';
     this.plane.renderOrder = -1000;
     this.plane.frustumCulled = false;
@@ -84,37 +51,65 @@ export class ForestPrerenderBackdrop {
     scene.add(this.plane);
   }
 
-  preload() {
-    if (this.promise) return this.promise;
+  preload(zoneId = null) {
+    if (zoneId) return this.loadShot(zoneId);
 
-    this.promise = new Promise(resolve => {
+    const zones = Object.keys(SHOTS);
+    return Promise.all(zones.map(id => this.loadShot(id)))
+      .then(results => results.some(Boolean));
+  }
+
+  loadShot(zoneId) {
+    const config = SHOTS[zoneId];
+    if (!config) return Promise.resolve(false);
+
+    // A flipped reuse needs its own texture transform.
+    const cacheKey = config.key;
+    if (this.cache.has(cacheKey)) return Promise.resolve(true);
+    if (this.pending.has(cacheKey)) return this.pending.get(cacheKey);
+
+    const promise = new Promise(resolve => {
       this.loader.load(
-        ATLAS_URL,
-        atlas => {
-          const image = atlas.image;
-          if (!image?.width || !image?.height) {
-            console.warn('Forest prerender atlas loaded without image dimensions.');
-            resolve(false);
-            return;
+        config.url,
+        texture => {
+          texture.colorSpace = THREE.SRGBColorSpace;
+          texture.wrapS = THREE.ClampToEdgeWrapping;
+          texture.wrapT = THREE.ClampToEdgeWrapping;
+          texture.magFilter = THREE.LinearFilter;
+          texture.minFilter = THREE.LinearMipmapLinearFilter;
+          texture.generateMipmaps = true;
+
+          if (this.renderer?.capabilities?.getMaxAnisotropy) {
+            texture.anisotropy = Math.min(
+              8,
+              this.renderer.capabilities.getMaxAnisotropy(),
+            );
+          } else {
+            texture.anisotropy = 4;
           }
 
-          for (const [zoneId, shot] of Object.entries(SHOTS)) {
-            const texture = makeShotTexture(image, shot);
-            if (texture) this.cache.set(zoneId, texture);
+          if (config.flipX) {
+            texture.wrapS = THREE.RepeatWrapping;
+            texture.repeat.x = -1;
+            texture.offset.x = 1;
           }
 
-          this.ready = this.cache.size > 0;
-          resolve(this.ready);
+          texture.needsUpdate = true;
+          this.cache.set(cacheKey, texture);
+          this.pending.delete(cacheKey);
+          resolve(true);
         },
         undefined,
         error => {
-          console.warn('Forest prerender atlas failed to load.', error);
+          console.warn('Forest prerender failed to load:', zoneId, error);
+          this.pending.delete(cacheKey);
           resolve(false);
         },
       );
     });
 
-    return this.promise;
+    this.pending.set(cacheKey, promise);
+    return promise;
   }
 
   hasShot(zoneId) {
@@ -135,42 +130,43 @@ export class ForestPrerenderBackdrop {
   }
 
   update(zoneId) {
-    if (!this.hasShot(zoneId)) {
+    const config = SHOTS[zoneId];
+    if (!config) {
       this.disable();
       return;
     }
 
     this.currentZoneId = zoneId;
+    const texture = this.cache.get(config.key);
 
-    if (!this.ready) {
-      this.preload().then(ok => {
+    if (!texture) {
+      // Do NOT hide the live 3D room until the replacement image has actually
+      // loaded. This prevents a black screen on slow/cold loads.
+      this.loadShot(zoneId).then(ok => {
         if (ok && this.currentZoneId === zoneId) this.update(zoneId);
       });
       return;
     }
 
-    const texture = this.cache.get(zoneId);
-    if (!texture) {
-      this.disable();
-      return;
-    }
-
-    if (this.currentKey !== zoneId || this.plane.material.map !== texture) {
-      this.currentKey = zoneId;
-      this.plane.material.map = texture;
-      this.plane.material.needsUpdate = true;
+    if (this.currentKey !== config.key || this.material.map !== texture) {
+      this.currentKey = config.key;
+      this.material.map = texture;
+      this.material.needsUpdate = true;
     }
 
     this.plane.visible = true;
-    this.updatePlaneTransform(SHOTS[zoneId]);
-    this.updatePlaneScale(SHOTS[zoneId]);
+    this.updatePlaneTransform(config);
+    this.updatePlaneScale(config);
     this.applyHide();
   }
 
   updatePlaneTransform(config) {
-    const direction = new THREE.Vector3(0, 0, -1).applyQuaternion(this.camera.quaternion);
-    const right = new THREE.Vector3(1, 0, 0).applyQuaternion(this.camera.quaternion);
-    const up = new THREE.Vector3(0, 1, 0).applyQuaternion(this.camera.quaternion);
+    const direction = new THREE.Vector3(0, 0, -1)
+      .applyQuaternion(this.camera.quaternion);
+    const right = new THREE.Vector3(1, 0, 0)
+      .applyQuaternion(this.camera.quaternion);
+    const up = new THREE.Vector3(0, 1, 0)
+      .applyQuaternion(this.camera.quaternion);
 
     this.plane.position.copy(this.camera.position)
       .addScaledVector(direction, this.distance)
@@ -180,17 +176,18 @@ export class ForestPrerenderBackdrop {
   }
 
   updatePlaneScale(config) {
-    const texture = this.plane.material.map;
-    if (!texture?.image) return;
+    // Every source shot is 16:9, but use the actual decoded image ratio.
+    const image = this.material.map?.image;
+    const imageAspect = image?.width && image?.height
+      ? image.width / image.height
+      : 16 / 9;
 
-    const imageAspect = texture.image.width / texture.image.height;
     const fov = THREE.MathUtils.degToRad(this.camera.fov);
     const viewHeight = 2 * Math.tan(fov / 2) * this.distance;
     const viewWidth = viewHeight * this.camera.aspect;
 
     let width = viewWidth;
     let height = width / imageAspect;
-
     if (height < viewHeight) {
       height = viewHeight;
       width = height * imageAspect;
@@ -212,7 +209,7 @@ export class ForestPrerenderBackdrop {
         return;
       }
 
-      // Snow stays live over the prerender.
+      // Real storm particles continue over the baked background.
       if (object.isPoints) return;
       if (this.isActor(object)) return;
       if (this.isPreserved(object)) return;
@@ -251,7 +248,6 @@ export class ForestPrerenderBackdrop {
       if (!object?.uuid || !this.hidden.has(object.uuid)) return;
       object.visible = this.hidden.get(object.uuid);
     });
-
     this.hidden.clear();
   }
 
@@ -264,9 +260,10 @@ export class ForestPrerenderBackdrop {
   }
 
   onResize() {
-    if (this.currentZoneId && this.plane.visible) {
-      this.updatePlaneTransform(SHOTS[this.currentZoneId]);
-      this.updatePlaneScale(SHOTS[this.currentZoneId]);
-    }
+    if (!this.currentZoneId || !this.plane.visible) return;
+    const config = SHOTS[this.currentZoneId];
+    if (!config) return;
+    this.updatePlaneTransform(config);
+    this.updatePlaneScale(config);
   }
 }
