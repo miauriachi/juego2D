@@ -28,6 +28,7 @@ export class ForestSequence {
       game.drivingSequence,
       this.cameras,
       this.collision,
+      game.player.group,
     );
 
     this.history = [];
@@ -122,6 +123,7 @@ export class ForestSequence {
 
   beginRescue() {
     this.level.backdrop?.disable();
+    this.game.player.group.scale.set(1, 1, 1);
     this.level.woman.visible = true;
     this.state = 'rescue';
     this.setNarrativeState(STATE.HELPING_WOMAN);
@@ -142,7 +144,10 @@ export class ForestSequence {
   updateCamera(position) {
     this.cameras.update({ position });
     this.cameras.applyToCamera(this.game.cameraRig);
-    this.level.backdrop?.update(this.cameras.activeZone?.id);
+
+    const zoneId = this.cameras.activeZone?.id;
+    this.level.backdrop?.update(zoneId);
+    this.level.backdrop?.applyActorCalibration(this.game.player.group, zoneId);
   }
 
   ensureBryanVisibleOutsideCar() {
@@ -151,14 +156,10 @@ export class ForestSequence {
 
     if (p.group.parent !== this.level.scene) this.level.scene.add(p.group);
     p.group.visible = true;
-    p.group.scale.set(1, 1, 1);
 
     const visual = g.bryanVisual?.group;
     if (visual) {
       visual.visible = true;
-      visual.position.set(0, 0, 0);
-      visual.rotation.set(0, 0, 0);
-      visual.scale.set(1, 1, 1);
     }
 
     if (g.bryanVisual?.skinnedMesh) g.bryanVisual.skinnedMesh.visible = true;
@@ -396,10 +397,21 @@ export class ForestSequence {
       if (!quiet && this.examined) g.audio?.playCue('distant_branches');
     }
 
+    // Visibility must be restored before applying the final pose. Doing it after
+    // applyInspectionPose used to wipe out the crouch every single frame.
+    this.ensureBryanVisibleOutsideCar();
+
     // IMPORTANT: pass dt here. The old forest path called update() with no dt,
     // which froze the rigged Bryan locomotion after he left the car.
     g.bryanVisual.update(dt);
     this.applyInspectionPose(this.crouchAmount);
+
+    // Re-apply the shot calibration after visibility setup. This scales only
+    // Bryan's visual group, never collision or movement.
+    this.level.backdrop?.applyActorCalibration(
+      p.group,
+      this.cameras.activeZone?.id,
+    );
 
     g.objective.textContent = this.objectiveText;
     // Classic RE framing: objectives appear briefly when the story state changes,
@@ -409,7 +421,6 @@ export class ForestSequence {
       dialogue.isOpen;
     input.clearFrameState();
 
-    this.ensureBryanVisibleOutsideCar();
     g.renderer.render(this.level.scene, g.cameraRig.camera);
   }
 }
