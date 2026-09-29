@@ -35,9 +35,9 @@ import { PrerenderRoom } from './PrerenderRoom.js';
 import { PrerenderRoomView } from './PrerenderRoomView.js';
 import { GameStats } from './GameStats.js';
 
-// Normal story rules stay enabled. This test checkpoint only changes where a
-// new game starts while we calibrate the post-crash forest.
-const TEMP_CRASH_CHECKPOINT = true;
+// Normal story rules stay enabled. This temporary QA checkpoint now begins at
+// the injured-woman encounter so the rescue/car sequence can be tested quickly.
+const TEMP_WOMAN_CHECKPOINT = true;
 
 export class Game {
   constructor(container, { input = null, settings = { sound: true, cameraMotion: true }, audio = null } = {}) {
@@ -137,7 +137,7 @@ export class Game {
       this.entranceBackdropReady,
       this.openingSequence.ready,
     ]).then(() => {
-      if (TEMP_CRASH_CHECKPOINT) this.startCrashCheckpoint();
+      if (TEMP_WOMAN_CHECKPOINT) this.startWomanCheckpoint();
       return true;
     });
     window.addEventListener('resize', () => this.onResize());
@@ -581,10 +581,10 @@ export class Game {
     this.input.clearFrameState();
   }
 
-  startCrashCheckpoint() {
-    // TEMPORARY QA START: begin immediately after the road impact so forest
-    // camera/path work can be tested without replaying the hospital and drive.
-    // Delete/disable TEMP_CRASH_CHECKPOINT when this pass is finished.
+  startWomanCheckpoint() {
+    // TEMPORARY QA START: build the post-impact world, then place Bryan at the
+    // moment he has already found the injured woman. This replaces the old
+    // accident checkpoint and jumps directly to the rescue test.
     this.openingSequence?.transition?.remove();
     if (this.openingSequence?.canvas) {
       this.openingSequence.canvas.style.visibility = 'visible';
@@ -640,6 +640,35 @@ export class Game {
 
     this.forestSequence = new ForestSequence(this);
     this.mode = 'forest';
+
+    const forest = this.forestSequence;
+    forest.examined = true;
+    forest.encountered = true;
+    forest.state = 'found';
+    forest.forcedForestZone = 'CAM_FOREST_BODY';
+    forest.setNarrativeState('FOUND_WOMAN');
+
+    const foundPosition = (forest.level.bodyApproachPoint ?? forest.level.bodyPosition).clone();
+    this.player.position.copy(foundPosition);
+    this.player.previousPosition.copy(foundPosition);
+    this.player.velocity.set(0, 0, 0);
+    forest.ensureBryanVisibleOutsideCar();
+
+    const towardWoman = forest.level.bodyPosition.clone().sub(this.player.position);
+    if (towardWoman.lengthSq() > 0.001) {
+      this.player.rotationY = Math.atan2(-towardWoman.x, -towardWoman.z);
+      this.player.group.rotation.y = this.player.rotationY;
+    }
+
+    forest.level.woman.visible = true;
+    forest.level.woman.userData.state = 'INJURED_LYING';
+    forest.updateCamera(this.player.position);
+
+    this.dialogueManager.start([
+      { speaker: 'BRYAN', text: 'Hey... ¿puedes escucharme?' },
+      { speaker: 'MUJER HERIDA', text: '...Ah... hhh...' },
+      { speaker: 'BRYAN', text: 'Está bien. Voy a sacarte de aquí.' },
+    ], () => forest.beginRescue());
   }
 
   startRoad() {
