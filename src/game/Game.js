@@ -22,6 +22,10 @@ import { BryanModel } from '../characters/BryanModel.js';
 import { HospitalOpeningSequence } from './HospitalOpeningSequence.js';
 import { ParkingDepartureSequence } from './ParkingDepartureSequence.js';
 import { ForestSequence } from './ForestSequence.js';
+import { PassengerDriveSequence } from './PassengerDriveSequence.js';
+import { PoliceCrashSequence } from './PoliceCrashSequence.js';
+import { CarInterior } from './CarInterior.js';
+import { LowPolyCharacter } from '../characters/LowPolyCharacter.js';
 import { DEBUG_MODE } from '../config/constants.js';
 import { PrerenderBackdropManager } from './PrerenderBackdropManager.js';
 import { ENTRANCE_CAMERA, ENTRANCE_GATE, ENTRANCE_NAVIGATION, ENTRANCE_ASPECT } from './EntranceConfig.js';
@@ -35,9 +39,10 @@ import { PrerenderRoom } from './PrerenderRoom.js';
 import { PrerenderRoomView } from './PrerenderRoomView.js';
 import { GameStats } from './GameStats.js';
 
-// TEMP CHECKPOINT: exterior calibration only. Allows immediate hospital exit
-// and driving without replaying the full delivery flow.
-const TEMP_EXTERIOR_CHECKPOINT = true;
+// TEMP CHECKPOINT: jump directly to the moment AFTER the patrol rolls over.
+// Bryan still has to park his sedan, get out and inspect the wreck.
+const TEMP_PATROL_CRASH_CHECKPOINT = true;
+const TEMP_EXTERIOR_CHECKPOINT = false;
 
 export class Game {
   constructor(container, { input = null, settings = { sound: true, cameraMotion: true }, audio = null } = {}) {
@@ -136,7 +141,10 @@ export class Game {
       this.visualReady,
       this.entranceBackdropReady,
       this.openingSequence.ready,
-    ]).then(() => true);
+    ]).then(() => {
+      if (TEMP_PATROL_CRASH_CHECKPOINT) this.startPatrolCrashCheckpoint();
+      return true;
+    });
     window.addEventListener('resize', () => this.onResize());
   }
 
@@ -573,6 +581,158 @@ export class Game {
     this.mode = 'ending';
     this.player.group.visible = false;
     this.objective.hidden = true;
+    this.dialogueManager.setHint('');
+    this.input.keys.clear();
+    this.input.clearFrameState();
+  }
+
+
+  startPatrolCrashCheckpoint() {
+    // TEMPORARY QA START: patrol already rolled over; Bryan must park, exit
+    // his sedan and continue through the normal PoliceCrashSequence flow.
+    this.openingSequence?.transition?.remove();
+    if (this.openingSequence?.canvas) {
+      this.openingSequence.canvas.style.visibility = 'visible';
+    }
+    this.openingSequence.completed = true;
+
+    this.prerenderBackdrop?.disable();
+    this.urgenciasBackdrop?.disable();
+    this.exteriorBackdrop?.disable();
+
+    // Build the same real sedan/woman objects used by the story, then hand them
+    // to PassengerDriveSequence so the checkpoint continues through normal code.
+    this.snowRoad = new SnowRoad({ settings: this.settings, length: 5000 });
+    this.drivingSequence = new DrivingSequence(
+      this.container,
+      this.snowRoad,
+      this.audio,
+      () => {},
+    );
+
+    const vehicle = this.snowRoad.vehicle;
+    const seedS = 820;
+    vehicle.position.set(this.snowRoad.centerX(seedS), 0, -seedS);
+    vehicle.heading = -Math.atan(this.snowRoad.tangentX(seedS));
+    vehicle.velocity.set(0, 0, 0);
+    vehicle.speed = 0;
+    vehicle.yawRate = 0;
+    vehicle.steering = 0;
+    vehicle.group.rotation.set(0, vehicle.heading, 0);
+    vehicle.group.updateMatrixWorld(true);
+
+    const woman = this.drivingSequence.woman;
+    woman.visible = false;
+
+    const interior = new CarInterior(vehicle.group, this.player, woman);
+    interior.seatBryan();
+
+    // PoliceCrashSequence uses this hinge only for the driver's-door animation.
+    // Keep it attached to the real sedan so the checkpoint remains self-contained.
+    const checkpointDriverHinge = new THREE.Group();
+    checkpointDriverHinge.name = 'checkpointDriverDoorHinge';
+    vehicle.group.add(checkpointDriverHinge);
+    this.forestSequence = { level: { hinge: checkpointDriverHinge } };
+
+    this.passengerDrive = new PassengerDriveSequence(
+      this,
+      interior,
+      state => { this.narrativeState = state; },
+    );
+
+    const drive = this.passengerDrive;
+    drive.rejoinTime = 4;
+    drive.conversation.stop();
+    drive.womanInBryanCar = false;
+    drive.womanInPoliceCar = true;
+
+    // Recreate the officer object expected by the post-crash inspection.
+    drive.officer = new LowPolyCharacter({
+      kind: 'PoliceOfficer',
+      clothing: 0x24334b,
+      trousers: 0x202b3b,
+      skin: 0xb59679,
+      hair: 0x292820,
+      accent: 0xb9a269,
+    });
+    drive.officer.name = 'PoliceOfficer';
+    drive.officer.visible = false;
+    drive.road.scene.add(drive.officer);
+
+    // Place the patrol ahead of Bryan before constructing the crash controller,
+    // because the controller derives its crash/parking coordinates from here.
+    const policeS = 860;
+    drive.police.group.visible = true;
+    drive.police.group.position.set(
+      drive.road.centerX(policeS),
+      0,
+      -policeS,
+    );
+    drive.police.group.rotation.set(
+      0,
+      -Math.atan(drive.road.tangentX(policeS)),
+      0,
+    );
+    drive.police.group.updateMatrixWorld(true);
+
+    // The woman has already been transferred to the patrol at this story point.
+    drive.police.group.add(woman);
+    woman.position.set(0.3, 0.04, 0.8);
+    woman.rotation.set(0, 0, 0);
+    woman.scale.setScalar(0.82);
+    woman.pose = 'seated';
+    woman.userData.state = 'WOMAN_IN_POLICE_CAR';
+    woman.visible = true;
+    woman.animate(0, 0);
+
+    const crash = new PoliceCrashSequence(drive);
+    drive.policeCrash = crash;
+
+    // Skip only the six-second rollover animation. Preserve the normal parking
+    // and on-foot inspection logic from this point onward.
+    crash.time = 6.1;
+    crash.landed = true;
+    crash.hit = true;
+    crash.police.group.position.copy(crash.target).setY(1);
+    crash.police.group.rotation.set(
+      0,
+      crash.startHeading + 0.75,
+      Math.PI * 1.5,
+    );
+    crash.police.group.updateMatrixWorld(true);
+    crash.police.group.position.y +=
+      0.04 - new THREE.Box3().setFromObject(crash.police.group).min.y;
+
+    // Start Bryan a short distance BEFORE the authored parking patch so the
+    // checkpoint tests the exact "park, exit, inspect" section.
+    const startS = crash.parkS - 18;
+    vehicle.position.set(
+      drive.road.centerX(startS),
+      0,
+      -startS,
+    );
+    vehicle.heading = -Math.atan(drive.road.tangentX(startS));
+    vehicle.group.rotation.set(0, vehicle.heading, 0);
+    vehicle.velocity.set(0, 0, 0);
+    vehicle.speed = 0;
+    vehicle.yawRate = 0;
+    vehicle.steering = 0;
+    vehicle.group.updateMatrixWorld(true);
+
+    drive.transition('PARK_BEFORE_POLICE');
+    drive.conversation.stop();
+    drive.road.driveEnabled = true;
+    drive.road.vehicleCamera.initialized = false;
+    drive.road.updateCamera(0);
+
+    this.scene = drive.road.scene;
+    this.mode = 'passengerDriving';
+    this.container.classList.add('driving-mode');
+    this.playerInputEnabled = false;
+    this.objective.hidden = false;
+    this.objective.textContent = 'OBJETIVO: Detente y revisa la patrulla.';
+    this.dialogueManager.isOpen = false;
+    this.dialogueManager.panel.hidden = true;
     this.dialogueManager.setHint('');
     this.input.keys.clear();
     this.input.clearFrameState();
