@@ -1,13 +1,14 @@
 import * as THREE from 'three';
-import scene1 from '../environment/forestShots/forestScene1.js';
-import scene2 from '../environment/forestShots/forestScene2.js';
+const scene1 = new URL('../../assets/backgrounds/forest/forest_crash_clean.jpg', import.meta.url).href;
+const scene2 = new URL('../../assets/backgrounds/forest/forest_blood_clean.jpg', import.meta.url).href;
 import scene3 from '../environment/forestShots/forestScene3.js';
 import scene4 from '../environment/forestShots/forestScene4.js';
 import scene5 from '../environment/forestShots/forestScene5.js';
 import scene6 from '../environment/forestShots/forestScene6.js';
 
-// Full-resolution individual shots. No atlas crops, no canvas resampling.
-// Every texture is a 1280x720 prerender embedded as a data URI.
+// The first two roadside shots are clean car-free backplates so the new
+// live 3D sedan can be rendered consistently over them. Deeper shots remain
+// the existing embedded 1280x720 prerenders.
 const FOREST_ACTOR_SCALE = 1.38;
 
 const SHOTS = {
@@ -250,6 +251,8 @@ export class ForestPrerenderBackdrop {
   isPreserved(object) {
     for (let node = object; node; node = node.parent) {
       if (node.userData?.preserveForForestBackplate) return true;
+      if (Array.isArray(node.userData?.preserveForestZones) &&
+          node.userData.preserveForestZones.includes(this.currentZoneId)) return true;
     }
     return false;
   }
