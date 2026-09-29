@@ -39,10 +39,10 @@ import { PrerenderRoom } from './PrerenderRoom.js';
 import { PrerenderRoomView } from './PrerenderRoomView.js';
 import { GameStats } from './GameStats.js';
 
-// TEMP CHECKPOINT: jump directly to the moment AFTER the patrol rolls over.
-// Bryan still has to park his sedan, get out and inspect the wreck.
-const TEMP_PATROL_CRASH_CHECKPOINT = true;
-const TEMP_EXTERIOR_CHECKPOINT = false;
+// TEMP CHECKPOINT: exterior/hospital exit calibration.
+// Patrol-crash checkpoint is disabled while this one is active.
+const TEMP_PATROL_CRASH_CHECKPOINT = false;
+const TEMP_EXTERIOR_CHECKPOINT = true;
 
 export class Game {
   constructor(container, { input = null, settings = { sound: true, cameraMotion: true }, audio = null } = {}) {
