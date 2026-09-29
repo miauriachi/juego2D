@@ -37,7 +37,7 @@ export const exteriorConfig = {
 
   car: {
     // Calibrated to the foreground empty bay. Heading matches the baked parked cars.
-    position: [1.30, 0, 4.08],
+    position: [1.55, 0, 4.28],
     rotationY: -0.85,
     scale: 0.74,
 
