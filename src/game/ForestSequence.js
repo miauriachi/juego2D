@@ -483,10 +483,6 @@ export class ForestSequence {
       p.group,
       this.cameras.activeZone?.id,
     );
-    this.level.backdrop?.applyActorGrounding(
-      g.bryanVisual?.group,
-      this.cameras.activeZone?.id,
-    );
 
     g.objective.textContent = this.objectiveText;
     // Classic RE framing: objectives appear briefly when the story state changes,
