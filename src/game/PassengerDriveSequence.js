@@ -22,13 +22,31 @@ export class PassengerDriveSequence {
     this.vehicle.group.visible = true;
     this.vehicle.group.userData.aftermathVisualScale = 1;
     if (this.vehicle.group.userData.detailedVisual) {
-      this.vehicle.group.userData.detailedVisual.visible = true;
-      this.vehicle.group.userData.detailedVisual.scale.setScalar(1);
+      const detailed = this.vehicle.group.userData.detailedVisual;
+      detailed.visible = true;
+      detailed.scale.setScalar(1);
+      detailed.traverse(object => {
+        if (object.isMesh || object.isLine || object.isPoints) object.visible = true;
+      });
+      this.vehicle.group.traverse(object => {
+        if (object.userData?.proceduralCarVisual) object.visible = false;
+      });
     } else {
       this.vehicle.group.traverse(object => {
         if (object.userData?.proceduralCarVisual) object.visible = true;
       });
     }
+
+    // CarInterior was created while the sedan still belonged to the forest
+    // scene. Moving the car to this road keeps the hierarchy, but explicitly
+    // restore its presentation nodes so an earlier backplate hide cannot leak
+    // into the in-car shot.
+    this.interior.group.visible = true;
+    this.interior.group.traverse(object => {
+      if (object.isMesh || object.isLine || object.isPoints) object.visible = true;
+    });
+    this.interior.passengerDoor.visible = true;
+    this.vehicle.group.updateMatrixWorld(true);
 
     this.startZ = this.vehicle.position.z;
     this.rejoinTime = 0; this.rejoinStart = this.vehicle.position.clone(); this.rejoinHeading = this.vehicle.heading;
