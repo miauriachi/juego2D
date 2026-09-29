@@ -35,8 +35,9 @@ import { PrerenderRoom } from './PrerenderRoom.js';
 import { PrerenderRoomView } from './PrerenderRoomView.js';
 import { GameStats } from './GameStats.js';
 
-// TEMP CHECKPOINT: exterior calibration only. Set false/remove after Bryan/car are fixed.
-const TEMP_EXTERIOR_CHECKPOINT = true;
+// Normal story rules stay enabled. This test checkpoint only changes where a
+// new game starts while we calibrate the post-crash forest.
+const TEMP_CRASH_CHECKPOINT = true;
 
 export class Game {
   constructor(container, { input = null, settings = { sound: true, cameraMotion: true }, audio = null } = {}) {
@@ -106,7 +107,7 @@ export class Game {
     this.reception.interactions.register(new Interactable({
       id: 'hospital-exit', name: 'Salida', position: [0, 0, 7.2], radius: 1.7,
       label: 'Salir del hospital', onInteract: () => {
-        if (TEMP_EXTERIOR_CHECKPOINT || this.raccoonDelivery.resolved) this.changeArea('exterior');
+        if (this.raccoonDelivery.resolved) this.changeArea('exterior');
         else if (this.receptionDelivery.signatureForged) this.dialogueManager.start([
           { speaker: 'BRYAN', text: 'La enfermera quiere hablar conmigo antes de que me vaya.' },
         ]);
@@ -131,7 +132,14 @@ export class Game {
       this.mode = 'onFoot'; this.playerInputEnabled = true; this.objective.hidden = false;
       this.input.keys.clear(); this.input.clearFrameState(); this.refreshObjective();
     }, this.container, Promise.all([this.visualReady, this.entranceBackdropReady]).then(results => results.every(Boolean)));
-    this.ready = Promise.all([this.visualReady, this.entranceBackdropReady, this.openingSequence.ready]).then(() => true);
+    this.ready = Promise.all([
+      this.visualReady,
+      this.entranceBackdropReady,
+      this.openingSequence.ready,
+    ]).then(() => {
+      if (TEMP_CRASH_CHECKPOINT) this.startCrashCheckpoint();
+      return true;
+    });
     window.addEventListener('resize', () => this.onResize());
   }
 
@@ -443,7 +451,7 @@ export class Game {
 
   changeArea(area) {
     if (this.mode !== 'onFoot' || this.dialogueManager.isOpen || this.receptionDelivery?.isBusy || area === this.area) return;
-    if (area === 'exterior' && !TEMP_EXTERIOR_CHECKPOINT && !this.raccoonDelivery.resolved) return;
+    if (area === 'exterior' && !this.raccoonDelivery.resolved) return;
     if (area === 'exterior' && !this.exterior) this.setupExterior();
     if (area === 'exterior' && !this.exteriorLevel?.backgroundLoaded) {
       if (!this.exteriorTransitionPending) {
@@ -539,7 +547,7 @@ export class Game {
 
   beginDriving() {
     if (this.area !== 'exterior' || this.mode !== 'onFoot' || this.dialogueManager.isOpen ||
-      (!TEMP_EXTERIOR_CHECKPOINT && !this.raccoonDelivery.resolved)) return;
+      !this.raccoonDelivery.resolved) return;
 
     const lastDeliveryEnding =
       this.raccoonDelivery.ending === 'LAST_DELIVERY';
@@ -571,6 +579,67 @@ export class Game {
     this.dialogueManager.setHint('');
     this.input.keys.clear();
     this.input.clearFrameState();
+  }
+
+  startCrashCheckpoint() {
+    // TEMPORARY QA START: begin immediately after the road impact so forest
+    // camera/path work can be tested without replaying the hospital and drive.
+    // Delete/disable TEMP_CRASH_CHECKPOINT when this pass is finished.
+    this.openingSequence?.transition?.remove();
+    if (this.openingSequence?.canvas) {
+      this.openingSequence.canvas.style.visibility = 'visible';
+    }
+    this.openingSequence.completed = true;
+
+    this.prerenderBackdrop?.disable();
+    this.urgenciasBackdrop?.disable();
+    this.exteriorBackdrop?.disable();
+
+    this.snowRoad = new SnowRoad({ settings: this.settings });
+    this.drivingSequence = new DrivingSequence(
+      this.container,
+      this.snowRoad,
+      this.audio,
+      () => {},
+    );
+
+    const road = this.snowRoad;
+    const vehicle = road.vehicle;
+    const crashS = 628;
+    vehicle.position.set(
+      road.centerX(crashS) + 0.9,
+      0,
+      -crashS,
+    );
+    vehicle.heading = -Math.atan(road.tangentX(crashS)) + 0.46;
+    vehicle.velocity.set(0, 0, 0);
+    vehicle.speed = 0;
+    vehicle.yawRate = 0;
+    vehicle.group.rotation.set(0.025, vehicle.heading, 0);
+
+    road.driveEnabled = false;
+    road.completed = true;
+    road.updateWeather(0, vehicle.position);
+    road.updateCamera(0);
+
+    this.drivingSequence.phase = 'aftermath';
+    this.drivingSequence.time = 2.6;
+    this.drivingSequence.impactPosition = vehicle.position.clone();
+    this.drivingSequence.woman.visible = false;
+    this.drivingSequence.conversation.stop();
+
+    this.container.classList.add('driving-mode');
+    this.player.group.visible = false;
+    this.player.velocity.set(0, 0, 0);
+    this.dialogueManager.isOpen = false;
+    this.dialogueManager.panel.hidden = true;
+    this.dialogueManager.setHint('');
+    this.objective.hidden = false;
+    this.input.keys.clear();
+    this.input.clearFrameState();
+
+    this.forestSequence = new ForestSequence(this);
+    this.mode = 'forest';
   }
 
   startRoad() {
