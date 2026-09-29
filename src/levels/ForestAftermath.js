@@ -4,18 +4,35 @@ import { BloodTrail } from '../environment/BloodTrail.js';
 import { ForestPrerenderBackdrop } from '../game/ForestPrerenderBackdrop.js';
 import { DEBUG_MODE, PLAYER_RADIUS } from '../config/constants.js';
 
-function groundPointForScreen(cameraPosition, lookAt, fov, ndcX, ndcY) {
+function composeLookAtForScreen(cameraPosition, groundAnchor, fov, ndcX, ndcY) {
   const camera = new THREE.PerspectiveCamera(fov, 16 / 9, 0.1, 1000);
   camera.position.copy(cameraPosition);
-  camera.lookAt(lookAt);
-  camera.updateMatrixWorld(true);
 
-  const ray = new THREE.Raycaster();
-  ray.setFromCamera(new THREE.Vector2(ndcX, ndcY), camera);
+  const lookAt = groundAnchor.clone().add(new THREE.Vector3(0, 0.9, 0));
+  const foot = groundAnchor.clone();
+  const aspect = 16 / 9;
+  const tanHalfFov = Math.tan(THREE.MathUtils.degToRad(fov) * 0.5);
 
-  const ground = new THREE.Plane(new THREE.Vector3(0, 1, 0), 0);
-  const hit = new THREE.Vector3();
-  return ray.ray.intersectPlane(ground, hit) ? hit : null;
+  // Iteratively offset the fixed-camera aim until Bryan's feet land on the
+  // authored point in the prerender. The player's real Y remains 0.
+  for (let i = 0; i < 7; i += 1) {
+    camera.lookAt(lookAt);
+    camera.updateMatrixWorld(true);
+
+    const projected = foot.clone().project(camera);
+    const errorX = ndcX - projected.x;
+    const errorY = ndcY - projected.y;
+    if (Math.abs(errorX) < 0.002 && Math.abs(errorY) < 0.002) break;
+
+    const right = new THREE.Vector3(1, 0, 0).applyQuaternion(camera.quaternion);
+    const up = new THREE.Vector3(0, 1, 0).applyQuaternion(camera.quaternion);
+    const distance = Math.max(2, cameraPosition.distanceTo(groundAnchor));
+
+    lookAt.addScaledVector(right, -errorX * distance * tanHalfFov * aspect * 0.82);
+    lookAt.addScaledVector(up, -errorY * distance * tanHalfFov * 0.82);
+  }
+
+  return lookAt;
 }
 
 function buildForegroundFrame(scene, cameraPosition, lookAt, name, flip = 1) {
@@ -95,9 +112,9 @@ export class ForestAftermath {
     this.carCollisionHalfWidth = 0.91 + PLAYER_RADIUS;
     this.carCollisionHalfLength = 2.08 + PLAYER_RADIUS;
 
-    // Car body is ~1.8 m wide. Bryan's center sits just outside the left side,
-    // leaving only a small visual gap instead of throwing him meters away.
-    this.exitPosition = this.car.localToWorld(new THREE.Vector3(-1.62, 0, -0.62));
+    // Real collision/world spawn: immediately beside the driver's door, feet on
+    // y=0. The fixed camera below composes this point onto the baked doorway.
+    this.exitPosition = this.car.localToWorld(new THREE.Vector3(-1.46, 0, -0.48));
     this.exitPosition.y = 0;
 
     // Blood begins BEHIND the car, then bends into the woods.
@@ -211,10 +228,18 @@ export class ForestAftermath {
 
     cameras.scene = this.scene;
 
-    // Fixed-camera forest rooms. Each bend gets its own authored composition
-    // so the entire on-foot section keeps the same visual language as the hospital.
-    const crashCamera = this.car.localToWorld(new THREE.Vector3(-4.05, 2.25, 3.35));
-    const crashLook = this.exitPosition.clone().lerp(this.origin, 0.48).setY(0.92);
+    // The prerender stays screen-fixed, so these cameras are authored for the
+    // live 3D Bryan only. Each room uses a real point on the walkable route and
+    // places his FEET on the visible snow path. No per-room model scaling.
+    const crashFov = 48;
+    const crashCamera = this.exitPosition.clone().add(new THREE.Vector3(-5.6, 3.0, 4.8));
+    const crashLook = composeLookAtForScreen(
+      crashCamera,
+      this.exitPosition,
+      crashFov,
+      -0.40,
+      -0.66,
+    );
     cameras.addZone({
       id: 'CAM_CRASH_EXIT',
       name: 'CAM_CRASH_EXIT',
@@ -225,134 +250,151 @@ export class ForestAftermath {
       minZ: this.origin.z - 12,
       maxZ: this.origin.z + 12,
       priority: 10,
-      fov: 52,
+      fov: crashFov,
       color: 0xa4c7df,
     });
 
-    // Place Bryan at the driver's door as seen in the baked crash image.
-    // This is a visual/world spawn anchor derived from the actual fixed camera,
-    // not an arbitrary car-local offset.
-    const bakedDoorExit = groundPointForScreen(
-      crashCamera,
-      crashLook,
-      52,
-      -0.08,
-      -0.20,
+    const bloodAnchor = this.layout.points[0].clone();
+    const bloodFov = 49;
+    const bloodCamera = bloodAnchor.clone().add(new THREE.Vector3(-6.2, 3.5, 7.2));
+    const bloodLook = composeLookAtForScreen(
+      bloodCamera,
+      bloodAnchor,
+      bloodFov,
+      0.10,
+      -0.55,
     );
-    if (bakedDoorExit) {
-      const localExit = this.car.worldToLocal(bakedDoorExit.clone());
-      if (
-        Math.abs(localExit.x) < this.carCollisionHalfWidth &&
-        Math.abs(localExit.z) < this.carCollisionHalfLength
-      ) {
-        localExit.x = (localExit.x < 0 ? -1 : 1) * (this.carCollisionHalfWidth + 0.08);
-        this.exitPosition.copy(this.car.localToWorld(localExit));
-      } else {
-        this.exitPosition.copy(bakedDoorExit);
-      }
-      this.exitPosition.y = 0;
-
-      this.localFill.position.copy(this.exitPosition).add(new THREE.Vector3(0, 2.35, 0));
-      this.actorFill.position.copy(this.exitPosition).add(new THREE.Vector3(0, 2.35, 0.7));
-    }
-
-    const bloodCamera = this.car.localToWorld(new THREE.Vector3(-2.65, 1.72, 5.10));
-    const bloodLook = this.origin.clone().setY(0.34);
     cameras.addZone({
       id: 'CAM_BLOOD_TRAIL',
       name: 'CAM_BLOOD_TRAIL',
       cameraPosition: bloodCamera.toArray(),
       lookAt: bloodLook.toArray(),
       minX: this.origin.x - 2.5,
-      maxX: this.origin.x + 3.8,
-      minZ: this.origin.z - 3.2,
-      maxZ: this.origin.z + 3.2,
+      maxX: this.origin.x + 7.8,
+      minZ: this.origin.z - 4.5,
+      maxZ: this.origin.z + 5.5,
       priority: 16,
-      fov: 48,
+      fov: bloodFov,
       color: 0x92abc0,
     });
 
-    const forestA = this.layout.points[3];
-    const forestACamera = forestA.clone().add(new THREE.Vector3(-5.8, 4.1, 6.6));
-    const forestALook = this.layout.points[4].clone().setY(0.72);
+    const forestA = this.layout.points[2].clone();
+    const forestAFov = 49;
+    const forestACamera = forestA.clone().add(new THREE.Vector3(-7.0, 4.2, 8.0));
+    const forestALook = composeLookAtForScreen(
+      forestACamera,
+      forestA,
+      forestAFov,
+      0.12,
+      -0.52,
+    );
     cameras.addZone({
       id: 'CAM_FOREST_A',
       name: 'CAM_FOREST_A',
       cameraPosition: forestACamera.toArray(),
       lookAt: forestALook.toArray(),
-      minX: this.origin.x + 4.5,
-      maxX: this.origin.x + 15.8,
+      minX: this.origin.x + 5.0,
+      maxX: this.origin.x + 16.5,
       minZ: this.origin.z - 4.8,
-      maxZ: this.origin.z + 8.5,
+      maxZ: this.origin.z + 9.0,
       priority: 20,
-      fov: 50,
+      fov: forestAFov,
       color: 0x7f9caf,
     });
 
-    const forestB = this.layout.points[5];
-    const forestBCamera = forestB.clone().add(new THREE.Vector3(4.8, 4.7, -7.2));
-    const forestBLook = this.layout.points[6].clone().setY(0.78);
+    const forestB = this.layout.points[4].clone();
+    const forestBFov = 49;
+    const forestBCamera = forestB.clone().add(new THREE.Vector3(7.2, 4.4, -8.2));
+    const forestBLook = composeLookAtForScreen(
+      forestBCamera,
+      forestB,
+      forestBFov,
+      -0.04,
+      -0.50,
+    );
     cameras.addZone({
       id: 'CAM_FOREST_B',
       name: 'CAM_FOREST_B',
       cameraPosition: forestBCamera.toArray(),
       lookAt: forestBLook.toArray(),
       minX: this.origin.x + 14.0,
-      maxX: this.origin.x + 26.0,
-      minZ: this.origin.z - 2.5,
-      maxZ: this.origin.z + 10.5,
+      maxX: this.origin.x + 26.5,
+      minZ: this.origin.z - 3.0,
+      maxZ: this.origin.z + 11.0,
       priority: 21,
-      fov: 49,
+      fov: forestBFov,
       color: 0x7692a5,
     });
 
-    const forestC = this.layout.points[8];
-    const forestCCamera = forestC.clone().add(new THREE.Vector3(-5.4, 3.75, -6.8));
-    const forestCLook = this.layout.points[9].clone().setY(0.72);
+    const forestC = this.layout.points[6].clone();
+    const forestCFov = 49;
+    const forestCCamera = forestC.clone().add(new THREE.Vector3(-7.1, 4.3, -8.0));
+    const forestCLook = composeLookAtForScreen(
+      forestCCamera,
+      forestC,
+      forestCFov,
+      0.10,
+      -0.51,
+    );
     cameras.addZone({
       id: 'CAM_FOREST_C',
       name: 'CAM_FOREST_C',
       cameraPosition: forestCCamera.toArray(),
       lookAt: forestCLook.toArray(),
-      minX: this.origin.x + 24.0,
+      minX: this.origin.x + 23.0,
       maxX: this.origin.x + 36.5,
-      minZ: this.origin.z - 8.5,
-      maxZ: this.origin.z + 6.0,
+      minZ: this.origin.z - 9.0,
+      maxZ: this.origin.z + 7.0,
       priority: 22,
-      fov: 50,
+      fov: forestCFov,
       color: 0x6d879a,
     });
 
-    const forestD = this.layout.points[10];
-    const forestDCamera = forestD.clone().add(new THREE.Vector3(5.0, 4.0, 6.4));
-    const forestDLook = this.layout.points[11].clone().setY(0.68);
+    const forestD = this.layout.points[8].clone();
+    const forestDFov = 49;
+    const forestDCamera = forestD.clone().add(new THREE.Vector3(7.0, 4.2, 7.6));
+    const forestDLook = composeLookAtForScreen(
+      forestDCamera,
+      forestD,
+      forestDFov,
+      0.08,
+      -0.50,
+    );
     cameras.addZone({
       id: 'CAM_FOREST_D',
       name: 'CAM_FOREST_D',
       cameraPosition: forestDCamera.toArray(),
       lookAt: forestDLook.toArray(),
-      minX: this.origin.x + 34.0,
-      maxX: this.origin.x + 44.8,
-      minZ: this.origin.z - 6.5,
-      maxZ: this.origin.z + 7.0,
+      minX: this.origin.x + 31.0,
+      maxX: this.origin.x + 42.5,
+      minZ: this.origin.z - 7.5,
+      maxZ: this.origin.z + 8.0,
       priority: 23,
-      fov: 48,
+      fov: forestDFov,
       color: 0x657f91,
     });
 
-    const bodyCamera = this.bodyPosition.clone().add(new THREE.Vector3(-4.1, 2.65, 4.8));
-    const bodyLook = this.bodyPosition.clone().setY(0.58);
+    const bodyAnchor = this.layout.points[10].clone();
+    const bodyFov = 48;
+    const bodyCamera = bodyAnchor.clone().add(new THREE.Vector3(-6.2, 3.8, 7.1));
+    const bodyLook = composeLookAtForScreen(
+      bodyCamera,
+      bodyAnchor,
+      bodyFov,
+      0.06,
+      -0.50,
+    );
     cameras.addZone({
       id: 'CAM_FOREST_BODY',
       name: 'CAM_FOREST_BODY',
       cameraPosition: bodyCamera.toArray(),
       lookAt: bodyLook.toArray(),
-      minX: this.origin.x + 40.0,
-      maxX: this.origin.x + 48.5,
-      minZ: this.origin.z - 6.0,
-      maxZ: this.origin.z + 7.0,
+      minX: this.origin.x + 39.0,
+      maxX: this.origin.x + 49.0,
+      minZ: this.origin.z - 7.0,
+      maxZ: this.origin.z + 8.0,
       priority: 30,
-      fov: 46,
+      fov: bodyFov,
       color: 0x94b9d2,
     });
 
@@ -427,22 +469,19 @@ export class ForestAftermath {
 
     if (!examined) {
       const distanceToBlood = position.distanceTo(this.origin);
-      return distanceToBlood <= 4.1
+      return distanceToBlood <= 4.2
         ? 'CAM_BLOOD_TRAIL'
         : 'CAM_CRASH_EXIT';
     }
 
-    // The authored route always moves forward on +X. Using forward distance
-    // avoids nearest-segment ambiguity on bends, and lockedProgress supplied by
-    // ForestSequence prevents an accidental camera regression to the car.
-    const forward = Math.max(0, position.x - this.origin.x);
-    const progress = Math.max(forward, lockedProgress);
+    const routeProgress = this.layout.progress(position);
+    const progress = Math.max(routeProgress, lockedProgress);
 
-    if (progress < 6.0) return 'CAM_BLOOD_TRAIL';
-    if (progress < 16.0) return 'CAM_FOREST_A';
-    if (progress < 26.0) return 'CAM_FOREST_B';
-    if (progress < 35.5) return 'CAM_FOREST_C';
-    if (progress < 41.0) return 'CAM_FOREST_D';
+    if (progress < 6.5) return 'CAM_BLOOD_TRAIL';
+    if (progress < 15.0) return 'CAM_FOREST_A';
+    if (progress < 25.0) return 'CAM_FOREST_B';
+    if (progress < 35.0) return 'CAM_FOREST_C';
+    if (progress < 42.0) return 'CAM_FOREST_D';
     return 'CAM_FOREST_BODY';
   }
 
