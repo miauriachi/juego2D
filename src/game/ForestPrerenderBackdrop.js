@@ -22,7 +22,7 @@ const SHOTS = {
     key: 'scene3', url: scene3, zoom: 1.03, actorScale: 1.74,
   },
   CAM_FOREST_B: {
-    key: 'scene4', url: scene4, zoom: 1.03,
+    key: 'scene4', url: scene4, zoom: 1.03, actorScale: 1.62,
   },
   CAM_FOREST_C: {
     key: 'scene5', url: scene5, zoom: 1.03,
