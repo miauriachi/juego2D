@@ -19,19 +19,19 @@ export class ParkingDepartureSequence {
 
     this.initialHeading = level.car.rotation.y;
     const start = level.car.position.clone();
-    const forward = new THREE.Vector3(
-      -Math.sin(this.initialHeading),
-      0,
-      -Math.cos(this.initialHeading),
-    );
+    const authoredPath = exteriorConfig.carPath
+      .map(([x, y, z]) => new THREE.Vector3(x, y, z));
+    const firstTarget = authoredPath[0] ?? start.clone().add(new THREE.Vector3(0, 0, -1));
+    const forward = firstTarget.clone().sub(start).setY(0).normalize();
 
-    // The first two tiny points make the car pull naturally out of its real
-    // parked pose before joining the longer spline. No teleport at boarding.
+    // The parked car is intentionally facing the opposite direction in the
+    // prerender. Pull toward the authored aisle instead of blindly following
+    // that parked heading, so the scripted departure still starts cleanly.
     const points = [
       start,
       start.clone().addScaledVector(forward, 0.55),
       start.clone().addScaledVector(forward, 1.05),
-      ...exteriorConfig.carPath.map(([x, y, z]) => new THREE.Vector3(x, y, z)),
+      ...authoredPath,
     ];
     this.path = new THREE.CatmullRomCurve3(points, false, 'catmullrom', 0.28);
 
