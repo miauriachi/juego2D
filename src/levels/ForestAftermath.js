@@ -104,17 +104,18 @@ export class ForestAftermath {
     this.time = 0;
 
     this.car = road.vehicle.group;
+    this.car.userData.preserveForestZones = ['CAM_CRASH_EXIT', 'CAM_BLOOD_TRAIL'];
     this.car.updateMatrixWorld(true);
 
     // The car is rotated after impact, so an axis-aligned world collider creates
     // a huge invisible rectangle around it. Keep collision in CAR LOCAL SPACE
     // instead; this also lets Bryan spawn right beside the driver's door.
-    this.carCollisionHalfWidth = 0.91 + PLAYER_RADIUS;
-    this.carCollisionHalfLength = 2.08 + PLAYER_RADIUS;
+    this.carCollisionHalfWidth = 0.96 + PLAYER_RADIUS;
+    this.carCollisionHalfLength = 2.30 + PLAYER_RADIUS;
 
     // Real collision/world spawn: immediately beside the driver's door, feet on
     // y=0. The fixed camera below composes this point onto the baked doorway.
-    this.exitPosition = this.car.localToWorld(new THREE.Vector3(-1.46, 0, -0.48));
+    this.exitPosition = this.car.localToWorld(new THREE.Vector3(-1.58, 0, -0.48));
     this.exitPosition.y = 0;
 
     // Blood begins BEHIND the car, then bends into the woods.
@@ -131,6 +132,9 @@ export class ForestAftermath {
     );
     door.position.z = 0.67;
     this.hinge.add(door);
+    // The Meshy sedan is a single baked mesh, so a procedural rectangular door
+    // would float through its body. Keep the hinge for timing/SFX but hide it.
+    this.hinge.visible = false;
     this.car.add(this.hinge);
 
     // The authored forest route is added beyond the roadside, while the original
