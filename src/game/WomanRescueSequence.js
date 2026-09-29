@@ -1,22 +1,20 @@
 import * as THREE from 'three';
 import { CarInterior } from './CarInterior.js';
-import forestScene3 from '../environment/forestShots/forestScene3.js';
-import forestScene4 from '../environment/forestShots/forestScene4.js';
-import forestScene5 from '../environment/forestShots/forestScene5.js';
 
-const forestCrash = new URL('../../assets/backgrounds/forest/forest_crash_clean.jpg', import.meta.url).href;
-const forestBlood = new URL('../../assets/backgrounds/forest/forest_blood_clean.jpg', import.meta.url).href;
+const rescueLift = new URL('../../assets/backgrounds/forest/rescue_lift.jpg', import.meta.url).href;
+const rescueWalk = new URL('../../assets/backgrounds/forest/rescue_walk.jpg', import.meta.url).href;
+const rescueRoad = new URL('../../assets/backgrounds/forest/rescue_road.jpg', import.meta.url).href;
 
-// Deep forest -> road. The last shots deliberately use the clean, car-free
-// roadside plates so the live 3D sedan remains visible over the background.
+// Dedicated return-trip plates. Bryan, the woman and the sedan remain live 3D.
+// Existing forest plates remain the fallback while these textures decode.
 const RESCUE_BACKDROPS = [
-  { key: 'scene5', url: forestScene5 },
-  { key: 'scene4', url: forestScene4 },
-  { key: 'scene3', url: forestScene3 },
-  { key: 'scene2', url: forestBlood },
-  { key: 'scene1', url: forestCrash },
-  { key: 'scene1', url: forestCrash },
-  { key: 'scene1', url: forestCrash },
+  { key: 'rescue-lift', url: rescueLift, fallbackKey: 'scene5' },
+  { key: 'rescue-walk', url: rescueWalk, fallbackKey: 'scene4' },
+  { key: 'rescue-walk', url: rescueWalk, fallbackKey: 'scene3' },
+  { key: 'rescue-road', url: rescueRoad, fallbackKey: 'scene2' },
+  { key: 'rescue-road', url: rescueRoad, fallbackKey: 'scene1' },
+  { key: 'rescue-road', url: rescueRoad, fallbackKey: 'scene1' },
+  { key: 'rescue-road', url: rescueRoad, fallbackKey: 'scene1' },
 ];
 
 // Edited rescue: all transfers are shown; time elisions occur only under a short fade.
@@ -63,6 +61,50 @@ export class WomanRescueSequence {
     }
   }
 
+  hideEnvironmentForBackdrop() {
+    this.hiddenEnvironment = new Map();
+    const roots = [
+      this.game.player.group,
+      this.game.bryanVisual?.group,
+      this.level.woman,
+      this.level.car,
+      this.level.hinge,
+      this.interior.group,
+      this.interior.passengerDoor,
+    ].filter(Boolean);
+
+    const belongsToLiveRoot = object => roots.some(root => {
+      for (let node = object; node; node = node.parent) {
+        if (node === root) return true;
+      }
+      return false;
+    });
+
+    this.level.scene.traverse(object => {
+      if (
+        !object.visible ||
+        object === this.backdrop ||
+        object.isPoints ||
+        !(object.isMesh || object.isLine || object.isSprite) ||
+        belongsToLiveRoot(object)
+      ) {
+        return;
+      }
+
+      this.hiddenEnvironment.set(object.uuid, object.visible);
+      object.visible = false;
+    });
+  }
+
+  restoreEnvironment() {
+    if (!this.hiddenEnvironment?.size) return;
+    this.level.scene.traverse(object => {
+      if (!object?.uuid || !this.hiddenEnvironment.has(object.uuid)) return;
+      object.visible = this.hiddenEnvironment.get(object.uuid);
+    });
+    this.hiddenEnvironment.clear();
+  }
+
   setupBackdrop() {
     const material = new THREE.MeshBasicMaterial({
       color: 0xffffff,
@@ -79,6 +121,11 @@ export class WomanRescueSequence {
     this.camera.add(this.backdrop);
     this.level.scene.add(this.camera);
 
+    // Hide the live forest/road meshes while the cinematic plate is active.
+    // Otherwise the dark 3D ground draws over most of the backplate and creates
+    // the giant black wedges seen during the rescue.
+    this.hideEnvironmentForBackdrop();
+
     // The checkpoint can jump directly to the woman before the rescue-specific
     // textures finish decoding. Seed the cinematic plane with whatever forest
     // plate is already on screen so the first rescue frame can never go black.
@@ -89,28 +136,47 @@ export class WomanRescueSequence {
     }
 
     const loader = new THREE.TextureLoader();
-    this.backdropFallback = new Map();
+    this.backdropTextures = new Map();
+    const requested = new Set();
+
     RESCUE_BACKDROPS.forEach(({ key, url }) => {
-      if (this.backdropFallback.has(key)) return;
-      const texture = loader.load(url, loaded => {
-        loaded.colorSpace = THREE.SRGBColorSpace;
-        loaded.wrapS = THREE.ClampToEdgeWrapping;
-        loaded.wrapT = THREE.ClampToEdgeWrapping;
-        loaded.magFilter = THREE.LinearFilter;
-        loaded.minFilter = THREE.LinearMipmapLinearFilter;
-        loaded.generateMipmaps = true;
-        loaded.needsUpdate = true;
-      });
-      this.backdropFallback.set(key, texture);
+      if (requested.has(key)) return;
+      requested.add(key);
+
+      loader.load(
+        url,
+        loaded => {
+          loaded.colorSpace = THREE.SRGBColorSpace;
+          loaded.wrapS = THREE.ClampToEdgeWrapping;
+          loaded.wrapT = THREE.ClampToEdgeWrapping;
+          loaded.magFilter = THREE.LinearFilter;
+          loaded.minFilter = THREE.LinearMipmapLinearFilter;
+          loaded.generateMipmaps = true;
+          loaded.needsUpdate = true;
+          this.backdropTextures.set(key, loaded);
+
+          const active = RESCUE_BACKDROPS[
+            Math.min(this.shot, RESCUE_BACKDROPS.length - 1)
+          ];
+          if (active?.key === key) this.updateBackdrop();
+        },
+        undefined,
+        error => console.warn('Rescue backdrop failed to load:', key, error),
+      );
     });
+
     this.updateBackdrop();
   }
 
   updateBackdrop() {
     if (!this.backdrop) return;
     const config = RESCUE_BACKDROPS[Math.min(this.shot, RESCUE_BACKDROPS.length - 1)];
-    const shared = this.level.backdrop?.cache?.get(config.key);
-    const texture = shared ?? this.backdropFallback?.get(config.key);
+    const generated = this.backdropTextures?.get(config.key);
+    const fallback = this.level.backdrop?.cache?.get(config.fallbackKey);
+    // Never blank the material while an image is still decoding. The previous
+    // valid forest frame remains in place until either the generated plate or
+    // the authored fallback is ready.
+    const texture = generated ?? fallback ?? this.backdrop.material.map;
 
     if (texture && this.backdrop.material.map !== texture) {
       this.backdrop.material.map = texture;
@@ -124,6 +190,7 @@ export class WomanRescueSequence {
 
   cleanupBackdrop() {
     if (this.level.scene.fog) this.level.scene.fog.far = this.sceneFog;
+    this.restoreEnvironment();
     if (!this.backdrop) return;
     this.camera.remove(this.backdrop);
     this.level.scene.remove(this.camera);
