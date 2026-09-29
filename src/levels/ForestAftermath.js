@@ -417,6 +417,45 @@ export class ForestAftermath {
       0.10,
       -0.51,
     );
+
+    // Scene 5 has the same mismatch as the previous prerendered room: the
+    // hidden 3D route puts Bryan on a rock even though the visible walkable
+    // surface is the snowy trail. Anchor this room to the painted path itself.
+    this.forestCVisualStartPoint = groundPointForScreen(
+      forestCCamera,
+      forestCLook,
+      forestCFov,
+      0.31,
+      -0.43,
+    );
+    this.forestCVisualEndPoint = groundPointForScreen(
+      forestCCamera,
+      forestCLook,
+      forestCFov,
+      0.20,
+      0.16,
+    );
+    this.forestCVisualDirection = this.forestCVisualEndPoint.clone()
+      .sub(this.forestCVisualStartPoint)
+      .setY(0)
+      .normalize();
+    this.forestCVisualRight = new THREE.Vector3(
+      -this.forestCVisualDirection.z,
+      0,
+      this.forestCVisualDirection.x,
+    );
+    this.forestCVisualLength = this.forestCVisualStartPoint.distanceTo(
+      this.forestCVisualEndPoint,
+    );
+    this.forestCVisualHalfWidth = 1.30;
+
+    // Drop into D beyond the old 40.2 boundary so the camera cannot bounce
+    // back and forth across the threshold on consecutive frames.
+    this.forestCNextSpawn = this.layout.points[9].clone().lerp(
+      this.layout.points[10],
+      0.12,
+    );
+
     cameras.addZone({
       id: 'CAM_FOREST_C',
       name: 'CAM_FOREST_C',
@@ -612,6 +651,29 @@ export class ForestAftermath {
     position.copy(startPosition)
       .addScaledVector(this.forestBVisualDirection, depth)
       .addScaledVector(this.forestBVisualRight, lateral);
+
+    return depth;
+  }
+
+  resolveForestCVisualPath(player, startPosition) {
+    const position = player?.position ?? player?.group?.position;
+    if (!position || !startPosition || !this.forestCVisualDirection) return 0;
+
+    const delta = position.clone().sub(startPosition);
+    const depth = THREE.MathUtils.clamp(
+      delta.dot(this.forestCVisualDirection),
+      -0.35,
+      this.forestCVisualLength,
+    );
+    const lateral = THREE.MathUtils.clamp(
+      delta.dot(this.forestCVisualRight),
+      -this.forestCVisualHalfWidth,
+      this.forestCVisualHalfWidth,
+    );
+
+    position.copy(startPosition)
+      .addScaledVector(this.forestCVisualDirection, depth)
+      .addScaledVector(this.forestCVisualRight, lateral);
 
     return depth;
   }
