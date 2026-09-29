@@ -192,8 +192,8 @@ export class ForestSequence {
 
   updateCamera(position) {
     if (this.examined && position) {
-      const forward = Math.max(0, position.x - this.level.origin.x);
-      this.maxForestProgress = Math.max(this.maxForestProgress, forward);
+      const routeProgress = this.level.layout.progress(position);
+      this.maxForestProgress = Math.max(this.maxForestProgress, routeProgress);
     }
 
     const desiredId = this.level.getCameraZoneId(
@@ -212,35 +212,8 @@ export class ForestSequence {
 
     this.cameras.applyToCamera(this.game.cameraRig);
 
-    // Safety net for prerendered rooms: never let Bryan leave the camera frustum
-    // during a shot transition. The backplate is camera-facing, so correcting
-    // the 3D camera aim does not move or distort the baked image.
-    if (position && this.cameras.activeZone) {
-      const camera = this.game.cameraRig.camera;
-      const projected = position.clone().add(new THREE.Vector3(0, 0.9, 0)).project(camera);
-      const offscreen =
-        !Number.isFinite(projected.x) ||
-        !Number.isFinite(projected.y) ||
-        !Number.isFinite(projected.z) ||
-        Math.abs(projected.x) > 0.92 ||
-        Math.abs(projected.y) > 0.86 ||
-        projected.z < -1 ||
-        projected.z > 1;
-
-      if (offscreen) {
-        const lookAt = position.clone();
-        lookAt.y = 0.9;
-        this.game.cameraRig.setCameraState(
-          this.cameras.activeZone.cameraPosition,
-          lookAt,
-        );
-        if (Number.isFinite(this.cameras.activeZone.fov)) {
-          camera.fov = this.cameras.activeZone.fov;
-          camera.updateProjectionMatrix();
-        }
-      }
-    }
-
+    // Keep the shot truly fixed. The background, floor anchor and camera were
+    // authored together; do not chase Bryan with the camera at runtime.
     const zoneId = this.cameras.activeZone?.id;
     this.level.backdrop?.update(zoneId);
     this.level.backdrop?.applyActorCalibration(this.game.player.group, zoneId);
@@ -318,7 +291,10 @@ export class ForestSequence {
           p.position.copy(this.level.exitPosition);
           p.previousPosition.copy(p.position);
           p.velocity.set(0, 0, 0);
-          p.rotationY = g.snowRoad.vehicle.heading;
+          const exitDirection = this.level.origin.clone().sub(p.position);
+          p.rotationY = exitDirection.lengthSq() > 0.001
+            ? Math.atan2(-exitDirection.x, -exitDirection.z)
+            : g.snowRoad.vehicle.heading;
           p.group.rotation.y = p.rotationY;
           p.animate(0, true);
           g.bryanVisual?.update(0);
