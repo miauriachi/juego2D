@@ -43,6 +43,8 @@ export class ForestSequence {
     this.forestCVisualStart = null;
     this.forestCVisualProgress = 0;
     this.forestCCompleted = false;
+    this.bodyVisualStart = null;
+    this.bodyVisualProgress = 0;
     this.forcedForestZone = null;
     this.forestBoundaryCooldown = 0;
 
@@ -97,7 +99,7 @@ export class ForestSequence {
 
     register(
       'injured-person',
-      this.level.bodyPosition,
+      this.level.bodyApproachPoint ?? this.level.bodyPosition,
       'Acercarse',
       () => this.examined && !this.encountered,
       () => {
@@ -105,7 +107,7 @@ export class ForestSequence {
         this.time = 0;
         this.approachStart = game.player.position.clone();
         this.setNarrativeState(STATE.FOUND_WOMAN);
-        this.approachEnd = this.level.bodyPosition.clone().add(new THREE.Vector3(-0.85, 0, 0.1));
+        this.approachEnd = (this.level.bodyApproachPoint ?? this.level.bodyPosition).clone();
       },
       2.0,
     );
@@ -198,6 +200,7 @@ export class ForestSequence {
     this.level.backdrop?.disable();
     this.game.player.group.scale.set(1, 1, 1);
     this.level.woman.visible = true;
+    this.level.woman.scale.setScalar(1);
     this.state = 'rescue';
     this.setNarrativeState(STATE.HELPING_WOMAN);
     this.stopAmbient?.();
@@ -268,6 +271,32 @@ export class ForestSequence {
       p.velocity.set(0, 0, 0);
       this.forestBoundaryCooldown = 0.75;
       desiredId = 'CAM_FOREST_C';
+    }
+
+    // Enter the final woman room on the visible snow floor, not on the
+    // background rocks. Keep this room forced while its custom lane is active.
+    if (
+      this.examined &&
+      !this.forcedForestZone &&
+      previousId === 'CAM_FOREST_D' &&
+      desiredId === 'CAM_FOREST_BODY' &&
+      this.forestBoundaryCooldown <= 0
+    ) {
+      const p = this.game.player;
+      this.forcedForestZone = 'CAM_FOREST_BODY';
+      this.bodyVisualStart = this.level.bodyEntryPoint.clone();
+      this.bodyVisualProgress = 0;
+
+      p.position.copy(this.level.bodyEntryPoint);
+      p.previousPosition.copy(p.position);
+      p.velocity.set(0, 0, 0);
+
+      const direction = this.level.bodyVisualDirection;
+      p.rotationY = Math.atan2(-direction.x, -direction.z);
+      p.group.rotation.y = p.rotationY;
+
+      this.forestBoundaryCooldown = 0.75;
+      desiredId = 'CAM_FOREST_BODY';
     }
 
     const desiredZone = this.cameras.zones.find(zone => zone.id === desiredId);
@@ -623,8 +652,38 @@ export class ForestSequence {
                 p.velocity.set(0, 0, 0);
               }
             } else {
-              this.collision.resolve(p);
-              this.level.resolveCarCollision(p);
+              const inForestBody =
+                this.examined &&
+                this.cameras.activeZone?.id === 'CAM_FOREST_BODY';
+
+              if (inForestBody) {
+                if (!this.bodyVisualStart) {
+                  this.bodyVisualStart = this.level.bodyEntryPoint.clone();
+                }
+
+                this.bodyVisualProgress = this.level.resolveBodyVisualPath(
+                  p,
+                  this.bodyVisualStart,
+                );
+
+                if (
+                  this.forestBoundaryCooldown <= 0 &&
+                  this.bodyVisualProgress <= -0.28
+                ) {
+                  // Walk back to the previous fixed-camera room.
+                  this.forcedForestZone = null;
+                  this.bodyVisualStart = null;
+                  this.bodyVisualProgress = 0;
+                  this.forestBoundaryCooldown = 0.75;
+
+                  p.position.copy(this.level.layout.points[9]);
+                  p.previousPosition.copy(p.position);
+                  p.velocity.set(0, 0, 0);
+                }
+              } else {
+                this.collision.resolve(p);
+                this.level.resolveCarCollision(p);
+              }
             }
           }
         }
