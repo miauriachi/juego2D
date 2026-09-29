@@ -106,37 +106,24 @@ export class WomanRescueSequence {
   }
 
   setupBackdrop() {
-    const material = new THREE.MeshBasicMaterial({
-      color: 0xffffff,
-      depthWrite: false,
-      depthTest: false,
-      fog: false,
-      toneMapped: false,
-    });
-    this.backdrop = new THREE.Mesh(new THREE.PlaneGeometry(1, 1), material);
-    this.backdrop.name = 'rescue-cinematic-forest-backdrop';
-    this.backdrop.position.z = -48;
-    this.backdrop.renderOrder = -10000;
-    this.backdrop.frustumCulled = false;
-    this.camera.add(this.backdrop);
-    this.level.scene.add(this.camera);
+    // Use the scene background for rescue plates instead of a camera-child plane.
+    // This is the most reliable full-screen path in Three.js and guarantees the
+    // image fills the entire frame behind the live Bryan, woman, car and snow.
+    this.originalSceneBackground = this.level.scene.background;
+    this.backdropTextures = new Map();
+    this.backdropEnvironmentHidden = false;
 
-    // Hide the live forest/road meshes while the cinematic plate is active.
-    // Otherwise the dark 3D ground draws over most of the backplate and creates
-    // the giant black wedges seen during the rescue.
-    this.hideEnvironmentForBackdrop();
-
-    // The checkpoint can jump directly to the woman before the rescue-specific
-    // textures finish decoding. Seed the cinematic plane with whatever forest
-    // plate is already on screen so the first rescue frame can never go black.
+    // If an authored forest plate is already decoded, keep it visible while the
+    // rescue-only image loads so there is never a black/empty frame.
     const currentForestTexture = this.level.backdrop?.material?.map ?? null;
-    if (currentForestTexture) {
-      this.backdrop.material.map = currentForestTexture;
-      this.backdrop.material.needsUpdate = true;
+    if (currentForestTexture?.image) {
+      this.level.scene.background = currentForestTexture;
+      this.activeBackdropTexture = currentForestTexture;
+      this.hideEnvironmentForBackdrop();
+      this.backdropEnvironmentHidden = true;
     }
 
     const loader = new THREE.TextureLoader();
-    this.backdropTextures = new Map();
     const requested = new Set();
 
     RESCUE_BACKDROPS.forEach(({ key, url }) => {
@@ -161,7 +148,7 @@ export class WomanRescueSequence {
           if (active?.key === key) this.updateBackdrop();
         },
         undefined,
-        error => console.warn('Rescue backdrop failed to load:', key, error),
+        error => console.warn('Rescue backdrop failed to load:', key, url, error),
       );
     });
 
@@ -169,34 +156,44 @@ export class WomanRescueSequence {
   }
 
   updateBackdrop() {
-    if (!this.backdrop) return;
-    const config = RESCUE_BACKDROPS[Math.min(this.shot, RESCUE_BACKDROPS.length - 1)];
+    const config = RESCUE_BACKDROPS[
+      Math.min(this.shot, RESCUE_BACKDROPS.length - 1)
+    ];
+    if (!config) return;
+
     const generated = this.backdropTextures?.get(config.key);
     const fallback = this.level.backdrop?.cache?.get(config.fallbackKey);
-    // Never blank the material while an image is still decoding. The previous
-    // valid forest frame remains in place until either the generated plate or
-    // the authored fallback is ready.
-    const texture = generated ?? fallback ?? this.backdrop.material.map;
+    const texture = generated?.image
+      ? generated
+      : fallback?.image
+        ? fallback
+        : this.activeBackdropTexture?.image
+          ? this.activeBackdropTexture
+          : null;
 
-    if (texture && this.backdrop.material.map !== texture) {
-      this.backdrop.material.map = texture;
-      this.backdrop.material.needsUpdate = true;
+    // Keep the last valid plate until the requested one is decoded.
+    if (!texture) return;
+
+    if (!this.backdropEnvironmentHidden) {
+      this.hideEnvironmentForBackdrop();
+      this.backdropEnvironmentHidden = true;
     }
 
-    const distance = Math.abs(this.backdrop.position.z);
-    const height = 2 * Math.tan(THREE.MathUtils.degToRad(this.camera.fov) / 2) * distance * 1.06;
-    this.backdrop.scale.set(height * this.camera.aspect * 1.06, height, 1);
+    if (this.level.scene.background !== texture) {
+      this.level.scene.background = texture;
+      this.activeBackdropTexture = texture;
+    }
   }
 
   cleanupBackdrop() {
     if (this.level.scene.fog) this.level.scene.fog.far = this.sceneFog;
     this.restoreEnvironment();
-    if (!this.backdrop) return;
-    this.camera.remove(this.backdrop);
-    this.level.scene.remove(this.camera);
-    this.backdrop.geometry.dispose();
-    this.backdrop.material.dispose();
-    this.backdrop = null;
+    this.backdropEnvironmentHidden = false;
+    this.level.scene.background = this.originalSceneBackground ?? null;
+    this.backdropTextures?.forEach(texture => texture.dispose?.());
+    this.backdropTextures?.clear();
+    this.backdropTextures = null;
+    this.activeBackdropTexture = null;
   }
 
   setCamera(position, target) { this.camera.position.copy(position); this.camera.lookAt(target); }
