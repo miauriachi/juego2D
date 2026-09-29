@@ -377,6 +377,35 @@ export class ForestAftermath {
     this.groundSnow = road.groundSnow;
   }
 
+  getCameraZoneId(position, state, examined) {
+    if (!position) return 'CAM_CRASH_EXIT';
+
+    // Keep the crash composition while Bryan is still getting out of the car.
+    if (state === 'inCar' || state === 'exiting') {
+      return 'CAM_CRASH_EXIT';
+    }
+
+    // Before inspecting the blood, only use the roadside/blood cameras.
+    if (!examined) {
+      const distanceToBlood = position.distanceTo(this.origin);
+      return distanceToBlood <= 3.9
+        ? 'CAM_BLOOD_TRAIL'
+        : 'CAM_CRASH_EXIT';
+    }
+
+    // Once inside the woods, drive camera selection from distance ALONG the
+    // authored route. World-axis AABB zones leave gaps on bends and CameraManager
+    // falls back to zones[0] (the car), which caused the forest to jump backwards.
+    const progress = this.layout.progress(position);
+
+    if (progress < 5.2) return 'CAM_BLOOD_TRAIL';
+    if (progress < 15.2) return 'CAM_FOREST_A';
+    if (progress < 25.5) return 'CAM_FOREST_B';
+    if (progress < 35.8) return 'CAM_FOREST_C';
+    if (progress < 41.6) return 'CAM_FOREST_D';
+    return 'CAM_FOREST_BODY';
+  }
+
   resolveCarCollision(player) {
     const position = player?.position ?? player?.group?.position;
     if (!position) return;
