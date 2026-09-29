@@ -69,6 +69,7 @@ export class ForestAftermath {
   constructor(road, incident, cameras, collision, actorRoot = null) {
     this.road = road;
     this.scene = road.scene;
+    this.actorRoot = actorRoot;
     this.time = 0;
 
     this.car = road.vehicle.group;
@@ -164,6 +165,35 @@ export class ForestAftermath {
     this.rearRim.position.copy(this.origin).add(new THREE.Vector3(0, 1.65, 0));
 
     this.scene.add(this.localFill, this.rearRim);
+
+    // A tiny moving fill plus a soft contact shadow are essential when a live
+    // 3D character is composited over a prerendered background. They keep Bryan
+    // readable and visually planted on the snow without changing gameplay.
+    this.actorFill = new THREE.PointLight(0xa9c3d5, 1.35, 5.4, 2);
+    this.actorFill.position.copy(this.exitPosition).add(new THREE.Vector3(0, 2.35, 0.7));
+    this.scene.add(this.actorFill);
+
+    if (actorRoot) {
+      const shadow = new THREE.Mesh(
+        new THREE.CircleGeometry(0.62, 20),
+        new THREE.MeshBasicMaterial({
+          color: 0x020507,
+          transparent: true,
+          opacity: 0.30,
+          depthWrite: false,
+          depthTest: false,
+          fog: false,
+        }),
+      );
+      shadow.name = 'forest-bryan-contact-shadow';
+      shadow.rotation.x = -Math.PI / 2;
+      shadow.scale.set(1.0, 0.56, 1);
+      shadow.position.set(0, 0.018, 0.04);
+      shadow.renderOrder = -5;
+      shadow.userData.preserveForForestBackplate = true;
+      actorRoot.add(shadow);
+      this.actorShadow = shadow;
+    }
 
     cameras.scene = this.scene;
 
@@ -375,6 +405,15 @@ export class ForestAftermath {
   update(dt, player) {
     this.time += dt;
     this.updateStorm(dt, player.position);
+
+    if (this.actorFill) {
+      this.actorFill.position.set(
+        player.position.x - 0.35,
+        player.position.y + 2.25,
+        player.position.z + 0.85,
+      );
+      this.actorFill.intensity = 1.05 + this.road.stormGust * 0.45;
+    }
 
     if (this.woman.pose !== 'lying') return;
     this.woman.animate(dt, 0);
