@@ -66,7 +66,7 @@ function buildForegroundFrame(scene, cameraPosition, lookAt, name, flip = 1) {
 // distant forest, headlights, storm and roadside dressing therefore never pop
 // away when Bryan opens the door.
 export class ForestAftermath {
-  constructor(road, incident, cameras, collision) {
+  constructor(road, incident, cameras, collision, actorRoot = null) {
     this.road = road;
     this.scene = road.scene;
     this.time = 0;
@@ -321,7 +321,7 @@ export class ForestAftermath {
       1,
     );
 
-    this.backdrop = new ForestPrerenderBackdrop(this.scene, cameras.cameraRig.camera);
+    this.backdrop = new ForestPrerenderBackdrop(this.scene, cameras.cameraRig.camera, actorRoot);
     this.backdrop.preload();
 
     cameras.setDebugVisibility(DEBUG_MODE);
