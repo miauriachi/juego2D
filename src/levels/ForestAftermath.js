@@ -367,15 +367,15 @@ export class ForestAftermath {
       forestBCamera,
       forestBLook,
       forestBFov,
-      0.04,
-      -0.44,
+      0.30,
+      -0.32,
     );
     this.forestBVisualEndPoint = groundPointForScreen(
       forestBCamera,
       forestBLook,
       forestBFov,
-      -0.10,
-      0.18,
+      0.14,
+      0.24,
     );
     this.forestBVisualDirection = this.forestBVisualEndPoint.clone()
       .sub(this.forestBVisualStartPoint)
@@ -390,7 +390,8 @@ export class ForestAftermath {
       this.forestBVisualEndPoint,
     );
     this.forestBVisualHalfWidth = 1.35;
-    this.forestBNextSpawn = this.layout.points[7].clone();
+    this.forestBNextSpawn = this.layout.points[7].clone()
+      .lerp(this.layout.points[8], 0.24);
 
     cameras.addZone({
       id: 'CAM_FOREST_B',
