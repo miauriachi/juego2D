@@ -19,7 +19,7 @@ const SHOTS = {
     key: 'scene2', url: scene2, zoom: 1.025,
   },
   CAM_FOREST_A: {
-    key: 'scene3', url: scene3, zoom: 1.03,
+    key: 'scene3', url: scene3, zoom: 1.03, actorScale: 1.58,
   },
   CAM_FOREST_B: {
     key: 'scene4', url: scene4, zoom: 1.03,
@@ -133,10 +133,12 @@ export class ForestPrerenderBackdrop {
     return Boolean(SHOTS[zoneId]);
   }
 
-  applyActorCalibration(actorRoot) {
+  applyActorCalibration(actorRoot, zoneId = this.currentZoneId) {
     if (!actorRoot) return;
-    // One stable forest presentation scale. No per-camera shrinking/growing.
-    actorRoot.scale.setScalar(FOREST_ACTOR_SCALE);
+    // Bryan keeps the normal forest scale everywhere except the third shot,
+    // where the authored background needs him visually closer to camera.
+    const scale = SHOTS[zoneId]?.actorScale ?? FOREST_ACTOR_SCALE;
+    actorRoot.scale.setScalar(scale);
   }
 
   resetActorCalibration(actorRoot) {
