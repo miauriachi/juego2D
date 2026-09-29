@@ -1,19 +1,20 @@
 import * as THREE from 'three';
 import { CarInterior } from './CarInterior.js';
 import forestScene3 from '../environment/forestShots/forestScene3.js';
-import forestScene4 from '../environment/forestShots/forestScene4.js';
-import forestScene5 from '../environment/forestShots/forestScene5.js';
 
 const forestCrash = new URL('../../assets/backgrounds/forest/forest_crash_clean.jpg', import.meta.url).href;
-const forestBlood = new URL('../../assets/backgrounds/forest/forest_blood_clean.jpg', import.meta.url).href;
+const rescueLift = new URL('../../assets/backgrounds/forest/rescue_lift.jpg', import.meta.url).href;
+const rescueWalk = new URL('../../assets/backgrounds/forest/rescue_walk.jpg', import.meta.url).href;
+const rescueRoad = new URL('../../assets/backgrounds/forest/rescue_road.jpg', import.meta.url).href;
 
-// Deep forest -> road. The last shots deliberately use the clean, car-free
-// roadside plates so the live 3D sedan remains visible over the background.
+// Rescue-only plates. The original outbound forest rooms are untouched.
+// Deep forest -> supported walk -> existing mid-forest continuity -> roadside ->
+// the original clean crash plate, where the LIVE 3D sedan is drawn on top.
 const RESCUE_BACKDROPS = [
-  { key: 'scene5', url: forestScene5 },
-  { key: 'scene4', url: forestScene4 },
+  { key: 'rescue-lift', url: rescueLift },
+  { key: 'rescue-walk', url: rescueWalk },
   { key: 'scene3', url: forestScene3 },
-  { key: 'scene2', url: forestBlood },
+  { key: 'rescue-road', url: rescueRoad },
   { key: 'scene1', url: forestCrash },
   { key: 'scene1', url: forestCrash },
   { key: 'scene1', url: forestCrash },
@@ -64,28 +65,14 @@ export class WomanRescueSequence {
   }
 
   setupBackdrop() {
-    const material = new THREE.MeshBasicMaterial({
-      color: 0xffffff,
-      depthWrite: false,
-      depthTest: false,
-      fog: false,
-      toneMapped: false,
-    });
-    this.backdrop = new THREE.Mesh(new THREE.PlaneGeometry(1, 1), material);
-    this.backdrop.name = 'rescue-cinematic-forest-backdrop';
-    this.backdrop.position.z = -48;
-    this.backdrop.renderOrder = -10000;
-    this.backdrop.frustumCulled = false;
-    this.camera.add(this.backdrop);
-    this.level.scene.add(this.camera);
-
-    // The checkpoint can jump directly to the woman before the rescue-specific
-    // textures finish decoding. Seed the cinematic plane with whatever forest
-    // plate is already on screen so the first rescue frame can never go black.
+    // Use Scene.background instead of a perspective plane for this cinematic.
+    // That makes every rescue plate fill the entire viewport regardless of
+    // camera angle, eliminating the diagonal half-background/black-void bug.
+    this.originalSceneBackground = this.level.scene.background;
     const currentForestTexture = this.level.backdrop?.material?.map ?? null;
-    if (currentForestTexture) {
-      this.backdrop.material.map = currentForestTexture;
-      this.backdrop.material.needsUpdate = true;
+    if (currentForestTexture?.image) {
+      this.level.scene.background = currentForestTexture;
+      this.activeBackdropTexture = currentForestTexture;
     }
 
     const loader = new THREE.TextureLoader();
@@ -100,6 +87,9 @@ export class WomanRescueSequence {
         loaded.minFilter = THREE.LinearMipmapLinearFilter;
         loaded.generateMipmaps = true;
         loaded.needsUpdate = true;
+
+        const current = RESCUE_BACKDROPS[Math.min(this.shot, RESCUE_BACKDROPS.length - 1)];
+        if (current?.key === key) this.updateBackdrop();
       });
       this.backdropFallback.set(key, texture);
     });
@@ -107,29 +97,30 @@ export class WomanRescueSequence {
   }
 
   updateBackdrop() {
-    if (!this.backdrop) return;
     const config = RESCUE_BACKDROPS[Math.min(this.shot, RESCUE_BACKDROPS.length - 1)];
     const shared = this.level.backdrop?.cache?.get(config.key);
-    const texture = shared ?? this.backdropFallback?.get(config.key);
+    const fallback = this.backdropFallback?.get(config.key);
+    const texture = shared?.image ? shared : fallback?.image ? fallback : null;
 
-    if (texture && this.backdrop.material.map !== texture) {
-      this.backdrop.material.map = texture;
-      this.backdrop.material.needsUpdate = true;
+    // Never replace the currently visible plate with an undecoded texture.
+    // On a cold load the previous forest plate stays on screen instead of black.
+    if (!texture) return;
+
+    if (this.level.scene.background !== texture) {
+      this.level.scene.background = texture;
+      this.activeBackdropTexture = texture;
     }
-
-    const distance = Math.abs(this.backdrop.position.z);
-    const height = 2 * Math.tan(THREE.MathUtils.degToRad(this.camera.fov) / 2) * distance * 1.06;
-    this.backdrop.scale.set(height * this.camera.aspect * 1.06, height, 1);
   }
 
   cleanupBackdrop() {
     if (this.level.scene.fog) this.level.scene.fog.far = this.sceneFog;
-    if (!this.backdrop) return;
-    this.camera.remove(this.backdrop);
-    this.level.scene.remove(this.camera);
-    this.backdrop.geometry.dispose();
-    this.backdrop.material.dispose();
-    this.backdrop = null;
+    if (this.originalSceneBackground !== undefined) {
+      this.level.scene.background = this.originalSceneBackground;
+    }
+    this.backdropFallback?.forEach(texture => texture.dispose?.());
+    this.backdropFallback?.clear();
+    this.backdropFallback = null;
+    this.activeBackdropTexture = null;
   }
 
   setCamera(position, target) { this.camera.position.copy(position); this.camera.lookAt(target); }
