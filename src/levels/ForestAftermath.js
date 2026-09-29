@@ -35,6 +35,21 @@ function composeLookAtForScreen(cameraPosition, groundAnchor, fov, ndcX, ndcY) {
   return lookAt;
 }
 
+function groundPointForScreen(cameraPosition, lookAt, fov, ndcX, ndcY) {
+  const camera = new THREE.PerspectiveCamera(fov, 16 / 9, 0.1, 1000);
+  camera.position.copy(cameraPosition);
+  camera.lookAt(lookAt);
+  camera.updateProjectionMatrix();
+  camera.updateMatrixWorld(true);
+
+  const rayPoint = new THREE.Vector3(ndcX, ndcY, 0.5).unproject(camera);
+  const direction = rayPoint.sub(camera.position).normalize();
+  if (Math.abs(direction.y) < 1e-5) return lookAt.clone().setY(0);
+
+  const distance = -camera.position.y / direction.y;
+  return camera.position.clone().addScaledVector(direction, distance).setY(0);
+}
+
 function buildForegroundFrame(scene, cameraPosition, lookAt, name, flip = 1) {
   const group = new THREE.Group();
   group.name = name;
@@ -343,6 +358,40 @@ export class ForestAftermath {
       -0.04,
       -0.50,
     );
+
+    // Scene 4's painted trail is visually centered while the old hidden 3D
+    // route placed Bryan on the left rock. Calibrate this room directly from
+    // screen coordinates: enter near the lower-center trail, then walk toward
+    // the upper-left opening marked by the visible path.
+    this.forestBVisualStartPoint = groundPointForScreen(
+      forestBCamera,
+      forestBLook,
+      forestBFov,
+      0.04,
+      -0.44,
+    );
+    this.forestBVisualEndPoint = groundPointForScreen(
+      forestBCamera,
+      forestBLook,
+      forestBFov,
+      -0.10,
+      0.18,
+    );
+    this.forestBVisualDirection = this.forestBVisualEndPoint.clone()
+      .sub(this.forestBVisualStartPoint)
+      .setY(0)
+      .normalize();
+    this.forestBVisualRight = new THREE.Vector3(
+      -this.forestBVisualDirection.z,
+      0,
+      this.forestBVisualDirection.x,
+    );
+    this.forestBVisualLength = this.forestBVisualStartPoint.distanceTo(
+      this.forestBVisualEndPoint,
+    );
+    this.forestBVisualHalfWidth = 1.35;
+    this.forestBNextSpawn = this.layout.points[7].clone();
+
     cameras.addZone({
       id: 'CAM_FOREST_B',
       name: 'CAM_FOREST_B',
@@ -539,6 +588,29 @@ export class ForestAftermath {
     position.copy(startPosition)
       .addScaledVector(this.forestAVisualDirection, depth)
       .addScaledVector(this.forestAVisualRight, lateral);
+
+    return Math.max(0, depth);
+  }
+
+  resolveForestBVisualPath(player, startPosition) {
+    const position = player?.position ?? player?.group?.position;
+    if (!position || !startPosition || !this.forestBVisualDirection) return 0;
+
+    const delta = position.clone().sub(startPosition);
+    const depth = THREE.MathUtils.clamp(
+      delta.dot(this.forestBVisualDirection),
+      -0.35,
+      this.forestBVisualLength,
+    );
+    const lateral = THREE.MathUtils.clamp(
+      delta.dot(this.forestBVisualRight),
+      -this.forestBVisualHalfWidth,
+      this.forestBVisualHalfWidth,
+    );
+
+    position.copy(startPosition)
+      .addScaledVector(this.forestBVisualDirection, depth)
+      .addScaledVector(this.forestBVisualRight, lateral);
 
     return Math.max(0, depth);
   }
