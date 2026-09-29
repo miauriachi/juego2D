@@ -18,7 +18,7 @@ const FOREST_CAMERA_ORDER = [
   'CAM_FOREST_BODY',
 ];
 
-const FOREST_ACTOR_SCALE = 1.28;
+const FOREST_ACTOR_SCALE = 1.38;
 
 // Post-stop chapter: same road/storm outside the car, then classic fixed-camera forest rooms.
 export class ForestSequence {
