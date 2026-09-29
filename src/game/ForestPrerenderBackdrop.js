@@ -44,7 +44,7 @@ export class ForestPrerenderBackdrop {
     this.hidden = new Map();
     this.currentZoneId = null;
     this.currentKey = null;
-    this.distance = 500;
+    this.distance = 120;
 
     this.material = new THREE.MeshBasicMaterial({
       color: 0xffffff,
