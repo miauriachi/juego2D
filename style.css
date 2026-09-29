@@ -80,6 +80,27 @@ canvas {
 .chapter-title h1 span { color: #85282e; }
 .chapter-title h2 { color: #a22f34; font: 600 clamp(20px, 3vw, 40px)/1.6 Georgia, serif; letter-spacing: .28em; margin: .3em 0; }
 .chapter-title p { color: #d5d7d6; letter-spacing: .5em; font: 12px/2 Georgia, serif; }
+.development-title {
+  position: fixed;
+  inset: 0;
+  z-index: 70;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  pointer-events: none;
+  background: transparent;
+  text-align: center;
+  transition: opacity .6s ease;
+}
+.development-title[hidden] { display: none; }
+.development-title p {
+  margin: 0;
+  color: #e7e7df;
+  font: 600 clamp(20px, 3.2vw, 44px)/1.2 Georgia, 'Times New Roman', serif;
+  letter-spacing: .42em;
+  text-shadow: 0 2px 8px #000, 0 0 30px #000;
+}
+
 .driving-dialogue { position: fixed; z-index: 12; bottom: 8%; left: 4%; width: min(520px, 64vw); padding: 12px 18px; border-left: 1px solid #87918d; background: #060c12cc; color: #dadfd8; font: clamp(14px, 1.6vw, 19px) Georgia, serif; pointer-events: none; }
 .driving-dialogue strong { font-size: .68em; letter-spacing: .12em; color: #a5b5b2; }
 .driving-dialogue p { margin: 8px 0 0; line-height: 1.4; }
