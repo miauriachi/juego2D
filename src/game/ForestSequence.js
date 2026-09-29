@@ -21,6 +21,17 @@ export class ForestSequence {
     this.exitNeedsRelease = true;
     this.objectiveTimer = 3.4;
 
+    // The driving phone/dialogue UI must never leak into the post-crash room.
+    // A stale line was stealing E and making the blood inspection look broken.
+    if (game.dialogueManager?.isOpen) {
+      game.dialogueManager.isOpen = false;
+      game.dialogueManager.panel.hidden = true;
+      game.dialogueManager.onClose = null;
+      game.dialogueManager.lines = [];
+      game.dialogueManager.index = 0;
+    }
+    game.dialogueManager?.setHint('');
+
     this.collision = new CollisionSystem();
     this.cameras = new CameraManager(null, game.cameraRig);
     this.level = new ForestAftermath(
@@ -110,15 +121,31 @@ export class ForestSequence {
   }
 
   applyInspectionPose(amount) {
-    const visual = this.game.bryanVisual?.group;
+    const rig = this.game.bryanVisual;
+    const visual = rig?.group;
     if (!visual) return;
 
     const a = THREE.MathUtils.clamp(amount, 0, 1);
-    // Restore the inspection gesture from the known-good version: lower,
-    // lean forward, hold over the blood, then return to neutral.
-    visual.position.set(0, -0.22 * a, 0);
-    visual.rotation.set(0.16 * a, 0, 0);
-    visual.scale.set(1, 1 - 0.14 * a, 1);
+
+    // Restore the old readable crouch, but make the vertical change impossible
+    // to miss: Bryan lowers his center of mass, leans toward the stain, holds,
+    // then the exact same values return smoothly to zero.
+    visual.position.set(0, -0.24 * a, -0.055 * a);
+    visual.rotation.set(0.18 * a, 0, 0);
+    visual.scale.set(1, 1 - 0.12 * a, 1);
+
+    // The reconstructed rig gets an additional hip drop after locomotion is
+    // evaluated. Player position/collision are untouched.
+    if (rig.rigged && rig.bones?.[27]) {
+      rig.bones[27].position.y -= 0.13 * a;
+
+      const bend = new THREE.Quaternion()
+        .setFromAxisAngle(new THREE.Vector3(1, 0, 0), 0.12 * a);
+      for (const index of [16, 15]) {
+        if (rig.bones[index]) rig.bones[index].quaternion.multiply(bend);
+      }
+      rig.rigRoot?.updateMatrixWorld(true);
+    }
   }
 
   beginRescue() {
@@ -156,6 +183,8 @@ export class ForestSequence {
 
     if (p.group.parent !== this.level.scene) this.level.scene.add(p.group);
     p.group.visible = true;
+    // Presentation scale from the failed backplate experiment must not survive.
+    p.group.scale.set(1, 1, 1);
 
     const visual = g.bryanVisual?.group;
     if (visual) {
