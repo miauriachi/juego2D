@@ -14,7 +14,23 @@ export class PassengerDriveSequence {
     this.road = new SnowRoad({ settings: game.settings, length: 5000 });
     this.road.scene.remove(this.road.vehicle.group);
     this.road.vehicle = game.snowRoad.vehicle; this.road.scene.add(this.road.vehicle.group);
-    this.vehicle = this.road.vehicle; this.startZ = this.vehicle.position.z;
+    this.vehicle = this.road.vehicle;
+
+    // The post-impact fixed-camera sequence enlarges only the detailed sedan
+    // for composition. Reset that presentation scale before returning to the
+    // road; otherwise the interior camera can end up inside the enlarged body.
+    this.vehicle.group.visible = true;
+    this.vehicle.group.userData.aftermathVisualScale = 1;
+    if (this.vehicle.group.userData.detailedVisual) {
+      this.vehicle.group.userData.detailedVisual.visible = true;
+      this.vehicle.group.userData.detailedVisual.scale.setScalar(1);
+    } else {
+      this.vehicle.group.traverse(object => {
+        if (object.userData?.proceduralCarVisual) object.visible = true;
+      });
+    }
+
+    this.startZ = this.vehicle.position.z;
     this.rejoinTime = 0; this.rejoinStart = this.vehicle.position.clone(); this.rejoinHeading = this.vehicle.heading;
     this.rejoinEnd = new THREE.Vector3(this.road.centerX(-this.startZ + 6), 0, this.startZ - 6);
     this.road.vehicleCamera.initialized = false; this.road.updateCamera();
