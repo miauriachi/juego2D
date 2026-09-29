@@ -58,7 +58,7 @@ function loadDetailedCarVisual(car) {
     CAR_MODEL_URL,
     gltf => {
       const visual = gltf.scene;
-      visual.name = 'Bryan-car-meshy-visual';
+      visual.name = 'Bryan-car-meshy-model';
 
       // Meshy authored the sedan along X, front toward -X. Rotate it so the
       // vehicle front matches the game's -Z forward axis.
@@ -77,7 +77,8 @@ function loadDetailedCarVisual(car) {
       const center = bounds.getCenter(new THREE.Vector3());
 
       // Center the body over the existing physics origin and put the tires on
-      // y=0. Physics, steering and collision remain exactly where they were.
+      // y=0. The wrapper below keeps this grounded when we enlarge the sedan
+      // only for the post-crash fixed-camera shots.
       visual.position.x -= center.x;
       visual.position.z -= center.z;
       visual.position.y -= bounds.min.y;
@@ -99,8 +100,13 @@ function loadDetailedCarVisual(car) {
         });
       });
 
-      car.add(visual);
-      car.userData.detailedVisual = visual;
+      const holder = new THREE.Group();
+      holder.name = 'Bryan-car-meshy-visual';
+      holder.add(visual);
+      holder.scale.setScalar(car.userData.aftermathVisualScale ?? 1);
+
+      car.add(holder);
+      car.userData.detailedVisual = holder;
 
       // Keep the old block car only as a loading/error fallback.
       car.traverse(object => {
