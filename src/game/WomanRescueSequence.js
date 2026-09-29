@@ -3,7 +3,6 @@ import { CarInterior } from './CarInterior.js';
 import forestScene3 from '../environment/forestShots/forestScene3.js';
 import forestScene4 from '../environment/forestShots/forestScene4.js';
 import forestScene5 from '../environment/forestShots/forestScene5.js';
-import forestScene6 from '../environment/forestShots/forestScene6.js';
 
 const forestCrash = new URL('../../assets/backgrounds/forest/forest_crash_clean.jpg', import.meta.url).href;
 const forestBlood = new URL('../../assets/backgrounds/forest/forest_blood_clean.jpg', import.meta.url).href;
@@ -12,7 +11,7 @@ const forestBlood = new URL('../../assets/backgrounds/forest/forest_blood_clean.
 // These are the SAME environments Bryan crossed on the way in, so the return
 // now preserves visual continuity without stretching tiny 320x180 rescue JPGs.
 const RESCUE_BACKDROPS = [
-  { key: 'rescue-body-hd', url: forestScene6, fallbackKey: 'scene6-clean' },
+  { key: 'scene6-clean', url: null, fallbackKey: 'scene6-clean' },
   { key: 'rescue-deep-hd', url: forestScene5, fallbackKey: 'scene5' },
   { key: 'rescue-mid-hd', url: forestScene4, fallbackKey: 'scene4' },
   { key: 'rescue-path-hd', url: forestScene3, fallbackKey: 'scene3' },
@@ -131,7 +130,7 @@ export class WomanRescueSequence {
     const requested = new Set();
 
     RESCUE_BACKDROPS.forEach(({ key, url }) => {
-      if (requested.has(key)) return;
+      if (!url || requested.has(key)) return;
       requested.add(key);
 
       loader.load(
