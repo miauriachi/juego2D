@@ -40,6 +40,9 @@ export class ForestSequence {
     this.forestBVisualStart = null;
     this.forestBVisualProgress = 0;
     this.forestBCompleted = false;
+    this.forestCVisualStart = null;
+    this.forestCVisualProgress = 0;
+    this.forestCCompleted = false;
     this.forcedForestZone = null;
     this.forestBoundaryCooldown = 0;
 
@@ -222,32 +225,53 @@ export class ForestSequence {
         0,
       );
 
-    // Re-enter the screen-calibrated B room from C at the far end of its
-    // visible trail. The camera cut hides this handoff and lets the player walk
-    // back naturally instead of being trapped in later rooms.
+    const routeProgress = this.examined && position
+      ? this.level.layout.progress(position)
+      : 0;
+
+    // Keep a gap between the C/D thresholds so standing on the boundary cannot
+    // alternate both prerenders every frame.
+    if (
+      !this.forcedForestZone &&
+      previousId === 'CAM_FOREST_C' &&
+      desiredId === 'CAM_FOREST_D' &&
+      routeProgress < 40.85
+    ) {
+      desiredId = 'CAM_FOREST_C';
+    }
+
+    if (
+      !this.forcedForestZone &&
+      previousId === 'CAM_FOREST_D' &&
+      desiredId === 'CAM_FOREST_C' &&
+      routeProgress > 39.55
+    ) {
+      desiredId = 'CAM_FOREST_D';
+    }
+
+    // Returning from D to C must land Bryan on the visible snow trail, not on
+    // the rock from the hidden 3D route.
     if (
       this.examined &&
       !this.forcedForestZone &&
-      previousId === 'CAM_FOREST_C' &&
-      desiredId === 'CAM_FOREST_B' &&
+      previousId === 'CAM_FOREST_D' &&
+      desiredId === 'CAM_FOREST_C' &&
       this.forestBoundaryCooldown <= 0
     ) {
       const p = this.game.player;
-      this.forcedForestZone = 'CAM_FOREST_B';
-      this.forestBCompleted = false;
-      this.forestBVisualStart = this.level.forestBVisualStartPoint.clone();
-      p.position.copy(this.level.forestBVisualEndPoint);
+      this.forcedForestZone = 'CAM_FOREST_C';
+      this.forestCCompleted = false;
+      this.forestCVisualStart = this.level.forestCVisualStartPoint.clone();
+      this.forestCVisualProgress = this.level.forestCVisualLength;
+      p.position.copy(this.level.forestCVisualEndPoint);
       p.previousPosition.copy(p.position);
       p.velocity.set(0, 0, 0);
-      this.forestBoundaryCooldown = 0.55;
-      desiredId = 'CAM_FOREST_B';
+      this.forestBoundaryCooldown = 0.75;
+      desiredId = 'CAM_FOREST_C';
     }
 
     const desiredZone = this.cameras.zones.find(zone => zone.id === desiredId);
 
-    // Never invoke CameraManager's zones[0] fallback in this chapter. If a shot
-    // id is missing for any reason, retain the current shot instead of jumping
-    // to CAM_CRASH_EXIT.
     if (desiredZone) {
       this.cameras.setActiveZone(desiredZone);
     } else if (!this.cameras.activeZone) {
@@ -518,12 +542,20 @@ export class ForestSequence {
               this.level.forestBVisualLength - 0.05
             ) {
               this.forestBCompleted = true;
-              this.forcedForestZone = null;
-              this.forestBoundaryCooldown = 0.70;
+              this.forcedForestZone = 'CAM_FOREST_C';
+              this.forestBoundaryCooldown = 0.75;
 
-              p.position.copy(this.level.forestBNextSpawn);
+              p.position.copy(this.level.forestCVisualStartPoint);
               p.previousPosition.copy(p.position);
               p.velocity.set(0, 0, 0);
+
+              this.forestCCompleted = false;
+              this.forestCVisualStart = this.level.forestCVisualStartPoint.clone();
+              this.forestCVisualProgress = 0;
+
+              const direction = this.level.forestCVisualDirection;
+              p.rotationY = Math.atan2(-direction.x, -direction.z);
+              p.group.rotation.y = p.rotationY;
             } else if (
               this.forestBoundaryCooldown <= 0 &&
               this.forestBVisualProgress <= -0.28
@@ -546,8 +578,54 @@ export class ForestSequence {
               this.forestAVisualProgress = this.level.forestAVisualLength - 0.20;
             }
           } else {
-            this.collision.resolve(p);
-            this.level.resolveCarCollision(p);
+            const inForestC =
+              this.examined &&
+              this.cameras.activeZone?.id === 'CAM_FOREST_C';
+
+            if (inForestC) {
+              if (!this.forestCVisualStart) {
+                this.forestCVisualStart = this.level.forestCVisualStartPoint.clone();
+              }
+
+              this.forestCVisualProgress = this.level.resolveForestCVisualPath(
+                p,
+                this.forestCVisualStart,
+              );
+
+              if (
+                this.forestCVisualProgress >=
+                this.level.forestCVisualLength - 0.05
+              ) {
+                this.forestCCompleted = true;
+                this.forcedForestZone = null;
+                this.forestBoundaryCooldown = 0.85;
+
+                // Spawn safely beyond the C/D threshold so the next frame cannot
+                // immediately cut back to C.
+                p.position.copy(this.level.forestCNextSpawn);
+                p.previousPosition.copy(p.position);
+                p.velocity.set(0, 0, 0);
+              } else if (
+                this.forestBoundaryCooldown <= 0 &&
+                this.forestCVisualProgress <= -0.28
+              ) {
+                // Walk backward from C into B through the far end of B's path.
+                this.forestCCompleted = false;
+                this.forcedForestZone = 'CAM_FOREST_B';
+                this.forestBoundaryCooldown = 0.75;
+
+                this.forestBCompleted = false;
+                this.forestBVisualStart = this.level.forestBVisualStartPoint.clone();
+                this.forestBVisualProgress = this.level.forestBVisualLength;
+
+                p.position.copy(this.level.forestBVisualEndPoint);
+                p.previousPosition.copy(p.position);
+                p.velocity.set(0, 0, 0);
+              }
+            } else {
+              this.collision.resolve(p);
+              this.level.resolveCarCollision(p);
+            }
           }
         }
 
