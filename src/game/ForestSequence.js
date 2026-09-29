@@ -40,6 +40,7 @@ export class ForestSequence {
     this.forestBVisualStart = null;
     this.forestBVisualProgress = 0;
     this.forestBCompleted = false;
+    this.forcedForestZone = null;
 
     // The driving phone/dialogue UI must never leak into the post-crash room.
     // A stale line was stealing E and making the blood inspection look broken.
@@ -210,43 +211,33 @@ export class ForestSequence {
   }
 
   updateCamera(position) {
-    const forceForestB =
-      this.examined &&
-      this.forestACompleted &&
-      !this.forestBCompleted;
+    const previousId = this.cameras.activeZone?.id ?? null;
 
-    if (this.examined && position && !forceForestB) {
-      const routeProgress = this.level.layout.progress(position);
-      this.maxForestProgress = Math.max(this.maxForestProgress, routeProgress);
-    }
-
-    let desiredId = forceForestB
-      ? 'CAM_FOREST_B'
-      : this.level.getCameraZoneId(
+    let desiredId = this.forcedForestZone
+      ?? this.level.getCameraZoneId(
         position,
         this.state,
         Boolean(this.examined),
-        this.maxForestProgress,
-      );
-
-    let desiredIndex = FOREST_CAMERA_ORDER.indexOf(desiredId);
-    if (desiredIndex < 0) desiredIndex = this.maxForestCameraIndex;
-
-    // Before the blood inspection, the first two roadside shots may alternate.
-    // Once the forest is unlocked, camera progression is one-way. A bad route
-    // sample can never throw the game back onto the crash/car shot.
-    if (this.examined) {
-      desiredIndex = Math.max(1, desiredIndex);
-      this.maxForestCameraIndex = Math.max(
-        this.maxForestCameraIndex,
-        desiredIndex,
-      );
-      desiredId = FOREST_CAMERA_ORDER[this.maxForestCameraIndex];
-    } else {
-      this.maxForestCameraIndex = Math.max(
         0,
-        Math.min(1, desiredIndex),
       );
+
+    // Re-enter the screen-calibrated B room from C at the far end of its
+    // visible trail. The camera cut hides this handoff and lets the player walk
+    // back naturally instead of being trapped in later rooms.
+    if (
+      this.examined &&
+      !this.forcedForestZone &&
+      previousId === 'CAM_FOREST_C' &&
+      desiredId === 'CAM_FOREST_B'
+    ) {
+      const p = this.game.player;
+      this.forcedForestZone = 'CAM_FOREST_B';
+      this.forestBCompleted = false;
+      this.forestBVisualStart = this.level.forestBVisualStartPoint.clone();
+      p.position.copy(this.level.forestBVisualEndPoint);
+      p.previousPosition.copy(p.position);
+      p.velocity.set(0, 0, 0);
+      desiredId = 'CAM_FOREST_B';
     }
 
     const desiredZone = this.cameras.zones.find(zone => zone.id === desiredId);
@@ -458,7 +449,6 @@ export class ForestSequence {
 
         const inForestA =
           this.examined &&
-          !this.forestACompleted &&
           this.cameras.activeZone?.id === 'CAM_FOREST_A';
 
         if (inForestA) {
@@ -475,38 +465,39 @@ export class ForestSequence {
             this.forestAVisualProgress >=
             this.level.forestAVisualLength - 0.05
           ) {
-            // The camera cut hides the world-space handoff. Rejoin the existing
-            // authored route at the start of the next room; later forest rooms,
-            // collisions and camera thresholds remain unchanged.
             this.forestACompleted = true;
+            this.forcedForestZone = 'CAM_FOREST_B';
+
             p.position.copy(this.level.forestBVisualStartPoint);
             p.previousPosition.copy(p.position);
             p.velocity.set(0, 0, 0);
-            this.forestBVisualStart = p.position.clone();
+
+            this.forestBCompleted = false;
+            this.forestBVisualStart = this.level.forestBVisualStartPoint.clone();
             this.forestBVisualProgress = 0;
 
             const direction = this.level.forestBVisualDirection;
             p.rotationY = Math.atan2(-direction.x, -direction.z);
             p.group.rotation.y = p.rotationY;
+          } else if (this.forestAVisualProgress <= -0.22) {
+            // Walk back out of A to the previous blood-trail room.
+            this.forcedForestZone = null;
+            this.forestACompleted = false;
+            this.forestAVisualStart = null;
+            this.forestAVisualProgress = 0;
 
-            this.maxForestProgress = Math.max(this.maxForestProgress, 21.5);
-            this.maxForestCameraIndex = Math.max(
-              this.maxForestCameraIndex,
-              FOREST_CAMERA_ORDER.indexOf('CAM_FOREST_B'),
-            );
+            p.position.copy(this.level.layout.points[1]);
+            p.previousPosition.copy(p.position);
+            p.velocity.set(0, 0, 0);
           }
         } else {
           const inForestB =
             this.examined &&
-            this.forestACompleted &&
-            !this.forestBCompleted &&
             this.cameras.activeZone?.id === 'CAM_FOREST_B';
 
           if (inForestB) {
             if (!this.forestBVisualStart) {
               this.forestBVisualStart = this.level.forestBVisualStartPoint.clone();
-              p.position.copy(this.forestBVisualStart);
-              p.previousPosition.copy(p.position);
             }
 
             this.forestBVisualProgress = this.level.resolveForestBVisualPath(
@@ -519,14 +510,27 @@ export class ForestSequence {
               this.level.forestBVisualLength - 0.05
             ) {
               this.forestBCompleted = true;
+              this.forcedForestZone = null;
+
               p.position.copy(this.level.forestBNextSpawn);
               p.previousPosition.copy(p.position);
               p.velocity.set(0, 0, 0);
-              this.maxForestProgress = Math.max(this.maxForestProgress, 31.2);
-              this.maxForestCameraIndex = Math.max(
-                this.maxForestCameraIndex,
-                FOREST_CAMERA_ORDER.indexOf('CAM_FOREST_C'),
-              );
+            } else if (this.forestBVisualProgress <= -0.18) {
+              // Reverse through the camera boundary back into scene A.
+              this.forestBCompleted = false;
+              this.forcedForestZone = 'CAM_FOREST_A';
+
+              if (!this.forestAVisualStart) {
+                this.forestAVisualStart = this.level.layout.points[2].clone();
+              }
+              p.position.copy(this.forestAVisualStart)
+                .addScaledVector(
+                  this.level.forestAVisualDirection,
+                  this.level.forestAVisualLength - 0.20,
+                );
+              p.previousPosition.copy(p.position);
+              p.velocity.set(0, 0, 0);
+              this.forestAVisualProgress = this.level.forestAVisualLength - 0.20;
             }
           } else {
             this.collision.resolve(p);
