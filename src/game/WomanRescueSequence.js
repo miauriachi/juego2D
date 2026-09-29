@@ -11,7 +11,7 @@ const forestBlood = new URL('../../assets/backgrounds/forest/forest_blood_clean.
 // These are the SAME environments Bryan crossed on the way in, so the return
 // now preserves visual continuity without stretching tiny 320x180 rescue JPGs.
 const RESCUE_BACKDROPS = [
-  { key: 'scene6-clean', url: null, fallbackKey: 'scene6-clean' },
+  { key: 'rescue-body-hd', url: forestScene5, fallbackKey: 'scene5' },
   { key: 'rescue-deep-hd', url: forestScene5, fallbackKey: 'scene5' },
   { key: 'rescue-mid-hd', url: forestScene4, fallbackKey: 'scene4' },
   { key: 'rescue-path-hd', url: forestScene3, fallbackKey: 'scene3' },
