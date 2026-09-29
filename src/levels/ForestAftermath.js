@@ -1,7 +1,6 @@
 import * as THREE from 'three';
 import { ForestLayout } from './ForestLayout.js';
 import { BloodTrail } from '../environment/BloodTrail.js';
-import { ForestPrerenderBackdrop } from '../game/ForestPrerenderBackdrop.js';
 import { DEBUG_MODE, PLAYER_RADIUS } from '../config/constants.js';
 
 function buildForegroundFrame(scene, cameraPosition, lookAt, name, flip = 1) {
@@ -351,8 +350,11 @@ export class ForestAftermath {
       1,
     );
 
-    this.backdrop = new ForestPrerenderBackdrop(this.scene, cameras.cameraRig.camera, actorRoot);
-    this.backdrop.preload();
+    // The previous forest atlas only supplied ~320x180 pixels per shot and was
+    // being stretched over the viewport. Keep the authored fixed cameras but use
+    // the full 3D road/forest/storm until full-resolution individual backplates
+    // are committed. This prevents the giant mosaic/pixel blocks.
+    this.backdrop = null;
 
     cameras.setDebugVisibility(DEBUG_MODE);
 
