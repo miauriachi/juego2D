@@ -1,5 +1,23 @@
 import * as THREE from 'three';
 import { CarInterior } from './CarInterior.js';
+import forestScene3 from '../environment/forestShots/forestScene3.js';
+import forestScene4 from '../environment/forestShots/forestScene4.js';
+import forestScene5 from '../environment/forestShots/forestScene5.js';
+
+const forestCrash = new URL('../../assets/backgrounds/forest/forest_crash_clean.jpg', import.meta.url).href;
+const forestBlood = new URL('../../assets/backgrounds/forest/forest_blood_clean.jpg', import.meta.url).href;
+
+// Deep forest -> road. The last shots deliberately use the clean, car-free
+// roadside plates so the live 3D sedan remains visible over the background.
+const RESCUE_BACKDROPS = [
+  { key: 'scene5', url: forestScene5 },
+  { key: 'scene4', url: forestScene4 },
+  { key: 'scene3', url: forestScene3 },
+  { key: 'scene2', url: forestBlood },
+  { key: 'scene1', url: forestCrash },
+  { key: 'scene1', url: forestCrash },
+  { key: 'scene1', url: forestCrash },
+];
 
 // Edited rescue: all transfers are shown; time elisions occur only under a short fade.
 export class WomanRescueSequence {
@@ -12,9 +30,95 @@ export class WomanRescueSequence {
     this.lyingPosition = level.woman.position.clone(); this.lyingQuaternion = level.woman.quaternion.clone();
     this.passengerSide = level.car.localToWorld(new THREE.Vector3(1.7, 0, 0.35)); this.passengerSide.y = 0;
     this.driverSide = level.car.localToWorld(new THREE.Vector3(-1.7, 0, 0.35)); this.driverSide.y = 0;
-    this.sceneFog = level.scene.fog.far; level.scene.fog.far = 32;
+    this.sceneFog = level.scene.fog.far;
+    // The rescue travels from the deep forest all the way back to the sedan.
+    // Keep live actors/car out of the fog wall while cinematic backplates fill
+    // the far distance.
+    level.scene.fog.far = Math.max(this.sceneFog, 78);
+    this.ensureCarVisual();
+    this.setupBackdrop();
     game.input.keys.clear(); game.dialogueManager.setHint('');
   }
+
+  ensureCarVisual() {
+    const car = this.level.car;
+    if (!car) return;
+    car.visible = true;
+
+    const detailed = car.userData?.detailedVisual;
+    if (detailed) {
+      detailed.visible = true;
+      car.traverse(object => {
+        if (object.userData?.proceduralCarVisual) object.visible = false;
+      });
+    } else {
+      // GLB can still be decoding when the rescue starts. Keep the procedural
+      // sedan visible until Vehicle.js swaps it for the detailed model.
+      car.traverse(object => {
+        if (object.userData?.proceduralCarVisual) object.visible = true;
+      });
+    }
+  }
+
+  setupBackdrop() {
+    const material = new THREE.MeshBasicMaterial({
+      color: 0xffffff,
+      depthWrite: false,
+      fog: false,
+      toneMapped: false,
+    });
+    this.backdrop = new THREE.Mesh(new THREE.PlaneGeometry(1, 1), material);
+    this.backdrop.name = 'rescue-cinematic-forest-backdrop';
+    this.backdrop.position.z = -48;
+    this.backdrop.renderOrder = -10000;
+    this.backdrop.frustumCulled = false;
+    this.camera.add(this.backdrop);
+    this.level.scene.add(this.camera);
+
+    const loader = new THREE.TextureLoader();
+    this.backdropFallback = new Map();
+    RESCUE_BACKDROPS.forEach(({ key, url }) => {
+      if (this.backdropFallback.has(key)) return;
+      const texture = loader.load(url, loaded => {
+        loaded.colorSpace = THREE.SRGBColorSpace;
+        loaded.wrapS = THREE.ClampToEdgeWrapping;
+        loaded.wrapT = THREE.ClampToEdgeWrapping;
+        loaded.magFilter = THREE.LinearFilter;
+        loaded.minFilter = THREE.LinearMipmapLinearFilter;
+        loaded.generateMipmaps = true;
+        loaded.needsUpdate = true;
+      });
+      this.backdropFallback.set(key, texture);
+    });
+    this.updateBackdrop();
+  }
+
+  updateBackdrop() {
+    if (!this.backdrop) return;
+    const config = RESCUE_BACKDROPS[Math.min(this.shot, RESCUE_BACKDROPS.length - 1)];
+    const shared = this.level.backdrop?.cache?.get(config.key);
+    const texture = shared ?? this.backdropFallback?.get(config.key);
+
+    if (texture && this.backdrop.material.map !== texture) {
+      this.backdrop.material.map = texture;
+      this.backdrop.material.needsUpdate = true;
+    }
+
+    const distance = Math.abs(this.backdrop.position.z);
+    const height = 2 * Math.tan(THREE.MathUtils.degToRad(this.camera.fov) / 2) * distance * 1.06;
+    this.backdrop.scale.set(height * this.camera.aspect * 1.06, height, 1);
+  }
+
+  cleanupBackdrop() {
+    if (this.level.scene.fog) this.level.scene.fog.far = this.sceneFog;
+    if (!this.backdrop) return;
+    this.camera.remove(this.backdrop);
+    this.level.scene.remove(this.camera);
+    this.backdrop.geometry.dispose();
+    this.backdrop.material.dispose();
+    this.backdrop = null;
+  }
+
   setCamera(position, target) { this.camera.position.copy(position); this.camera.lookAt(target); }
   supportedWalk(a, b, progress) {
     const p = this.game.player, woman = this.level.woman;
@@ -30,6 +134,8 @@ export class WomanRescueSequence {
     this.time += dt; const duration = this.durations[this.shot], t = Math.min(1, this.time / duration);
     this.fade.style.opacity = String(this.time < 0.2 ? 1 - this.time / 0.2 : this.time > duration - 0.2 ? (this.time - duration + 0.2) / 0.2 : 0);
     this.camera.aspect = innerWidth / innerHeight; this.camera.updateProjectionMatrix();
+    this.updateBackdrop();
+    this.ensureCarVisual();
     if (this.shot === 0) {
       const lift = THREE.MathUtils.smoothstep(t, 0.25, 0.9);
       p.position.copy(this.level.bodyPosition).add(new THREE.Vector3(-0.7, -0.3 * (1 - lift), 0));
@@ -74,7 +180,11 @@ export class WomanRescueSequence {
     if (this.time >= duration) {
       this.time = 0; this.shot++;
       if (this.shot === this.durations.length) {
-        this.level.hinge.rotation.y = 0; this.interior.seatBryan(); this.fade.remove();
+        this.level.hinge.rotation.y = 0;
+        this.ensureCarVisual();
+        this.interior.seatBryan();
+        this.fade.remove();
+        this.cleanupBackdrop();
         this.onComplete(this.interior); return;
       }
     }
