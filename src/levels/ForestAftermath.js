@@ -105,6 +105,16 @@ export class ForestAftermath {
 
     this.car = road.vehicle.group;
     this.car.userData.preserveForestZones = ['CAM_CRASH_EXIT', 'CAM_BLOOD_TRAIL'];
+
+    // Presentation-only enlargement for the first two fixed-camera shots.
+    // The parent vehicle group, physics, steering and collision are untouched.
+    this.car.userData.aftermathVisualScale = 1.25;
+    if (this.car.userData.detailedVisual) {
+      this.car.userData.detailedVisual.scale.setScalar(
+        this.car.userData.aftermathVisualScale,
+      );
+    }
+
     this.car.updateMatrixWorld(true);
 
     // The car is rotated after impact, so an axis-aligned world collider creates
@@ -523,6 +533,16 @@ export class ForestAftermath {
 
   update(dt, player) {
     this.time += dt;
+
+    // The GLB can finish loading after the crash sequence starts. Apply the
+    // requested post-crash scale as soon as the holder becomes available.
+    if (this.car.userData.detailedVisual) {
+      const targetScale = this.car.userData.aftermathVisualScale ?? 1;
+      if (Math.abs(this.car.userData.detailedVisual.scale.x - targetScale) > 0.001) {
+        this.car.userData.detailedVisual.scale.setScalar(targetScale);
+      }
+    }
+
     this.updateStorm(dt, player.position);
 
     if (this.actorFill) {
