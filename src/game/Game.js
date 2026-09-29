@@ -35,9 +35,9 @@ import { PrerenderRoom } from './PrerenderRoom.js';
 import { PrerenderRoomView } from './PrerenderRoomView.js';
 import { GameStats } from './GameStats.js';
 
-// Normal story rules stay enabled. This temporary QA checkpoint now begins at
-// the injured-woman encounter so the rescue/car sequence can be tested quickly.
-const TEMP_WOMAN_CHECKPOINT = true;
+// TEMP CHECKPOINT: exterior calibration only. Allows immediate hospital exit
+// and driving without replaying the full delivery flow.
+const TEMP_EXTERIOR_CHECKPOINT = true;
 
 export class Game {
   constructor(container, { input = null, settings = { sound: true, cameraMotion: true }, audio = null } = {}) {
@@ -107,7 +107,7 @@ export class Game {
     this.reception.interactions.register(new Interactable({
       id: 'hospital-exit', name: 'Salida', position: [0, 0, 7.2], radius: 1.7,
       label: 'Salir del hospital', onInteract: () => {
-        if (this.raccoonDelivery.resolved) this.changeArea('exterior');
+        if (TEMP_EXTERIOR_CHECKPOINT || this.raccoonDelivery.resolved) this.changeArea('exterior');
         else if (this.receptionDelivery.signatureForged) this.dialogueManager.start([
           { speaker: 'BRYAN', text: 'La enfermera quiere hablar conmigo antes de que me vaya.' },
         ]);
@@ -136,10 +136,7 @@ export class Game {
       this.visualReady,
       this.entranceBackdropReady,
       this.openingSequence.ready,
-    ]).then(() => {
-      if (TEMP_WOMAN_CHECKPOINT) this.startWomanCheckpoint();
-      return true;
-    });
+    ]).then(() => true);
     window.addEventListener('resize', () => this.onResize());
   }
 
@@ -451,7 +448,7 @@ export class Game {
 
   changeArea(area) {
     if (this.mode !== 'onFoot' || this.dialogueManager.isOpen || this.receptionDelivery?.isBusy || area === this.area) return;
-    if (area === 'exterior' && !this.raccoonDelivery.resolved) return;
+    if (area === 'exterior' && !TEMP_EXTERIOR_CHECKPOINT && !this.raccoonDelivery.resolved) return;
     if (area === 'exterior' && !this.exterior) this.setupExterior();
     if (area === 'exterior' && !this.exteriorLevel?.backgroundLoaded) {
       if (!this.exteriorTransitionPending) {
@@ -547,7 +544,7 @@ export class Game {
 
   beginDriving() {
     if (this.area !== 'exterior' || this.mode !== 'onFoot' || this.dialogueManager.isOpen ||
-      !this.raccoonDelivery.resolved) return;
+      (!TEMP_EXTERIOR_CHECKPOINT && !this.raccoonDelivery.resolved)) return;
 
     const lastDeliveryEnding =
       this.raccoonDelivery.ending === 'LAST_DELIVERY';
@@ -579,96 +576,6 @@ export class Game {
     this.dialogueManager.setHint('');
     this.input.keys.clear();
     this.input.clearFrameState();
-  }
-
-  startWomanCheckpoint() {
-    // TEMPORARY QA START: build the post-impact world, then place Bryan at the
-    // moment he has already found the injured woman. This replaces the old
-    // accident checkpoint and jumps directly to the rescue test.
-    this.openingSequence?.transition?.remove();
-    if (this.openingSequence?.canvas) {
-      this.openingSequence.canvas.style.visibility = 'visible';
-    }
-    this.openingSequence.completed = true;
-
-    this.prerenderBackdrop?.disable();
-    this.urgenciasBackdrop?.disable();
-    this.exteriorBackdrop?.disable();
-
-    this.snowRoad = new SnowRoad({ settings: this.settings });
-    this.drivingSequence = new DrivingSequence(
-      this.container,
-      this.snowRoad,
-      this.audio,
-      () => {},
-    );
-
-    const road = this.snowRoad;
-    const vehicle = road.vehicle;
-    const crashS = 628;
-    vehicle.position.set(
-      road.centerX(crashS) + 0.9,
-      0,
-      -crashS,
-    );
-    vehicle.heading = -Math.atan(road.tangentX(crashS)) + 0.46;
-    vehicle.velocity.set(0, 0, 0);
-    vehicle.speed = 0;
-    vehicle.yawRate = 0;
-    vehicle.group.rotation.set(0.025, vehicle.heading, 0);
-
-    road.driveEnabled = false;
-    road.completed = true;
-    road.updateWeather(0, vehicle.position);
-    road.updateCamera(0);
-
-    this.drivingSequence.phase = 'aftermath';
-    this.drivingSequence.time = 2.6;
-    this.drivingSequence.impactPosition = vehicle.position.clone();
-    this.drivingSequence.woman.visible = false;
-    this.drivingSequence.conversation.stop();
-
-    this.container.classList.add('driving-mode');
-    this.player.group.visible = false;
-    this.player.velocity.set(0, 0, 0);
-    this.dialogueManager.isOpen = false;
-    this.dialogueManager.panel.hidden = true;
-    this.dialogueManager.setHint('');
-    this.objective.hidden = false;
-    this.input.keys.clear();
-    this.input.clearFrameState();
-
-    this.forestSequence = new ForestSequence(this);
-    this.mode = 'forest';
-
-    const forest = this.forestSequence;
-    forest.examined = true;
-    forest.encountered = true;
-    forest.state = 'found';
-    forest.forcedForestZone = 'CAM_FOREST_BODY';
-    forest.setNarrativeState('FOUND_WOMAN');
-
-    const foundPosition = (forest.level.bodyApproachPoint ?? forest.level.bodyPosition).clone();
-    this.player.position.copy(foundPosition);
-    this.player.previousPosition.copy(foundPosition);
-    this.player.velocity.set(0, 0, 0);
-    forest.ensureBryanVisibleOutsideCar();
-
-    const towardWoman = forest.level.bodyPosition.clone().sub(this.player.position);
-    if (towardWoman.lengthSq() > 0.001) {
-      this.player.rotationY = Math.atan2(-towardWoman.x, -towardWoman.z);
-      this.player.group.rotation.y = this.player.rotationY;
-    }
-
-    forest.level.woman.visible = true;
-    forest.level.woman.userData.state = 'INJURED_LYING';
-    forest.updateCamera(this.player.position);
-
-    this.dialogueManager.start([
-      { speaker: 'BRYAN', text: 'Hey... ¿puedes escucharme?' },
-      { speaker: 'MUJER HERIDA', text: '...Ah... hhh...' },
-      { speaker: 'BRYAN', text: 'Está bien. Voy a sacarte de aquí.' },
-    ], () => forest.beginRescue());
   }
 
   startRoad() {
