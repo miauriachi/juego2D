@@ -9,13 +9,27 @@ import scene6 from '../environment/forestShots/forestScene6.js';
 // Full-resolution individual shots. No atlas crops, no canvas resampling.
 // Every texture is a 1280x720 prerender embedded as a data URI.
 const SHOTS = {
-  CAM_CRASH_EXIT: { key: 'scene1', url: scene1, zoom: 1.025, actorScale: 0.94 },
-  CAM_BLOOD_TRAIL: { key: 'scene3', url: scene3, zoom: 1.025, actorScale: 0.90 },
-  CAM_FOREST_A: { key: 'scene2', url: scene2, zoom: 1.03, actorScale: 0.89 },
-  CAM_FOREST_B: { key: 'scene4', url: scene4, zoom: 1.03, actorScale: 0.84 },
-  CAM_FOREST_C: { key: 'scene5', url: scene5, zoom: 1.03, actorScale: 0.82 },
-  CAM_FOREST_D: { key: 'scene4-flip', url: scene4, zoom: 1.10, actorScale: 0.80, flipX: true },
-  CAM_FOREST_BODY: { key: 'scene6', url: scene6, zoom: 1.025, actorScale: 0.86 },
+  CAM_CRASH_EXIT: {
+    key: 'scene1', url: scene1, zoom: 1.025, actorScale: 0.98, actorYOffset: 0.00,
+  },
+  CAM_BLOOD_TRAIL: {
+    key: 'scene2', url: scene2, zoom: 1.025, actorScale: 1.18, actorYOffset: -0.05,
+  },
+  CAM_FOREST_A: {
+    key: 'scene3', url: scene3, zoom: 1.03, actorScale: 1.14, actorYOffset: -0.10,
+  },
+  CAM_FOREST_B: {
+    key: 'scene4', url: scene4, zoom: 1.03, actorScale: 1.02, actorYOffset: -0.13,
+  },
+  CAM_FOREST_C: {
+    key: 'scene5', url: scene5, zoom: 1.03, actorScale: 1.02, actorYOffset: -0.12,
+  },
+  CAM_FOREST_D: {
+    key: 'scene5-flip', url: scene5, zoom: 1.08, actorScale: 0.98, actorYOffset: -0.10, flipX: true,
+  },
+  CAM_FOREST_BODY: {
+    key: 'scene6', url: scene6, zoom: 1.025, actorScale: 0.98, actorYOffset: -0.08,
+  },
 };
 
 export class ForestPrerenderBackdrop {
@@ -120,9 +134,18 @@ export class ForestPrerenderBackdrop {
     return SHOTS[zoneId]?.actorScale ?? 1;
   }
 
+  getActorYOffset(zoneId) {
+    return SHOTS[zoneId]?.actorYOffset ?? 0;
+  }
+
   applyActorCalibration(actorRoot, zoneId = this.currentZoneId) {
     if (!actorRoot) return;
     actorRoot.scale.setScalar(this.getActorScale(zoneId));
+  }
+
+  applyActorGrounding(actorVisual, zoneId = this.currentZoneId) {
+    if (!actorVisual) return;
+    actorVisual.position.y += this.getActorYOffset(zoneId);
   }
 
   resetActorCalibration(actorRoot) {
