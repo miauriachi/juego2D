@@ -1,4 +1,8 @@
 import * as THREE from 'three';
+import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
+
+const CAR_MODEL_URL = new URL('../../assets/models/car/bryan_sedan.glb', import.meta.url).href;
+const CAR_TARGET_LENGTH = 4.60;
 
 const box = new THREE.BoxGeometry(1, 1, 1);
 const wheel = new THREE.CylinderGeometry(0.34, 0.34, 0.22, 12);
@@ -16,7 +20,9 @@ export function createCar() {
   const car = new THREE.Group(); car.name = 'Bryan-car';
   const add = (size, position, material) => {
     const mesh = new THREE.Mesh(box, material); mesh.scale.set(...size); mesh.position.set(...position);
-    mesh.castShadow = mesh.receiveShadow = true; car.add(mesh); return mesh;
+    mesh.castShadow = mesh.receiveShadow = true;
+    mesh.userData.proceduralCarVisual = true;
+    car.add(mesh); return mesh;
   };
   add([1.8, 0.5, 4.1], [0, 0.62, 0], materials.paint);
   add([1.58, 0.66, 2.0], [0, 1.12, 0.1], materials.glass);
@@ -36,10 +42,76 @@ export function createCar() {
   for (const x of [-0.89, 0.89]) for (const z of [-1.34, 1.34]) {
     const pivot = new THREE.Group(); pivot.position.set(x, 0.35, z); car.add(pivot);
     const tire = new THREE.Mesh(wheel, materials.tire); tire.rotation.z = Math.PI / 2;
-    tire.castShadow = true; pivot.add(tire);
+    tire.castShadow = true;
+    tire.userData.proceduralCarVisual = true;
+    pivot.add(tire);
     car.userData.wheels.push({ pivot, tire, front: z < 0 });
   }
+  loadDetailedCarVisual(car);
   return car;
+}
+
+function loadDetailedCarVisual(car) {
+  const loader = new GLTFLoader();
+
+  loader.load(
+    CAR_MODEL_URL,
+    gltf => {
+      const visual = gltf.scene;
+      visual.name = 'Bryan-car-meshy-visual';
+
+      // Meshy authored the sedan along X, front toward -X. Rotate it so the
+      // vehicle front matches the game's -Z forward axis.
+      visual.rotation.y = -Math.PI / 2;
+      visual.updateMatrixWorld(true);
+
+      let bounds = new THREE.Box3().setFromObject(visual);
+      const size = bounds.getSize(new THREE.Vector3());
+      const sourceLength = Math.max(size.x, size.z);
+      if (sourceLength > 0.001) {
+        visual.scale.setScalar(CAR_TARGET_LENGTH / sourceLength);
+      }
+
+      visual.updateMatrixWorld(true);
+      bounds = new THREE.Box3().setFromObject(visual);
+      const center = bounds.getCenter(new THREE.Vector3());
+
+      // Center the body over the existing physics origin and put the tires on
+      // y=0. Physics, steering and collision remain exactly where they were.
+      visual.position.x -= center.x;
+      visual.position.z -= center.z;
+      visual.position.y -= bounds.min.y;
+
+      visual.traverse(object => {
+        if (!object.isMesh) return;
+        object.castShadow = true;
+        object.receiveShadow = true;
+        if (!object.geometry.getAttribute('normal')) {
+          object.geometry.computeVertexNormals();
+        }
+        const mats = Array.isArray(object.material)
+          ? object.material
+          : [object.material];
+        mats.filter(Boolean).forEach(material => {
+          if ('metalness' in material) material.metalness = 0.24;
+          if ('roughness' in material) material.roughness = 0.58;
+          material.needsUpdate = true;
+        });
+      });
+
+      car.add(visual);
+      car.userData.detailedVisual = visual;
+
+      // Keep the old block car only as a loading/error fallback.
+      car.traverse(object => {
+        if (object.userData?.proceduralCarVisual) object.visible = false;
+      });
+    },
+    undefined,
+    error => {
+      console.warn('Bryan sedan GLB failed to load; using fallback car.', error);
+    },
+  );
 }
 
 // Planar arcade dynamics. Persistent world velocity produces recoverable lateral slip.
