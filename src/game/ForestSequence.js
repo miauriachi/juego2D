@@ -34,6 +34,9 @@ export class ForestSequence {
     this.objectiveTimer = 3.4;
     this.maxForestProgress = 0;
     this.maxForestCameraIndex = 0;
+    this.forestAVisualStart = null;
+    this.forestAVisualProgress = 0;
+    this.forestACompleted = false;
 
     // The driving phone/dialogue UI must never leak into the post-crash room.
     // A stale line was stealing E and making the blood inspection look broken.
@@ -442,8 +445,43 @@ export class ForestSequence {
 
       if (!blocked) {
         p.update(input, dt);
-        this.collision.resolve(p);
-        this.level.resolveCarCollision(p);
+
+        const inForestA =
+          this.examined &&
+          !this.forestACompleted &&
+          this.cameras.activeZone?.id === 'CAM_FOREST_A';
+
+        if (inForestA) {
+          if (!this.forestAVisualStart) {
+            this.forestAVisualStart = p.previousPosition.clone();
+          }
+
+          this.forestAVisualProgress = this.level.resolveForestAVisualPath(
+            p,
+            this.forestAVisualStart,
+          );
+
+          if (
+            this.forestAVisualProgress >=
+            this.level.forestAVisualLength - 0.05
+          ) {
+            // The camera cut hides the world-space handoff. Rejoin the existing
+            // authored route at the start of the next room; later forest rooms,
+            // collisions and camera thresholds remain unchanged.
+            this.forestACompleted = true;
+            p.position.copy(this.level.forestANextSpawn);
+            p.previousPosition.copy(p.position);
+            p.velocity.set(0, 0, 0);
+            this.maxForestProgress = Math.max(this.maxForestProgress, 21.5);
+            this.maxForestCameraIndex = Math.max(
+              this.maxForestCameraIndex,
+              FOREST_CAMERA_ORDER.indexOf('CAM_FOREST_B'),
+            );
+          }
+        } else {
+          this.collision.resolve(p);
+          this.level.resolveCarCollision(p);
+        }
 
         // Bryan must inspect the rear-car blood before entering the maze.
         // Gate against the authored trail entry instead of raw world X, because
