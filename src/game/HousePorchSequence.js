@@ -1,5 +1,5 @@
 const PORCH_BACKDROP = new URL(
-  '../../assets/backgrounds/house/house_porch_ps1.jpg',
+  '../../assets/backgrounds/house/house_porch_ps1.webp',
   import.meta.url,
 ).href;
 
