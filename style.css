@@ -232,3 +232,39 @@ canvas {
   .ending-results__info { text-align: center; }
   .ending-results__stats { text-align: left; }
 }
+
+
+/* Temporary isolated house-porch cinematic capsule. */
+.house-porch-cinematic {
+  position: fixed;
+  inset: 0;
+  z-index: 65;
+  overflow: hidden;
+  background: #000;
+  opacity: 0;
+  transition: opacity .45s ease;
+  pointer-events: none;
+}
+.house-porch-cinematic.is-ready {
+  opacity: 1;
+}
+.house-porch-cinematic__image {
+  position: absolute;
+  inset: -2%;
+  width: 104%;
+  height: 104%;
+  object-fit: cover;
+  object-position: 50% 50%;
+  image-rendering: auto;
+  transform: translate3d(0,0,0) scale(1);
+  transform-origin: 50% 50%;
+  will-change: transform;
+  backface-visibility: hidden;
+}
+.house-porch-cinematic__vignette {
+  position: absolute;
+  inset: 0;
+  background:
+    radial-gradient(ellipse at 50% 48%, transparent 45%, rgba(0,0,0,.18) 73%, rgba(0,0,0,.48) 100%);
+  pointer-events: none;
+}
