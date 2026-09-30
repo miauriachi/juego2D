@@ -130,7 +130,9 @@ canvas {
   pointer-events: none;
 }
 .house-porch-cinematic.is-ready { opacity: 1; }
-.house-porch-cinematic__image {
+
+.house-porch-cinematic__image,
+.house-porch-cinematic__reveal {
   position: absolute;
   inset: -1%;
   width: 102%;
@@ -140,19 +142,12 @@ canvas {
   image-rendering: auto;
   transform: translate3d(0,0,0) scale(1);
   transform-origin: 50% 50%;
-  will-change: transform;
   backface-visibility: hidden;
+  will-change: transform, opacity;
 }
-.house-porch-cinematic__vignette {
-  position: absolute;
-  inset: 0;
-  background: radial-gradient(
-    ellipse at 50% 48%,
-    transparent 46%,
-    rgba(0,0,0,.16) 74%,
-    rgba(0,0,0,.45) 100%
-  );
-  pointer-events: none;
+
+.house-porch-cinematic__image {
+  z-index: 0;
 }
 
 .house-porch-cinematic__door-void {
@@ -169,5 +164,57 @@ canvas {
     0 0 5px rgba(0,0,0,.75);
   transform-origin: 50% 50%;
   will-change: transform;
+  pointer-events: none;
+}
+
+.house-porch-cinematic__reveal {
+  z-index: 2;
+  opacity: 0;
+  filter: brightness(.88) contrast(1.10) saturate(.72);
+  pointer-events: none;
+}
+
+.house-porch-cinematic__reveal--left-high {
+  -webkit-mask-image: radial-gradient(ellipse 13% 15% at 43% 37%,
+    #000 0 48%, rgba(0,0,0,.92) 62%, transparent 100%);
+  mask-image: radial-gradient(ellipse 13% 15% at 43% 37%,
+    #000 0 48%, rgba(0,0,0,.92) 62%, transparent 100%);
+}
+.house-porch-cinematic__reveal--right {
+  -webkit-mask-image: radial-gradient(ellipse 15% 16% at 63% 39%,
+    #000 0 48%, rgba(0,0,0,.92) 62%, transparent 100%);
+  mask-image: radial-gradient(ellipse 15% 16% at 63% 39%,
+    #000 0 48%, rgba(0,0,0,.92) 62%, transparent 100%);
+}
+.house-porch-cinematic__reveal--left-low {
+  -webkit-mask-image: radial-gradient(ellipse 14% 15% at 43% 52%,
+    #000 0 48%, rgba(0,0,0,.92) 62%, transparent 100%);
+  mask-image: radial-gradient(ellipse 14% 15% at 43% 52%,
+    #000 0 48%, rgba(0,0,0,.92) 62%, transparent 100%);
+}
+.house-porch-cinematic__reveal--top {
+  -webkit-mask-image: radial-gradient(ellipse 18% 23% at 45% 21%,
+    #000 0 50%, rgba(0,0,0,.94) 64%, transparent 100%);
+  mask-image: radial-gradient(ellipse 18% 23% at 45% 21%,
+    #000 0 50%, rgba(0,0,0,.94) 64%, transparent 100%);
+}
+.house-porch-cinematic__reveal--bottom {
+  -webkit-mask-image: radial-gradient(ellipse 10% 20% at 62% 70%,
+    #000 0 50%, rgba(0,0,0,.94) 64%, transparent 100%);
+  mask-image: radial-gradient(ellipse 10% 20% at 62% 70%,
+    #000 0 50%, rgba(0,0,0,.94) 64%, transparent 100%);
+}
+
+.house-porch-cinematic__vignette {
+  position: absolute;
+  inset: 0;
+  z-index: 3;
+  opacity: .78;
+  background:
+    radial-gradient(ellipse at 50% 48%,
+      transparent 43%,
+      rgba(0,0,0,.18) 69%,
+      rgba(0,0,0,.62) 100%);
+  transition: opacity 1.2s ease;
   pointer-events: none;
 }
