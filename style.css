@@ -138,9 +138,25 @@ canvas {
 }
 .house-porch-cinematic__image,
 .house-porch-cinematic__limb-layer {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  object-position: 50% 50%;
+  image-rendering: auto;
+  backface-visibility: hidden;
+}
+
+.house-porch-cinematic__image {
+  z-index: 0;
+  opacity: 1;
+}
+
+.house-porch-cinematic__limb-layer {
   z-index: 2;
   opacity: 0;
-  /* Transparent prerendered overlay: no porch wood/frame is present in this asset. */
+  /* HD transparent prerendered overlay: anatomy only, never porch wood/frame. */
   filter: brightness(.98) contrast(1.02) saturate(.92);
   will-change: opacity, transform;
 }

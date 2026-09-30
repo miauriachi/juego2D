@@ -4,7 +4,7 @@ const PORCH_BACKDROP = new URL(
 ).href;
 
 const PORCH_LIMBS = new URL(
-  '../../assets/backgrounds/house/house_porch_limbs_clean.webp',
+  '../../assets/backgrounds/house/house_porch_limbs_hd.webp',
   import.meta.url,
 ).href;
 
