@@ -1,5 +1,5 @@
 const PORCH_BACKDROP = new URL(
-  '../../assets/backgrounds/house/house_porch_ps1.webp',
+  '../../assets/backgrounds/house/house_porch_ps1.jpg',
   import.meta.url,
 ).href;
 
@@ -39,10 +39,13 @@ export class HousePorchSequence {
     this.image.src = PORCH_BACKDROP;
     if (this.image.complete && this.image.naturalWidth > 0) reveal();
 
+    this.doorVoid = document.createElement('div');
+    this.doorVoid.className = 'house-porch-cinematic__door-void';
+
     this.vignette = document.createElement('div');
     this.vignette.className = 'house-porch-cinematic__vignette';
 
-    this.root.append(this.image, this.vignette);
+    this.root.append(this.image, this.doorVoid, this.vignette);
     game.container.append(this.root);
 
     if (this.image.complete && this.image.naturalWidth > 0) reveal();
@@ -60,8 +63,9 @@ export class HousePorchSequence {
     const scale = 1 + (0.22 * t);
     const y = 1.5 * t;
 
-    this.image.style.transform =
-      `translate3d(0, ${y}%, 0) scale(${scale})`;
+    const transform = `translate3d(0, ${y}%, 0) scale(${scale})`;
+    this.image.style.transform = transform;
+    this.doorVoid.style.transform = transform;
 
     this.game.input.clearFrameState();
   }
