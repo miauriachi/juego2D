@@ -4,7 +4,7 @@ const PORCH_BACKDROP = new URL(
 ).href;
 
 const PORCH_LIMBS = new URL(
-  '../../assets/backgrounds/house/house_porch_limbs.jpg',
+  '../../assets/backgrounds/house/house_porch_limbs_clean.webp',
   import.meta.url,
 ).href;
 
@@ -75,43 +75,7 @@ export class HousePorchSequence {
     );
     this.root.append(this.stage, this.vignette);
     game.container.append(this.root);
-
-    this.prepareSmoothedReveal();
     this.prepareAudio();
-  }
-
-  prepareSmoothedReveal() {
-    // The authored limb plate is intentionally lightweight. Upscale it once
-    // with browser high-quality interpolation so the close push-in does not
-    // expose large compression blocks.
-    const source = new Image();
-    source.decoding = 'async';
-    source.onload = () => {
-      try {
-        const width = Math.max(1024, this.image.naturalWidth || 1024);
-        const height = Math.round(width * source.naturalHeight / source.naturalWidth);
-        const canvas = document.createElement('canvas');
-        canvas.width = width;
-        canvas.height = height;
-
-        const ctx = canvas.getContext('2d');
-        if (!ctx) return;
-
-        ctx.imageSmoothingEnabled = true;
-        ctx.imageSmoothingQuality = 'high';
-        ctx.filter = 'blur(0.32px)';
-        ctx.drawImage(source, 0, 0, width, height);
-        ctx.filter = 'none';
-
-        const smoothed = canvas.toDataURL('image/jpeg', 0.94);
-        this.revealParts.forEach(part => {
-          part.image.src = smoothed;
-        });
-      } catch (error) {
-        console.warn('House porch reveal smoothing skipped:', error);
-      }
-    };
-    source.src = PORCH_LIMBS;
   }
 
   prepareAudio() {
