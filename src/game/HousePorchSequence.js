@@ -26,9 +26,18 @@ export class HousePorchSequence {
 
     this.image = document.createElement('img');
     this.image.className = 'house-porch-cinematic__image';
-    this.image.src = PORCH_BACKDROP;
     this.image.alt = '';
     this.image.draggable = false;
+
+    const reveal = () => this.root.classList.add('is-ready');
+    this.image.addEventListener('load', reveal, { once: true });
+    this.image.addEventListener('error', () => {
+      console.error('House porch backdrop failed to load:', PORCH_BACKDROP);
+      // Keep the cinematic layer visible instead of exposing the gray game root.
+      this.root.classList.add('is-ready');
+    }, { once: true });
+    this.image.src = PORCH_BACKDROP;
+    if (this.image.complete && this.image.naturalWidth > 0) reveal();
 
     this.vignette = document.createElement('div');
     this.vignette.className = 'house-porch-cinematic__vignette';
@@ -36,9 +45,7 @@ export class HousePorchSequence {
     this.root.append(this.image, this.vignette);
     game.container.append(this.root);
 
-    this.image.addEventListener('load', () => {
-      this.root.classList.add('is-ready');
-    }, { once: true });
+    if (this.image.complete && this.image.naturalWidth > 0) reveal();
   }
 
   onResize() {}

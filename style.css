@@ -123,11 +123,10 @@ canvas {
 .house-porch-cinematic {
   position: fixed;
   inset: 0;
-  z-index: 65;
+  z-index: 10050;
   overflow: hidden;
   background: #000;
-  opacity: 0;
-  transition: opacity .45s ease;
+  opacity: 1;
   pointer-events: none;
 }
 .house-porch-cinematic.is-ready { opacity: 1; }
