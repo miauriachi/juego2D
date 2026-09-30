@@ -3,13 +3,26 @@ const PORCH_BACKDROP = new URL(
   import.meta.url,
 ).href;
 
-// Isolated cinematic capsule. No Bryan, no controls: just a slow approach to
-// the front door. It can be moved later in the story without rewriting it.
+const PORCH_LIMBS = new URL(
+  '../../assets/backgrounds/house/house_porch_limbs.jpg',
+  import.meta.url,
+).href;
+
+const REVEAL_PARTS = [
+  { key: 'left-arm', start: 4.8, duration: 0.85 },
+  { key: 'right-arm', start: 6.1, duration: 0.85 },
+  { key: 'top-legs', start: 7.5, duration: 0.95 },
+  { key: 'left-low', start: 8.9, duration: 0.85 },
+  { key: 'bottom-leg', start: 10.3, duration: 0.95 },
+];
+
+// Isolated cinematic capsule. No Bryan, no controls.
+// The porch pushes in slowly while prerendered limbs emerge from the doorway.
 export class HousePorchSequence {
   constructor(game) {
     this.game = game;
     this.time = 0;
-    this.pushDuration = 14;
+    this.pushDuration = 17;
 
     game.player.group.visible = false;
     game.player.velocity.set(0, 0, 0);
@@ -24,31 +37,42 @@ export class HousePorchSequence {
     this.root.className = 'house-porch-cinematic';
     this.root.dataset.role = 'house-porch-cinematic';
 
+    this.stage = document.createElement('div');
+    this.stage.className = 'house-porch-cinematic__stage';
+
     this.image = document.createElement('img');
     this.image.className = 'house-porch-cinematic__image';
     this.image.alt = '';
     this.image.draggable = false;
-
-    const reveal = () => this.root.classList.add('is-ready');
-    this.image.addEventListener('load', reveal, { once: true });
-    this.image.addEventListener('error', () => {
-      console.error('House porch backdrop failed to load:', PORCH_BACKDROP);
-      // Keep the cinematic layer visible instead of exposing the gray game root.
-      this.root.classList.add('is-ready');
-    }, { once: true });
     this.image.src = PORCH_BACKDROP;
-    if (this.image.complete && this.image.naturalWidth > 0) reveal();
 
     this.doorVoid = document.createElement('div');
     this.doorVoid.className = 'house-porch-cinematic__door-void';
 
+    this.revealParts = REVEAL_PARTS.map(config => {
+      const image = document.createElement('img');
+      image.className =
+        `house-porch-cinematic__limb-layer house-porch-cinematic__limb-layer--${config.key}`;
+      image.alt = '';
+      image.draggable = false;
+      image.src = PORCH_LIMBS;
+      image.addEventListener('error', () => {
+        image.hidden = true;
+        console.error('House porch limb plate failed to load:', PORCH_LIMBS);
+      }, { once: true });
+      return { config, image };
+    });
+
     this.vignette = document.createElement('div');
     this.vignette.className = 'house-porch-cinematic__vignette';
 
-    this.root.append(this.image, this.doorVoid, this.vignette);
+    this.stage.append(
+      this.image,
+      this.doorVoid,
+      ...this.revealParts.map(part => part.image),
+    );
+    this.root.append(this.stage, this.vignette);
     game.container.append(this.root);
-
-    if (this.image.complete && this.image.naturalWidth > 0) reveal();
   }
 
   onResize() {}
@@ -56,16 +80,35 @@ export class HousePorchSequence {
   update(dt) {
     this.time += dt;
 
-    // Deliberate slow push-in. Hold on the door after reaching the end so the
-    // next reveal can be authored later.
+    // One continuous, slow push toward the doorway.
     const raw = Math.min(this.time / this.pushDuration, 1);
     const t = raw * raw * (3 - 2 * raw);
     const scale = 1 + (0.22 * t);
-    const y = 1.5 * t;
+    const y = 1.45 * t;
+    this.stage.style.transform =
+      `translate3d(0, ${y}%, 0) scale(${scale})`;
 
-    const transform = `translate3d(0, ${y}%, 0) scale(${scale})`;
-    this.image.style.transform = transform;
-    this.doorVoid.style.transform = transform;
+    // Each region comes from the same prerendered final plate, so lighting,
+    // anatomy and perspective remain photographic instead of looking drawn on.
+    this.revealParts.forEach((part, index) => {
+      const phase = Math.max(0, Math.min(1,
+        (this.time - part.config.start) / part.config.duration,
+      ));
+      const eased = phase * phase * (3 - 2 * phase);
+
+      part.image.style.opacity = String(eased);
+
+      if (phase > 0 && phase < 1) {
+        const creep = (1 - eased) * (index % 2 === 0 ? -0.22 : 0.22);
+        part.image.style.transform = `translate3d(${creep}%, 0, 0)`;
+      } else {
+        part.image.style.transform = 'translate3d(0,0,0)';
+      }
+    });
+
+    // The frame closes in almost imperceptibly as the doorway fills.
+    const terror = Math.max(0, Math.min(1, (this.time - 4.3) / 7.5));
+    this.vignette.style.opacity = String(0.74 + terror * 0.2);
 
     this.game.input.clearFrameState();
   }
