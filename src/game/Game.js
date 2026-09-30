@@ -38,11 +38,13 @@ import { SceneNpcAnchors } from './SceneNpcAnchors.js';
 import { PrerenderRoom } from './PrerenderRoom.js';
 import { PrerenderRoomView } from './PrerenderRoomView.js';
 import { GameStats } from './GameStats.js';
+import { HousePorchSequence } from './HousePorchSequence.js';
 
-// TEMP CHECKPOINT: exterior/hospital exit calibration.
-// Patrol-crash checkpoint is disabled while this one is active.
+// TEMP CHECKPOINT: isolated house-porch capsule.
+// This can be moved later without changing the capsule itself.
+const TEMP_HOUSE_PORCH_CHECKPOINT = true;
 const TEMP_PATROL_CRASH_CHECKPOINT = false;
-const TEMP_EXTERIOR_CHECKPOINT = true;
+const TEMP_EXTERIOR_CHECKPOINT = false;
 
 export class Game {
   constructor(container, { input = null, settings = { sound: true, cameraMotion: true }, audio = null } = {}) {
@@ -142,7 +144,8 @@ export class Game {
       this.entranceBackdropReady,
       this.openingSequence.ready,
     ]).then(() => {
-      if (TEMP_PATROL_CRASH_CHECKPOINT) this.startPatrolCrashCheckpoint();
+      if (TEMP_HOUSE_PORCH_CHECKPOINT) this.startHousePorchCheckpoint();
+      else if (TEMP_PATROL_CRASH_CHECKPOINT) this.startPatrolCrashCheckpoint();
       return true;
     });
     window.addEventListener('resize', () => this.onResize());
@@ -275,6 +278,7 @@ export class Game {
     this.snowRoad?.onResize();
     this.lastDeliveryEnding?.onResize();
     this.openingSequence?.onResize();
+    this.housePorchSequence?.onResize();
     this.prerenderBackdrop?.onResize();
     this.exteriorBackdrop?.onResize();
     this.updateEntranceViewport();
@@ -587,6 +591,29 @@ export class Game {
   }
 
 
+
+  startHousePorchCheckpoint() {
+    // TEMPORARY QA START. HousePorchSequence is intentionally self-contained so
+    // it can be reattached later at the proper story point without rebuilding it.
+    this.openingSequence?.transition?.remove();
+    if (this.openingSequence?.canvas) {
+      this.openingSequence.canvas.style.visibility = 'visible';
+    }
+    if (this.openingSequence) this.openingSequence.completed = true;
+
+    this.prerenderBackdrop?.disable();
+    this.urgenciasBackdrop?.disable();
+    this.exteriorBackdrop?.disable();
+
+    this.housePorchSequence = new HousePorchSequence(this);
+    this.mode = 'housePorch';
+    this.playerInputEnabled = true;
+    this.objective.hidden = false;
+    this.dialogueManager.setHint('');
+    this.input.keys.clear();
+    this.input.clearFrameState();
+  }
+
   startPatrolCrashCheckpoint() {
     // TEMPORARY QA START: patrol already rolled over; Bryan must park, exit
     // his sedan and continue through the normal PoliceCrashSequence flow.
@@ -803,6 +830,7 @@ export class Game {
       this.input.clearFrameState();
       return;
     }
+    if (this.mode === 'housePorch') { this.housePorchSequence.update(dt); return; }
     if (this.mode === 'parkingDeparture') { this.updateDeparture(dt); return; }
     if (this.mode === 'forest') { this.forestSequence.update(dt); return; }
     if (this.mode === 'passengerDriving') { this.passengerDrive.update(dt); return; }
