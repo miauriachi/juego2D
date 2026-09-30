@@ -9,20 +9,22 @@ const PORCH_LIMBS = new URL(
 ).href;
 
 const REVEAL_PARTS = [
-  { key: 'left-arm', start: 4.8, duration: 0.85 },
-  { key: 'right-arm', start: 6.1, duration: 0.85 },
-  { key: 'top-legs', start: 7.5, duration: 0.95 },
-  { key: 'left-low', start: 8.9, duration: 0.85 },
-  { key: 'bottom-leg', start: 10.3, duration: 0.95 },
+  { key: 'left-arm', start: 1.40, duration: 0.20 },
+  { key: 'right-arm', start: 1.95, duration: 0.20 },
+  { key: 'top-legs', start: 2.50, duration: 0.24 },
+  { key: 'left-low', start: 3.05, duration: 0.20 },
+  { key: 'bottom-leg', start: 3.65, duration: 0.24 },
 ];
 
 // Isolated cinematic capsule. No Bryan, no controls.
-// The porch pushes in slowly while prerendered limbs emerge from the doorway.
+// The porch pushes in while prerendered limbs emerge rapidly from the doorway.
 export class HousePorchSequence {
   constructor(game) {
     this.game = game;
     this.time = 0;
-    this.pushDuration = 17;
+    this.pushDuration = 9.5;
+    this.revealTriggered = new Set();
+    this.audioContext = null;
 
     game.player.group.visible = false;
     game.player.velocity.set(0, 0, 0);
@@ -73,6 +75,118 @@ export class HousePorchSequence {
     );
     this.root.append(this.stage, this.vignette);
     game.container.append(this.root);
+
+    this.prepareSmoothedReveal();
+    this.prepareAudio();
+  }
+
+  prepareSmoothedReveal() {
+    // The authored limb plate is intentionally lightweight. Upscale it once
+    // with browser high-quality interpolation so the close push-in does not
+    // expose large compression blocks.
+    const source = new Image();
+    source.decoding = 'async';
+    source.onload = () => {
+      try {
+        const width = Math.max(1024, this.image.naturalWidth || 1024);
+        const height = Math.round(width * source.naturalHeight / source.naturalWidth);
+        const canvas = document.createElement('canvas');
+        canvas.width = width;
+        canvas.height = height;
+
+        const ctx = canvas.getContext('2d');
+        if (!ctx) return;
+
+        ctx.imageSmoothingEnabled = true;
+        ctx.imageSmoothingQuality = 'high';
+        ctx.filter = 'blur(0.32px)';
+        ctx.drawImage(source, 0, 0, width, height);
+        ctx.filter = 'none';
+
+        const smoothed = canvas.toDataURL('image/jpeg', 0.94);
+        this.revealParts.forEach(part => {
+          part.image.src = smoothed;
+        });
+      } catch (error) {
+        console.warn('House porch reveal smoothing skipped:', error);
+      }
+    };
+    source.src = PORCH_LIMBS;
+  }
+
+  prepareAudio() {
+    const AudioContextClass = window.AudioContext || window.webkitAudioContext;
+    if (!AudioContextClass) return;
+
+    try {
+      this.audioContext = new AudioContextClass();
+    } catch {
+      return;
+    }
+
+    const unlock = () => {
+      if (this.audioContext?.state === 'suspended') {
+        this.audioContext.resume().catch(() => {});
+      }
+    };
+
+    window.addEventListener('pointerdown', unlock, { once: true });
+    window.addEventListener('keydown', unlock, { once: true });
+    unlock();
+  }
+
+  playRevealStinger(index) {
+    const ctx = this.audioContext;
+    if (!ctx) return;
+
+    if (ctx.state === 'suspended') {
+      ctx.resume().catch(() => {});
+      return;
+    }
+
+    const now = ctx.currentTime;
+    const output = ctx.createGain();
+    output.gain.setValueAtTime(0.0001, now);
+    output.gain.exponentialRampToValueAtTime(0.105, now + 0.012);
+    output.gain.exponentialRampToValueAtTime(0.0001, now + 0.48);
+    output.connect(ctx.destination);
+
+    // Low cinematic thump.
+    const low = ctx.createOscillator();
+    low.type = index % 2 === 0 ? 'triangle' : 'sine';
+    low.frequency.setValueAtTime(62 + index * 4, now);
+    low.frequency.exponentialRampToValueAtTime(34 + index * 2, now + 0.46);
+    low.connect(output);
+    low.start(now);
+    low.stop(now + 0.50);
+
+    // Short breath/scrape of filtered noise makes every reveal feel organic.
+    const length = Math.floor(ctx.sampleRate * 0.22);
+    const buffer = ctx.createBuffer(1, length, ctx.sampleRate);
+    const channel = buffer.getChannelData(0);
+    for (let i = 0; i < length; i += 1) {
+      const decay = 1 - (i / length);
+      channel[i] = (Math.random() * 2 - 1) * decay;
+    }
+
+    const noise = ctx.createBufferSource();
+    noise.buffer = buffer;
+
+    const filter = ctx.createBiquadFilter();
+    filter.type = 'bandpass';
+    filter.frequency.setValueAtTime(920 - index * 75, now);
+    filter.Q.setValueAtTime(1.25, now);
+
+    const noiseGain = ctx.createGain();
+    noiseGain.gain.setValueAtTime(0.0001, now);
+    noiseGain.gain.exponentialRampToValueAtTime(0.045, now + 0.008);
+    noiseGain.gain.exponentialRampToValueAtTime(0.0001, now + 0.22);
+
+    noise.connect(filter);
+    filter.connect(noiseGain);
+    noiseGain.connect(ctx.destination);
+    noise.start(now);
+    noise.stop(now + 0.23);
   }
 
   onResize() {}
@@ -80,35 +194,39 @@ export class HousePorchSequence {
   update(dt) {
     this.time += dt;
 
-    // One continuous, slow push toward the doorway.
+    // Keep the push-in tense, but stop before the low-res source is enlarged
+    // enough to become visibly blocky.
     const raw = Math.min(this.time / this.pushDuration, 1);
     const t = raw * raw * (3 - 2 * raw);
-    const scale = 1 + (0.22 * t);
-    const y = 1.45 * t;
+    const scale = 1 + (0.12 * t);
+    const y = 0.85 * t;
     this.stage.style.transform =
       `translate3d(0, ${y}%, 0) scale(${scale})`;
 
-    // Each region comes from the same prerendered final plate, so lighting,
-    // anatomy and perspective remain photographic instead of looking drawn on.
     this.revealParts.forEach((part, index) => {
       const phase = Math.max(0, Math.min(1,
         (this.time - part.config.start) / part.config.duration,
       ));
       const eased = phase * phase * (3 - 2 * phase);
 
+      if (phase > 0 && !this.revealTriggered.has(part.config.key)) {
+        this.revealTriggered.add(part.config.key);
+        this.playRevealStinger(index);
+      }
+
       part.image.style.opacity = String(eased);
 
       if (phase > 0 && phase < 1) {
-        const creep = (1 - eased) * (index % 2 === 0 ? -0.22 : 0.22);
-        part.image.style.transform = `translate3d(${creep}%, 0, 0)`;
+        const creep = (1 - eased) * (index % 2 === 0 ? -0.35 : 0.35);
+        part.image.style.transform =
+          `translate3d(${creep}%, 0, 0) scale(${0.985 + eased * 0.015})`;
       } else {
-        part.image.style.transform = 'translate3d(0,0,0)';
+        part.image.style.transform = 'translate3d(0,0,0) scale(1)';
       }
     });
 
-    // The frame closes in almost imperceptibly as the doorway fills.
-    const terror = Math.max(0, Math.min(1, (this.time - 4.3) / 7.5));
-    this.vignette.style.opacity = String(0.74 + terror * 0.2);
+    const terror = Math.max(0, Math.min(1, (this.time - 1.15) / 3.3));
+    this.vignette.style.opacity = String(0.70 + terror * 0.18);
 
     this.game.input.clearFrameState();
   }

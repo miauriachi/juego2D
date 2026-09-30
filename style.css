@@ -167,39 +167,56 @@ canvas {
 .house-porch-cinematic__limb-layer {
   z-index: 2;
   opacity: 0;
-  filter: brightness(.93) contrast(1.04) saturate(.9);
+  filter: blur(.22px) brightness(.96) contrast(1.025) saturate(.90);
   will-change: opacity, transform;
+  -webkit-mask-repeat: no-repeat;
+  mask-repeat: no-repeat;
 }
 
-/* Tight cuts from one prerendered final plate. Only the impossible anatomy
-   is exposed; the original porch stays untouched underneath. */
+/* Soft masks instead of hard rectangular crops: the low-resolution plate
+   blends into the original porch and no longer exposes obvious pixel blocks. */
 .house-porch-cinematic__limb-layer--left-arm {
-  clip-path: polygon(41.8% 31.2%, 53.4% 31.2%, 53.4% 50.8%, 41.8% 50.8%);
+  -webkit-mask-image: radial-gradient(ellipse 11% 13% at 47.5% 41%,
+    #000 0 48%, rgba(0,0,0,.96) 61%, rgba(0,0,0,.42) 78%, transparent 100%);
+  mask-image: radial-gradient(ellipse 11% 13% at 47.5% 41%,
+    #000 0 48%, rgba(0,0,0,.96) 61%, rgba(0,0,0,.42) 78%, transparent 100%);
 }
 .house-porch-cinematic__limb-layer--right-arm {
-  clip-path: polygon(53.2% 32.0%, 64.6% 32.0%, 64.6% 52.2%, 53.2% 52.2%);
+  -webkit-mask-image: radial-gradient(ellipse 11% 13% at 58.8% 42%,
+    #000 0 48%, rgba(0,0,0,.96) 61%, rgba(0,0,0,.42) 78%, transparent 100%);
+  mask-image: radial-gradient(ellipse 11% 13% at 58.8% 42%,
+    #000 0 48%, rgba(0,0,0,.96) 61%, rgba(0,0,0,.42) 78%, transparent 100%);
 }
 .house-porch-cinematic__limb-layer--top-legs {
-  clip-path: polygon(45.2% 11.5%, 56.4% 11.5%, 56.4% 39.5%, 45.2% 39.5%);
+  -webkit-mask-image: radial-gradient(ellipse 8% 16% at 50.7% 25%,
+    #000 0 50%, rgba(0,0,0,.96) 63%, rgba(0,0,0,.42) 80%, transparent 100%);
+  mask-image: radial-gradient(ellipse 8% 16% at 50.7% 25%,
+    #000 0 50%, rgba(0,0,0,.96) 63%, rgba(0,0,0,.42) 80%, transparent 100%);
 }
 .house-porch-cinematic__limb-layer--left-low {
-  clip-path: polygon(41.2% 45.5%, 53.4% 45.5%, 53.4% 64.5%, 41.2% 64.5%);
+  -webkit-mask-image: radial-gradient(ellipse 10% 12% at 47.2% 55%,
+    #000 0 48%, rgba(0,0,0,.96) 61%, rgba(0,0,0,.42) 78%, transparent 100%);
+  mask-image: radial-gradient(ellipse 10% 12% at 47.2% 55%,
+    #000 0 48%, rgba(0,0,0,.96) 61%, rgba(0,0,0,.42) 78%, transparent 100%);
 }
 .house-porch-cinematic__limb-layer--bottom-leg {
-  clip-path: polygon(48.4% 54.0%, 59.4% 54.0%, 59.4% 78.0%, 48.4% 78.0%);
+  -webkit-mask-image: radial-gradient(ellipse 8% 15% at 54.2% 67%,
+    #000 0 50%, rgba(0,0,0,.96) 63%, rgba(0,0,0,.42) 80%, transparent 100%);
+  mask-image: radial-gradient(ellipse 8% 15% at 54.2% 67%,
+    #000 0 50%, rgba(0,0,0,.96) 63%, rgba(0,0,0,.42) 80%, transparent 100%);
 }
 
 .house-porch-cinematic__vignette {
   position: absolute;
   inset: 0;
   z-index: 3;
-  opacity: .74;
+  opacity: .70;
   background: radial-gradient(
     ellipse at 50% 47%,
     transparent 42%,
-    rgba(0,0,0,.16) 68%,
-    rgba(0,0,0,.62) 100%
+    rgba(0,0,0,.15) 67%,
+    rgba(0,0,0,.58) 100%
   );
   pointer-events: none;
-  transition: opacity .45s linear;
+  transition: opacity .18s linear;
 }
