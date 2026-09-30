@@ -14,41 +14,7 @@ export class PassengerDriveSequence {
     this.road = new SnowRoad({ settings: game.settings, length: 5000 });
     this.road.scene.remove(this.road.vehicle.group);
     this.road.vehicle = game.snowRoad.vehicle; this.road.scene.add(this.road.vehicle.group);
-    this.vehicle = this.road.vehicle;
-
-    // The post-impact fixed-camera sequence enlarges only the detailed sedan
-    // for composition. Reset that presentation scale before returning to the
-    // road; otherwise the interior camera can end up inside the enlarged body.
-    this.vehicle.group.visible = true;
-    this.vehicle.group.userData.aftermathVisualScale = 1;
-    if (this.vehicle.group.userData.detailedVisual) {
-      const detailed = this.vehicle.group.userData.detailedVisual;
-      detailed.visible = true;
-      detailed.scale.setScalar(1);
-      detailed.traverse(object => {
-        if (object.isMesh || object.isLine || object.isPoints) object.visible = true;
-      });
-      this.vehicle.group.traverse(object => {
-        if (object.userData?.proceduralCarVisual) object.visible = false;
-      });
-    } else {
-      this.vehicle.group.traverse(object => {
-        if (object.userData?.proceduralCarVisual) object.visible = true;
-      });
-    }
-
-    // CarInterior was created while the sedan still belonged to the forest
-    // scene. Moving the car to this road keeps the hierarchy, but explicitly
-    // restore its presentation nodes so an earlier backplate hide cannot leak
-    // into the in-car shot.
-    this.interior.group.visible = true;
-    this.interior.group.traverse(object => {
-      if (object.isMesh || object.isLine || object.isPoints) object.visible = true;
-    });
-    this.interior.passengerDoor.visible = true;
-    this.vehicle.group.updateMatrixWorld(true);
-
-    this.startZ = this.vehicle.position.z;
+    this.vehicle = this.road.vehicle; this.startZ = this.vehicle.position.z;
     this.rejoinTime = 0; this.rejoinStart = this.vehicle.position.clone(); this.rejoinHeading = this.vehicle.heading;
     this.rejoinEnd = new THREE.Vector3(this.road.centerX(-this.startZ + 6), 0, this.startZ - 6);
     this.road.vehicleCamera.initialized = false; this.road.updateCamera();

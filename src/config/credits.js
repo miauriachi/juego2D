@@ -1,8 +1,8 @@
 // Replace only confirmed credits here; presentation is reusable for other endings.
 export const CREDITS = {
-  director: 'Zach Cregger',
-  actor: 'Austin Abrams',
-  creator: 'Danny Free',
+  director: '[DIRECTOR]',
+  actor: '[ACTOR]',
+  creator: 'DANIEL MENDOZA',
   pixelsPerSecond: 38,
 };
 

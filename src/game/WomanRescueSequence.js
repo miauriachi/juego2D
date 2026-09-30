@@ -1,24 +1,5 @@
 import * as THREE from 'three';
 import { CarInterior } from './CarInterior.js';
-import forestScene3 from '../environment/forestShots/forestScene3.js';
-import forestScene4 from '../environment/forestShots/forestScene4.js';
-import forestScene5 from '../environment/forestShots/forestScene5.js';
-
-const forestCrash = new URL('../../assets/backgrounds/forest/forest_crash_clean.jpg', import.meta.url).href;
-const forestBlood = new URL('../../assets/backgrounds/forest/forest_blood_clean.jpg', import.meta.url).href;
-
-// Reuse the authored HD forest plates in reverse order for the rescue trip.
-// These are the SAME environments Bryan crossed on the way in, so the return
-// now preserves visual continuity without stretching tiny 320x180 rescue JPGs.
-const RESCUE_BACKDROPS = [
-  { key: 'rescue-opening-current', url: null, keepCurrent: true },
-  { key: 'rescue-deep-hd', url: forestScene5, fallbackKey: 'scene5' },
-  { key: 'rescue-mid-hd', url: forestScene4, fallbackKey: 'scene4' },
-  { key: 'rescue-path-hd', url: forestScene3, fallbackKey: 'scene3' },
-  { key: 'rescue-blood-hd', url: forestBlood, fallbackKey: 'scene2' },
-  { key: 'rescue-crash-hd', url: forestCrash, fallbackKey: 'scene1' },
-  { key: 'rescue-crash-hd', url: forestCrash, fallbackKey: 'scene1' },
-];
 
 // Edited rescue: all transfers are shown; time elisions occur only under a short fade.
 export class WomanRescueSequence {
@@ -31,191 +12,9 @@ export class WomanRescueSequence {
     this.lyingPosition = level.woman.position.clone(); this.lyingQuaternion = level.woman.quaternion.clone();
     this.passengerSide = level.car.localToWorld(new THREE.Vector3(1.7, 0, 0.35)); this.passengerSide.y = 0;
     this.driverSide = level.car.localToWorld(new THREE.Vector3(-1.7, 0, 0.35)); this.driverSide.y = 0;
-    this.sceneFog = level.scene.fog.far;
-    // The rescue travels from the deep forest all the way back to the sedan.
-    // Keep live actors/car out of the fog wall while cinematic backplates fill
-    // the far distance.
-    level.scene.fog.far = Math.max(this.sceneFog, 78);
-    this.ensureCarVisual();
-    // Shot 0 must keep the exact CAM_FOREST_BODY backplate/camera already on
-    // screen while Bryan lifts the live injured-woman NPC. Rescue backdrops
-    // start only once they begin walking away in shot 1.
-    this.backdropInitialized = false;
+    this.sceneFog = level.scene.fog.far; level.scene.fog.far = 32;
     game.input.keys.clear(); game.dialogueManager.setHint('');
   }
-
-  ensureCarVisual() {
-    const car = this.level.car;
-    if (!car) return;
-    car.visible = true;
-
-    const detailed = car.userData?.detailedVisual;
-    if (detailed) {
-      detailed.visible = true;
-      detailed.traverse(object => {
-        if (object.isMesh || object.isLine || object.isPoints) object.visible = true;
-      });
-      car.traverse(object => {
-        if (object.userData?.proceduralCarVisual) object.visible = false;
-      });
-    } else {
-      // GLB can still be decoding when the rescue starts. Keep the procedural
-      // sedan visible until Vehicle.js swaps it for the detailed model.
-      car.traverse(object => {
-        if (object.userData?.proceduralCarVisual) object.visible = true;
-      });
-    }
-  }
-
-  hideEnvironmentForBackdrop() {
-    this.hiddenEnvironment = new Map();
-    const roots = [
-      this.game.player.group,
-      this.game.bryanVisual?.group,
-      this.level.woman,
-      this.level.car,
-      this.level.hinge,
-      this.interior.group,
-      this.interior.passengerDoor,
-    ].filter(Boolean);
-
-    const belongsToLiveRoot = object => roots.some(root => {
-      for (let node = object; node; node = node.parent) {
-        if (node === root) return true;
-      }
-      return false;
-    });
-
-    this.level.scene.traverse(object => {
-      if (
-        !object.visible ||
-        object === this.backdrop ||
-        object.isPoints ||
-        !(object.isMesh || object.isLine || object.isSprite) ||
-        belongsToLiveRoot(object)
-      ) {
-        return;
-      }
-
-      this.hiddenEnvironment.set(object.uuid, object.visible);
-      object.visible = false;
-    });
-  }
-
-  restoreEnvironment() {
-    if (!this.hiddenEnvironment?.size) return;
-    this.level.scene.traverse(object => {
-      if (!object?.uuid || !this.hiddenEnvironment.has(object.uuid)) return;
-      object.visible = this.hiddenEnvironment.get(object.uuid);
-    });
-    this.hiddenEnvironment.clear();
-  }
-
-  setupBackdrop() {
-    // Use the scene background for rescue plates instead of a camera-child plane.
-    // This is the most reliable full-screen path in Three.js and guarantees the
-    // image fills the entire frame behind the live Bryan, woman, car and snow.
-    this.originalSceneBackground = this.level.scene.background;
-    this.backdropTextures = new Map();
-    this.backdropEnvironmentHidden = false;
-
-    // If an authored forest plate is already decoded, keep it visible while the
-    // rescue-only image loads so there is never a black/empty frame.
-    const currentForestTexture =
-      this.level.backdrop?.cache?.get('scene6-clean')
-      ?? this.level.backdrop?.material?.map
-      ?? null;
-    this.initialRescueBackdropTexture = currentForestTexture?.image
-      ? currentForestTexture
-      : null;
-    if (this.initialRescueBackdropTexture) {
-      this.level.scene.background = this.initialRescueBackdropTexture;
-      this.activeBackdropTexture = this.initialRescueBackdropTexture;
-      this.hideEnvironmentForBackdrop();
-      this.backdropEnvironmentHidden = true;
-    }
-
-    const loader = new THREE.TextureLoader();
-    const requested = new Set();
-
-    RESCUE_BACKDROPS.forEach(({ key, url }) => {
-      if (!url || requested.has(key)) return;
-      requested.add(key);
-
-      loader.load(
-        url,
-        loaded => {
-          loaded.colorSpace = THREE.SRGBColorSpace;
-          loaded.wrapS = THREE.ClampToEdgeWrapping;
-          loaded.wrapT = THREE.ClampToEdgeWrapping;
-          loaded.magFilter = THREE.LinearFilter;
-          loaded.minFilter = THREE.LinearMipmapLinearFilter;
-          loaded.generateMipmaps = true;
-          loaded.needsUpdate = true;
-          this.backdropTextures.set(key, loaded);
-
-          const active = RESCUE_BACKDROPS[
-            Math.min(this.shot, RESCUE_BACKDROPS.length - 1)
-          ];
-          if (active?.key === key) this.updateBackdrop();
-        },
-        undefined,
-        error => console.warn('Rescue backdrop failed to load:', key, url, error),
-      );
-    });
-
-    this.updateBackdrop();
-  }
-
-  updateBackdrop() {
-    const config = RESCUE_BACKDROPS[
-      Math.min(this.shot, RESCUE_BACKDROPS.length - 1)
-    ];
-    if (!config) return;
-
-    const generated = this.backdropTextures?.get(config.key);
-    const fallback = config.fallbackKey
-      ? this.level.backdrop?.cache?.get(config.fallbackKey)
-      : null;
-    const texture = config.keepCurrent
-      ? this.initialRescueBackdropTexture
-      : generated?.image
-        ? generated
-        : fallback?.image
-          ? fallback
-          : this.activeBackdropTexture?.image
-            ? this.activeBackdropTexture
-            : null;
-
-    // Keep the last valid plate until the requested one is decoded.
-    if (!texture) return;
-
-    if (!this.backdropEnvironmentHidden) {
-      this.hideEnvironmentForBackdrop();
-      this.backdropEnvironmentHidden = true;
-    }
-
-    if (this.level.scene.background !== texture) {
-      this.level.scene.background = texture;
-      this.activeBackdropTexture = texture;
-    }
-  }
-
-  cleanupBackdrop() {
-    if (this.level.scene.fog) this.level.scene.fog.far = this.sceneFog;
-
-    if (!this.backdropInitialized) return;
-
-    this.restoreEnvironment();
-    this.backdropEnvironmentHidden = false;
-    this.level.scene.background = this.originalSceneBackground ?? null;
-    this.backdropTextures?.forEach(texture => texture.dispose?.());
-    this.backdropTextures?.clear();
-    this.backdropTextures = null;
-    this.activeBackdropTexture = null;
-    this.initialRescueBackdropTexture = null;
-  }
-
   setCamera(position, target) { this.camera.position.copy(position); this.camera.lookAt(target); }
   supportedWalk(a, b, progress) {
     const p = this.game.player, woman = this.level.woman;
@@ -231,17 +30,6 @@ export class WomanRescueSequence {
     this.time += dt; const duration = this.durations[this.shot], t = Math.min(1, this.time / duration);
     this.fade.style.opacity = String(this.time < 0.2 ? 1 - this.time / 0.2 : this.time > duration - 0.2 ? (this.time - duration + 0.2) / 0.2 : 0);
     this.camera.aspect = innerWidth / innerHeight; this.camera.updateProjectionMatrix();
-
-    if (this.shot > 0) {
-      if (!this.backdropInitialized) {
-        this.level.backdrop?.disable();
-        this.setupBackdrop();
-        this.backdropInitialized = true;
-      }
-      this.updateBackdrop();
-    }
-
-    this.ensureCarVisual();
     if (this.shot === 0) {
       const lift = THREE.MathUtils.smoothstep(t, 0.25, 0.9);
       p.position.copy(this.level.bodyPosition).add(new THREE.Vector3(-0.7, -0.3 * (1 - lift), 0));
@@ -282,15 +70,11 @@ export class WomanRescueSequence {
       this.level.hinge.rotation.y = -Math.sin(THREE.MathUtils.smoothstep(t, 0.7, 1) * Math.PI);
       this.setCamera(this.level.car.localToWorld(new THREE.Vector3(-5, 3, 5)), this.level.car.position.clone().setY(0.8));
     }
-    this.game.bryanVisual.update(dt); this.level.updateStorm?.(dt, p.position);
+    this.game.bryanVisual.update(); this.level.snowfall.update(dt, p.position);
     if (this.time >= duration) {
       this.time = 0; this.shot++;
       if (this.shot === this.durations.length) {
-        this.level.hinge.rotation.y = 0;
-        this.ensureCarVisual();
-        this.interior.seatBryan();
-        this.fade.remove();
-        this.cleanupBackdrop();
+        this.level.hinge.rotation.y = 0; this.interior.seatBryan(); this.fade.remove();
         this.onComplete(this.interior); return;
       }
     }

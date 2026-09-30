@@ -75,6 +75,6 @@ export class NPC {
       const angle = Math.atan2(-dx, -dz) - this.group.rotation.y;
       headYaw = THREE.MathUtils.clamp(Math.atan2(Math.sin(angle), Math.cos(angle)), -0.45, 0.45);
     }
-    this.model.animate(dt, moved / dt, this.walkSpeed > 2.2, headYaw);
+    this.model.animate(dt, moved / dt, false, headYaw);
   }
 }

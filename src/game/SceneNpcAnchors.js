@@ -32,15 +32,7 @@ export class SceneNpcAnchors {
       group.rotation.y = anchor.rotationY;
       group.visible = false;
       scene.add(group);
-      const sourceNodes = [];
-      const modelNodes = [];
-      source.model.traverse(node => sourceNodes.push(node));
-      model.traverse(node => modelNodes.push(node));
-      this.visuals.push({
-        zoneId: config.id, group, model, anchor, source, sourceNodes, modelNodes,
-        sourceStartPosition: source.group.position.clone(),
-        sourceStartRotationY: source.group.rotation.y,
-      });
+      this.visuals.push({ zoneId: config.id, group, anchor, source });
     }
   }
 
@@ -76,48 +68,11 @@ export class SceneNpcAnchors {
     };
   }
 
-  update(zoneId, player = null) {
-    this.visuals.forEach((visual) => {
-      const { zoneId: shot, group, anchor, source, sourceNodes, modelNodes,
-        sourceStartPosition, sourceStartRotationY } = visual;
-      group.visible = shot === zoneId && anchor.visible && !source.departed;
-      if (!group.visible) return;
-
-      const count = Math.min(sourceNodes.length, modelNodes.length);
-      for (let i = 1; i < count; i++) {
-        const from = sourceNodes[i], to = modelNodes[i];
-        to.position.copy(from.position);
-        to.quaternion.copy(from.quaternion);
-        to.scale.copy(from.scale);
-      }
-
-      group.position.set(...anchor.position);
-      group.position.y += anchor.presentationYOffset ?? 0;
-
-      if (anchor.followSourceMotion) {
-        const motionScale = anchor.motionScale ?? 1;
-        const movedX = (source.group.position.x - sourceStartPosition.x) * motionScale;
-        const movedZ = (source.group.position.z - sourceStartPosition.z) * motionScale;
-        group.position.x += movedX;
-        group.position.z += movedZ;
-        const hasMoved = Math.hypot(movedX, movedZ) > 0.03;
-        if (hasMoved) {
-          group.rotation.y = source.group.rotation.y;
-        } else if (anchor.facePlayerWhenIdle && player) {
-          const dx = player.position.x - group.position.x;
-          const dz = player.position.z - group.position.z;
-          group.rotation.y = Math.atan2(-dx, -dz);
-        } else {
-          group.rotation.y = anchor.rotationY;
-        }
-      } else if (anchor.lookAtPlayer && player) {
-        const dx = player.position.x - group.position.x;
-        const dz = player.position.z - group.position.z;
-        group.rotation.y = Math.atan2(-dx, -dz);
-      } else {
-        group.rotation.y = anchor.rotationY;
-      }
-
+  update(zoneId) {
+    this.visuals.forEach(({ zoneId: shot, group, anchor, source }) => {
+      group.visible = shot === zoneId && anchor.visible;
+      // Mirror authored handoff props while the logical NPC retains ownership
+      // and its original sequence/route. Never move the gameplay object.
       for (const prop of anchor.attachedProps || []) {
         const original = source.model.getObjectByName(prop.name);
         let copy = group.getObjectByName(`${prop.name}-shot`);
@@ -130,5 +85,4 @@ export class SceneNpcAnchors {
       }
     });
   }
-
 }

@@ -81,15 +81,6 @@ export const urgenciasConfig = {
     ]
   ],
   "obstacles": [
-    {
-      "id": "doctor-backstop",
-      "polygon": [
-        [-6.35, 0.34],
-        [5.25, 0.34],
-        [5.25, 0.58],
-        [-6.35, 0.58]
-      ]
-    },
     { "id": "doctor-standing", "polygon": [[-0.17,0.63733],[0.17,0.63733],[0.17,0.97733],[-0.17,0.97733]] },
     { "id": "nurse-standing", "polygon": [[-1.74,-1.9],[-1.42,-1.9],[-1.42,-1.57],[-1.74,-1.57]] },
     {
@@ -250,9 +241,6 @@ export const urgenciasConfig = {
         0.80733
       ],
       "rotationY": 2.2,
-      "scale": 1.0,
-      "followSourceMotion": true,
-      "facePlayerWhenIdle": true,
       "visible": true
     },
     "patientBed01": {
@@ -264,7 +252,7 @@ export const urgenciasConfig = {
       ],
       "supportHeight": 0.85,
       "rotationY": 1.5707963267948966,
-      "scale": 1.0,
+      "scale": 0.8,
       "visible": true
     },
     "patientWaiting01": {
@@ -275,7 +263,7 @@ export const urgenciasConfig = {
         3.25625
       ],
       "rotationY": 1.5707963267948966,
-      "scale": 1.0,
+      "scale": 0.8,
       "visible": true
     },
     "nurse": {
@@ -286,7 +274,7 @@ export const urgenciasConfig = {
         -1.73683
       ],
       "rotationY": 3.141592653589793,
-      "scale": 1.0,
+      "scale": 0.9,
       "visible": true
     }
   },
@@ -303,11 +291,11 @@ export const urgenciasConfig = {
     {
       "sourceId": "return-reception",
       "position": [
-        -4.85,
+        -2.48426,
         0,
-        0.20
+        2.96716
       ],
-      "radius": 2.15
+      "radius": 0.9
     }
   ],
   "debug": false,
@@ -315,15 +303,15 @@ export const urgenciasConfig = {
     "id": "to-corridor",
     "trigger": "interact",
     "sourceId": "return-reception",
-    "minX": -5.85,
-    "maxX": -3.35,
-    "z": 0.20,
+    "minX": -2.78445,
+    "maxX": -2.28897,
+    "z": 3.55512,
     "direction": 1,
     "bounds": {
-      "minX": -5.85,
-      "maxX": -3.35,
-      "minZ": -1.45,
-      "maxZ": 2.40
+      "minX": -2.78445,
+      "maxX": -2.28897,
+      "minZ": 1.93898,
+      "maxZ": 3.55512
     },
     "targetArea": "reception",
     "targetZone": "cam02",

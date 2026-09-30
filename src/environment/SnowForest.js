@@ -37,11 +37,7 @@ export function buildSnowForest(scene, road) {
     const s = random() * road.length, side = i % 2 ? -1 : 1;
     set(mesh, i, road.centerX(s) + side * (8.5 + random() * 8), 0.05, -s, size * (1 + random()), size * 0.5, size);
   }
-  trunks.name = 'forest-trunks';
-  crowns.name = 'forest-pines';
-  branches.name = 'forest-bare-branches';
-  mounds.name = 'forest-snow-mounds';
-  rocks.name = 'forest-rocks';
+  trunks.name = 'forest-trunks'; crowns.name = 'forest-pines'; branches.name = 'forest-bare-branches';
   scene.add(trunks, crowns, branches, mounds, rocks);
-  return { count, trunks, crowns, branches, mounds, rocks };
+  return { count, trunks, crowns, branches };
 }

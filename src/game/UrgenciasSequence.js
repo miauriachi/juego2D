@@ -25,7 +25,7 @@ export class UrgenciasSequence {
       },
     });
     interaction.position = this.doctor.group.position;
-    interaction.canInteract = () => !this.departing && !this.completed;
+    interaction.canInteract = () => !this.departing;
     interactions.register(interaction);
   }
 
@@ -38,58 +38,23 @@ export class UrgenciasSequence {
     kit.position.set(0.335, -1, -0.02);
     kit.getObjectByName('bagStrap').visible = false;
     this.doctor.lookTarget = null;
-
-    this.doctor.paused = true;
-    this.doctor.walkSpeed = 0;
-    this.doctor.departed = false;
+    const config = {
+      name: this.doctor.name, walkSpeed: 1.1,
+      waypoints: [this.doctor.group.position.clone(), { x: 6.8, z: -27.4 }, { x: 6.8, z: -30 }],
+    };
+    this.level.npcManager.validateRoute(config);
+    this.doctor.waypoints = config.waypoints.map(p => new THREE.Vector3(p.x, 0, p.z));
+    this.doctor.walkSpeed = config.walkSpeed; this.doctor.targetIndex = 1;
+    this.doctor.direction = 1; this.doctor.waitRemaining = 0;
     this.departing = true;
-    this.departureStage = 'running';
-    this.departureIndex = 1;
-    this.departureHold = 0;
-    this.departureSpeed = 3.5;
-    this.departurePoints = [
-      this.doctor.group.position.clone(),
-      new THREE.Vector3(1.15, 0, -30.75),
-    ];
     this.onComplete();
   }
 
-  update(dt = 0.016) {
+  update() {
     if (!this.departing) return;
-    dt = Math.min(Math.max(dt || 0.016, 0.001), 0.05);
-
-    if (this.departureStage === 'waitingAtDoor') {
-      this.departureHold += dt;
-      this.doctor.model.animate(dt, 0, false, 0);
-      if (this.departureHold >= 0.5) {
-        this.doctor.departed = true;
-        this.doctor.group.visible = false;
-        this.departing = false;
-      }
-      return;
+    const destination = this.doctor.waypoints[this.doctor.waypoints.length - 1];
+    if (this.doctor.group.position.distanceTo(destination) < 0.01) {
+      this.doctor.walkSpeed = 0; this.departing = false;
     }
-
-    const target = this.departurePoints[this.departureIndex];
-    if (!target) return;
-    const dx = target.x - this.doctor.group.position.x;
-    const dz = target.z - this.doctor.group.position.z;
-    const distance = Math.hypot(dx, dz);
-
-    if (distance <= 0.04) {
-      this.doctor.group.position.copy(target);
-      this.departureIndex++;
-      if (this.departureIndex >= this.departurePoints.length) {
-        this.departureStage = 'waitingAtDoor';
-        this.departureHold = 0;
-      }
-      return;
-    }
-
-    const step = Math.min(this.departureSpeed * dt, distance);
-    this.doctor.group.rotation.y = Math.atan2(-dx, -dz);
-    this.doctor.group.position.x += dx / distance * step;
-    this.doctor.group.position.z += dz / distance * step;
-    this.doctor.model.animate(dt, this.departureSpeed, true, 0);
   }
-
 }

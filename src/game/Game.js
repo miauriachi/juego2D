@@ -1,5 +1,4 @@
 import * as THREE from 'three';
-// GitHub migration validation checkpoint.
 import { Player } from './Player.js';
 import { FixedCamera } from './FixedCamera.js';
 import { CollisionSystem } from './CollisionSystem.js';
@@ -22,10 +21,6 @@ import { BryanModel } from '../characters/BryanModel.js';
 import { HospitalOpeningSequence } from './HospitalOpeningSequence.js';
 import { ParkingDepartureSequence } from './ParkingDepartureSequence.js';
 import { ForestSequence } from './ForestSequence.js';
-import { PassengerDriveSequence } from './PassengerDriveSequence.js';
-import { PoliceCrashSequence } from './PoliceCrashSequence.js';
-import { CarInterior } from './CarInterior.js';
-import { LowPolyCharacter } from '../characters/LowPolyCharacter.js';
 import { DEBUG_MODE } from '../config/constants.js';
 import { PrerenderBackdropManager } from './PrerenderBackdropManager.js';
 import { ENTRANCE_CAMERA, ENTRANCE_GATE, ENTRANCE_NAVIGATION, ENTRANCE_ASPECT } from './EntranceConfig.js';
@@ -33,24 +28,14 @@ import { WalkMesh } from './WalkMesh.js';
 import { receptionWideConfig } from './ReceptionWideConfig.js';
 import { corridorConfig } from './CorridorConfig.js';
 import { urgenciasConfig } from './UrgenciasConfig.js';
-import { exteriorConfig } from './ExteriorConfig.js';
 import { SceneNpcAnchors } from './SceneNpcAnchors.js';
 import { PrerenderRoom } from './PrerenderRoom.js';
 import { PrerenderRoomView } from './PrerenderRoomView.js';
-import { GameStats } from './GameStats.js';
-import { HousePorchSequence } from './HousePorchSequence.js';
-
-// TEMP CHECKPOINT: isolated house-porch capsule.
-// This can be moved later without changing the capsule itself.
-const TEMP_HOUSE_PORCH_CHECKPOINT = true;
-const TEMP_PATROL_CRASH_CHECKPOINT = false;
-const TEMP_EXTERIOR_CHECKPOINT = false;
 
 export class Game {
   constructor(container, { input = null, settings = { sound: true, cameraMotion: true }, audio = null } = {}) {
     this.container = container;
     this.settings = settings; this.audio = audio;
-    this.stats = new GameStats();
     this.scene = new THREE.Scene();
     this.scene.background = new THREE.Color(0x0c1116);
     this.scene.fog = new THREE.Fog(0x0c1116, 18, 38);
@@ -114,7 +99,7 @@ export class Game {
     this.reception.interactions.register(new Interactable({
       id: 'hospital-exit', name: 'Salida', position: [0, 0, 7.2], radius: 1.7,
       label: 'Salir del hospital', onInteract: () => {
-        if (TEMP_EXTERIOR_CHECKPOINT || this.raccoonDelivery.resolved) this.changeArea('exterior');
+        if (this.raccoonDelivery.resolved) this.changeArea('exterior');
         else if (this.receptionDelivery.signatureForged) this.dialogueManager.start([
           { speaker: 'BRYAN', text: 'La enfermera quiere hablar conmigo antes de que me vaya.' },
         ]);
@@ -139,15 +124,7 @@ export class Game {
       this.mode = 'onFoot'; this.playerInputEnabled = true; this.objective.hidden = false;
       this.input.keys.clear(); this.input.clearFrameState(); this.refreshObjective();
     }, this.container, Promise.all([this.visualReady, this.entranceBackdropReady]).then(results => results.every(Boolean)));
-    this.ready = Promise.all([
-      this.visualReady,
-      this.entranceBackdropReady,
-      this.openingSequence.ready,
-    ]).then(() => {
-      if (TEMP_HOUSE_PORCH_CHECKPOINT) this.startHousePorchCheckpoint();
-      else if (TEMP_PATROL_CRASH_CHECKPOINT) this.startPatrolCrashCheckpoint();
-      return true;
-    });
+    this.ready = Promise.all([this.visualReady, this.entranceBackdropReady, this.openingSequence.ready]).then(() => true);
     window.addEventListener('resize', () => this.onResize());
   }
 
@@ -278,12 +255,9 @@ export class Game {
     this.snowRoad?.onResize();
     this.lastDeliveryEnding?.onResize();
     this.openingSequence?.onResize();
-    this.housePorchSequence?.onResize();
     this.prerenderBackdrop?.onResize();
-    this.exteriorBackdrop?.onResize();
     this.updateEntranceViewport();
     this.updateReceptionViewport();
-    this.updateExteriorViewport();
   }
 
   get activePrerenderRoom() {
@@ -298,16 +272,6 @@ export class Game {
     const viewHeight = viewWidth / config.aspect;
     this.renderer.setViewport((width - viewWidth) / 2, (height - viewHeight) / 2, viewWidth, viewHeight);
     this.cameraRig.camera.aspect = config.aspect;
-    this.cameraRig.camera.updateProjectionMatrix();
-  }
-
-  updateExteriorViewport() {
-    if (this.area !== 'exterior') return;
-    const width = window.innerWidth, height = window.innerHeight;
-    const viewWidth = Math.min(width, height * exteriorConfig.aspect);
-    const viewHeight = viewWidth / exteriorConfig.aspect;
-    this.renderer.setViewport((width - viewWidth) / 2, (height - viewHeight) / 2, viewWidth, viewHeight);
-    this.cameraRig.camera.aspect = exteriorConfig.aspect;
     this.cameraRig.camera.updateProjectionMatrix();
   }
 
@@ -347,28 +311,6 @@ export class Game {
   }
 
   updateRoomInteractions(room) {
-    if (room.config.id === 'urgencias_prerender') {
-      const exit = this.interactionManager.interactables.find(item => item.id === 'return-reception');
-      const p = this.player.position;
-      const atLeftExitDoor =
-        p.x >= -5.95 && p.x <= -3.20 &&
-        p.z >= -1.55 && p.z <= 2.55;
-      if (exit && atLeftExitDoor && (!exit.canInteract || exit.canInteract())) {
-        this.interactionManager.currentHintText = exit.getHintText();
-        if (this.input.isJustPressed('KeyE')) exit.interact();
-        return;
-      }
-    }
-    if (room.config.id === 'cam05') {
-      const receptionist = this.interactionManager.interactables.find(item => item.id === 'Recepcionista');
-      const player = this.player.position;
-      const nearCounter = player.x >= -0.75 && player.x <= 1.1 && player.z >= -1.95 && player.z <= 0.85;
-      if (receptionist && nearCounter && (!receptionist.canInteract || receptionist.canInteract())) {
-        this.interactionManager.currentHintText = receptionist.getHintText();
-        if (this.input.isJustPressed('KeyE')) receptionist.interact();
-        return;
-      }
-    }
     const candidates = (room.config.interactionAnchors || []).map(anchor => ({ anchor,
       source: this.interactionManager.interactables.find(item => item.id === anchor.sourceId),
       distance: Math.hypot(this.player.position.x - anchor.position[0], this.player.position.z - anchor.position[2]),
@@ -460,18 +402,8 @@ export class Game {
 
   changeArea(area) {
     if (this.mode !== 'onFoot' || this.dialogueManager.isOpen || this.receptionDelivery?.isBusy || area === this.area) return;
-    if (area === 'exterior' && !TEMP_EXTERIOR_CHECKPOINT && !this.raccoonDelivery.resolved) return;
+    if (area === 'exterior' && !this.raccoonDelivery.resolved) return;
     if (area === 'exterior' && !this.exterior) this.setupExterior();
-    if (area === 'exterior' && !this.exteriorLevel?.backgroundLoaded) {
-      if (!this.exteriorTransitionPending) {
-        this.exteriorTransitionPending = true;
-        this.exteriorLevel.backgroundReady.then(ok => {
-          this.exteriorTransitionPending = false;
-          if (ok && this.area !== 'exterior') this.changeArea('exterior');
-        });
-      }
-      return;
-    }
     const next = { reception: this.reception, urgencias: this.urgencias, exterior: this.exterior }[area];
     if (!next) return;
     if (area === 'urgencias' && !this.urgenciasBackdrop.isReady(urgenciasConfig.id)) {
@@ -479,9 +411,6 @@ export class Game {
       return;
     }
     const previousArea = this.area;
-    if (previousArea === 'exterior' && area !== 'exterior') {
-      this.exteriorLevel?.restorePlayerPresentation(this.bryanVisual);
-    }
     this.area = area;
     this.scene = next.scene;
     this.collisionSystem = next.collision;
@@ -489,15 +418,10 @@ export class Game {
     this.interactionManager = next.interactions;
     this.scene.add(this.player.group);
     this.player.position.set(...(area === 'urgencias' ? [0, 0, 4.3] : area === 'exterior'
-      ? exteriorConfig.spawn.position : previousArea === 'exterior' ? [0, 0, 6.2] : [3.3, 0, -6.6]));
+      ? [0, 0, -7.3] : previousArea === 'exterior' ? [0, 0, 6.2] : [3.3, 0, -6.6]));
     this.player.previousPosition.copy(this.player.position);
-    this.player.rotationY = area === 'exterior'
-      ? exteriorConfig.spawn.rotationY
-      : area === 'urgencias' || previousArea === 'exterior' ? 0 : Math.PI;
+    this.player.rotationY = area === 'urgencias' || previousArea === 'exterior' ? 0 : Math.PI;
     this.player.group.rotation.y = this.player.rotationY;
-    // Keep Bryan upright in the fixed exterior shot.
-    this.player.group.rotation.z = 0;
-    this.player.group.rotation.x = 0;
     this.player.velocity.set(0, 0, 0);
     this.interactionManager.currentHintText = '';
     this.input.clearFrameState();
@@ -508,9 +432,7 @@ export class Game {
     this.cameraManager.applyToCamera(this.cameraRig);
     // Prepare the complete plate before any render can submit the new area.
     this.updateReceptionViewport();
-    this.updateExteriorViewport();
     this.urgenciasBackdrop.update(this.cameraManager.activeZone?.id, this.area);
-    this.exteriorBackdrop?.update(this.cameraManager.activeZone?.id, this.area);
   }
 
   refreshObjective() {
@@ -524,245 +446,32 @@ export class Game {
     const scene = new THREE.Scene(), collision = new CollisionSystem();
     const cameras = new CameraManager(scene, this.cameraRig);
     const interactions = new InteractionManager(this.player, this.input, scene);
-
     this.exteriorLevel = new HospitalExterior(scene, this.player, cameras, collision);
     this.exteriorLevel.build();
-
-    // Exterior uses scene.background directly. Do not create another backplate
-    // plane here; that was the source of the black/blank exterior.
-    this.exteriorBackdrop = null;
-    this.exteriorBackdropReady = this.exteriorLevel.backgroundReady;
-
     this.exterior = { scene, collision, cameras, interactions };
-
     interactions.register(new Interactable({
-      id: 'hospital-return',
-      name: 'Hospital',
-      position: exteriorConfig.spawn.position,
-      radius: 0.72,
-      label: 'Volver al hospital',
-      onInteract: () => this.changeArea('reception'),
+      id: 'hospital-return', name: 'Hospital', position: [0, 0, -8.7], radius: 1.8,
+      label: 'Volver al hospital', onInteract: () => this.changeArea('reception'),
     }));
-
     interactions.register(new Interactable({
-      id: 'bryan-car',
-      name: 'Auto de Bryan',
-      position: exteriorConfig.car.position,
-      radius: exteriorConfig.car.interaction.radius,
-      label: 'Subir al auto',
-      onInteract: () => this.beginDriving(),
+      id: 'bryan-car', name: 'Auto de Bryan', position: [3.35, 0, 5], radius: 1.5,
+      label: 'Subir al auto', onInteract: () => this.beginDriving(),
     }));
   }
 
   beginDriving() {
-    if (this.area !== 'exterior' || this.mode !== 'onFoot' || this.dialogueManager.isOpen ||
-      (!TEMP_EXTERIOR_CHECKPOINT && !this.raccoonDelivery.resolved)) return;
-
-    const lastDeliveryEnding =
-      this.raccoonDelivery.ending === 'LAST_DELIVERY';
-
-    this.mode = 'parkingDeparture';
-    this.player.group.visible = false;
-    this.exteriorLevel.car.visible = true;
-    this.dialogueManager.setHint('');
-    this.objective.hidden = true;
-    this.input.keys.clear();
-    this.input.clearFrameState();
-
-    this.parkingDeparture = new ParkingDepartureSequence(
-      this.container,
-      this.exteriorLevel,
-      this.audio,
-      () => lastDeliveryEnding ? this.startLastDeliveryEnding() : this.startRoad(),
-    );
-  }
-
-  startLastDeliveryEnding() {
-    this.lastDeliveryEnding = new LastDeliveryEnding(this.container, this.input, {
-      skipDeparture: true,
-      stats: this.stats.finish({ ending: 'LAST_DELIVERY' }),
-    });
-    this.mode = 'ending';
-    this.player.group.visible = false;
-    this.objective.hidden = true;
-    this.dialogueManager.setHint('');
-    this.input.keys.clear();
-    this.input.clearFrameState();
-  }
-
-
-
-  startHousePorchCheckpoint() {
-    // TEMPORARY QA START. HousePorchSequence is intentionally self-contained so
-    // it can be reattached later at the proper story point without rebuilding it.
-    this.openingSequence?.transition?.remove();
-    if (this.openingSequence?.canvas) {
-      this.openingSequence.canvas.style.visibility = 'visible';
+    if (this.area !== 'exterior' || this.mode !== 'onFoot' || this.dialogueManager.isOpen || !this.raccoonDelivery.resolved) return;
+    if (this.raccoonDelivery.ending === 'LAST_DELIVERY') {
+      this.lastDeliveryEnding = new LastDeliveryEnding(this.container, this.input);
+      this.mode = 'ending'; this.player.group.visible = false;
+      this.objective.hidden = true; this.dialogueManager.setHint('');
+      this.input.keys.clear(); this.input.clearFrameState();
+      return;
     }
-    if (this.openingSequence) this.openingSequence.completed = true;
-
-    this.prerenderBackdrop?.disable();
-    this.urgenciasBackdrop?.disable();
-    this.exteriorBackdrop?.disable();
-
-    this.housePorchSequence = new HousePorchSequence(this);
-    this.mode = 'housePorch';
-    this.playerInputEnabled = false;
-    this.objective.hidden = true;
-    this.dialogueManager.setHint('');
-    this.input.keys.clear();
-    this.input.clearFrameState();
-  }
-
-  startPatrolCrashCheckpoint() {
-    // TEMPORARY QA START: patrol already rolled over; Bryan must park, exit
-    // his sedan and continue through the normal PoliceCrashSequence flow.
-    this.openingSequence?.transition?.remove();
-    if (this.openingSequence?.canvas) {
-      this.openingSequence.canvas.style.visibility = 'visible';
-    }
-    this.openingSequence.completed = true;
-
-    this.prerenderBackdrop?.disable();
-    this.urgenciasBackdrop?.disable();
-    this.exteriorBackdrop?.disable();
-
-    // Build the same real sedan/woman objects used by the story, then hand them
-    // to PassengerDriveSequence so the checkpoint continues through normal code.
-    this.snowRoad = new SnowRoad({ settings: this.settings, length: 5000 });
-    this.drivingSequence = new DrivingSequence(
-      this.container,
-      this.snowRoad,
-      this.audio,
-      () => {},
-    );
-
-    const vehicle = this.snowRoad.vehicle;
-    const seedS = 820;
-    vehicle.position.set(this.snowRoad.centerX(seedS), 0, -seedS);
-    vehicle.heading = -Math.atan(this.snowRoad.tangentX(seedS));
-    vehicle.velocity.set(0, 0, 0);
-    vehicle.speed = 0;
-    vehicle.yawRate = 0;
-    vehicle.steering = 0;
-    vehicle.group.rotation.set(0, vehicle.heading, 0);
-    vehicle.group.updateMatrixWorld(true);
-
-    const woman = this.drivingSequence.woman;
-    woman.visible = false;
-
-    const interior = new CarInterior(vehicle.group, this.player, woman);
-    interior.seatBryan();
-
-    // PoliceCrashSequence uses this hinge only for the driver's-door animation.
-    // Keep it attached to the real sedan so the checkpoint remains self-contained.
-    const checkpointDriverHinge = new THREE.Group();
-    checkpointDriverHinge.name = 'checkpointDriverDoorHinge';
-    vehicle.group.add(checkpointDriverHinge);
-    this.forestSequence = { level: { hinge: checkpointDriverHinge } };
-
-    this.passengerDrive = new PassengerDriveSequence(
-      this,
-      interior,
-      state => { this.narrativeState = state; },
-    );
-
-    const drive = this.passengerDrive;
-    drive.rejoinTime = 4;
-    drive.conversation.stop();
-    drive.womanInBryanCar = false;
-    drive.womanInPoliceCar = true;
-
-    // Recreate the officer object expected by the post-crash inspection.
-    drive.officer = new LowPolyCharacter({
-      kind: 'PoliceOfficer',
-      clothing: 0x24334b,
-      trousers: 0x202b3b,
-      skin: 0xb59679,
-      hair: 0x292820,
-      accent: 0xb9a269,
-    });
-    drive.officer.name = 'PoliceOfficer';
-    drive.officer.visible = false;
-    drive.road.scene.add(drive.officer);
-
-    // Place the patrol ahead of Bryan before constructing the crash controller,
-    // because the controller derives its crash/parking coordinates from here.
-    const policeS = 860;
-    drive.police.group.visible = true;
-    drive.police.group.position.set(
-      drive.road.centerX(policeS),
-      0,
-      -policeS,
-    );
-    drive.police.group.rotation.set(
-      0,
-      -Math.atan(drive.road.tangentX(policeS)),
-      0,
-    );
-    drive.police.group.updateMatrixWorld(true);
-
-    // The woman has already been transferred to the patrol at this story point.
-    drive.police.group.add(woman);
-    woman.position.set(0.3, 0.04, 0.8);
-    woman.rotation.set(0, 0, 0);
-    woman.scale.setScalar(0.82);
-    woman.pose = 'seated';
-    woman.userData.state = 'WOMAN_IN_POLICE_CAR';
-    woman.visible = true;
-    woman.animate(0, 0);
-
-    const crash = new PoliceCrashSequence(drive);
-    drive.policeCrash = crash;
-
-    // Skip only the six-second rollover animation. Preserve the normal parking
-    // and on-foot inspection logic from this point onward.
-    crash.time = 6.1;
-    crash.landed = true;
-    crash.hit = true;
-    crash.police.group.position.copy(crash.target).setY(1);
-    crash.police.group.rotation.set(
-      0,
-      crash.startHeading + 0.75,
-      Math.PI * 1.5,
-    );
-    crash.police.group.updateMatrixWorld(true);
-    crash.police.group.position.y +=
-      0.04 - new THREE.Box3().setFromObject(crash.police.group).min.y;
-
-    // Start Bryan a short distance BEFORE the authored parking patch so the
-    // checkpoint tests the exact "park, exit, inspect" section.
-    const startS = crash.parkS - 18;
-    vehicle.position.set(
-      drive.road.centerX(startS),
-      0,
-      -startS,
-    );
-    vehicle.heading = -Math.atan(drive.road.tangentX(startS));
-    vehicle.group.rotation.set(0, vehicle.heading, 0);
-    vehicle.velocity.set(0, 0, 0);
-    vehicle.speed = 0;
-    vehicle.yawRate = 0;
-    vehicle.steering = 0;
-    vehicle.group.updateMatrixWorld(true);
-
-    drive.transition('PARK_BEFORE_POLICE');
-    drive.conversation.stop();
-    drive.road.driveEnabled = true;
-    drive.road.vehicleCamera.initialized = false;
-    drive.road.updateCamera(0);
-
-    this.scene = drive.road.scene;
-    this.mode = 'passengerDriving';
-    this.container.classList.add('driving-mode');
-    this.playerInputEnabled = false;
-    this.objective.hidden = false;
-    this.objective.textContent = 'OBJETIVO: Detente y revisa la patrulla.';
-    this.dialogueManager.isOpen = false;
-    this.dialogueManager.panel.hidden = true;
-    this.dialogueManager.setHint('');
-    this.input.keys.clear();
-    this.input.clearFrameState();
+    this.mode = 'parkingDeparture'; this.player.group.visible = false;
+    this.dialogueManager.setHint(''); this.objective.hidden = true;
+    this.input.keys.clear(); this.input.clearFrameState();
+    this.parkingDeparture = new ParkingDepartureSequence(this.container, this.exteriorLevel, this.audio, () => this.startRoad());
   }
 
   startRoad() {
@@ -784,8 +493,6 @@ export class Game {
 
   updateDriving(dt) {
     this.prerenderBackdrop.disable();
-    this.urgenciasBackdrop?.disable();
-    this.exteriorBackdrop?.disable();
     if (this.dialogueManager.isOpen) {
       this.input.isJustPressed('KeyR');
       this.dialogueManager.update();
@@ -801,21 +508,13 @@ export class Game {
 
   updateDeparture(dt) {
     this.prerenderBackdrop.disable();
-    this.urgenciasBackdrop?.disable();
-    this.cameraManager.applyToCamera(this.cameraRig);
-    this.updateExteriorViewport();
-    this.exteriorBackdrop?.update(exteriorConfig.id, 'exterior');
-    this.parkingDeparture.update(dt);
-    this.exteriorLevel.update(dt, this.exteriorLevel.car.position);
-    this.input.clearFrameState();
+    this.parkingDeparture.update(dt); this.input.clearFrameState();
     if (this.mode === 'driving') this.updateDriving(0);
     else this.renderer.render(this.exterior.scene, this.parkingDeparture.camera);
   }
 
   updateEnding(dt) {
     this.prerenderBackdrop.disable();
-    this.urgenciasBackdrop?.disable();
-    this.exteriorBackdrop?.disable();
     this.lastDeliveryEnding.update(dt);
     this.input.clearFrameState();
     this.lastDeliveryEnding.render(this.renderer, this.scene, this.cameraRig.camera);
@@ -830,7 +529,6 @@ export class Game {
       this.input.clearFrameState();
       return;
     }
-    if (this.mode === 'housePorch') { this.housePorchSequence.update(dt); return; }
     if (this.mode === 'parkingDeparture') { this.updateDeparture(dt); return; }
     if (this.mode === 'forest') { this.forestSequence.update(dt); return; }
     if (this.mode === 'passengerDriving') { this.passengerDrive.update(dt); return; }
@@ -841,26 +539,13 @@ export class Game {
     activeNPCs?.update(dt, this.player);
     this.openingSequence.updateGameplay(dt, this.dialogueManager.isOpen);
     if (this.area === 'exterior') this.exteriorLevel.update(dt, this.player);
-    if (this.area === 'urgencias') this.urgenciasSequence.update(dt);
+    if (this.area === 'urgencias') this.urgenciasSequence.update();
     this.receptionDelivery.update(dt, this.area);
-    this.raccoonDelivery.update(this.area, dt);
+    this.raccoonDelivery.update(this.area);
     const wasOpen = this.dialogueManager.isOpen;
     if (wasOpen) this.dialogueManager.update();
     else if (!this.receptionDelivery.isBusy) {
-      if (this.area === 'exterior') {
-        const car = this.interactionManager.interactables.find(item => item.id === 'bryan-car');
-        const distanceToCar = this.exteriorLevel?.car
-          ? this.player.position.distanceTo(this.exteriorLevel.car.position)
-          : Infinity;
-        const carRadius = exteriorConfig.car.interaction.radius;
-        if (car && distanceToCar <= carRadius) {
-          this.interactionManager.current = car;
-          this.interactionManager.currentHintText = '[E] Subir al auto';
-          if (this.input.isJustPressed('KeyE')) this.beginDriving();
-        } else {
-          this.interactionManager.update();
-        }
-      } else if (this.activePrerenderRoom) this.updateRoomInteractions(this.activePrerenderRoom);
+      if (this.activePrerenderRoom) this.updateRoomInteractions(this.activePrerenderRoom);
       else this.interactionManager.update();
     }
     if (this.mode === 'parkingDeparture') { this.updateDeparture(0); return; }
@@ -882,31 +567,20 @@ export class Game {
       this.player.velocity.set(0, 0, 0);
     }
     this.player.animate(dt, blocked);
-    this.bryanVisual.update(dt);
+    this.bryanVisual.update();
     this.dialogueManager.setHint(blocked ? '' : this.interactionManager.currentHintText);
     this.updateReceptionCamera();
     this.cameraManager.applyToCamera(this.cameraRig);
     this.updateEntranceViewport();
     this.updateReceptionViewport();
-    this.updateExteriorViewport();
     this.prerenderBackdrop.update(this.cameraManager.activeZone?.id, this.area);
     this.urgenciasBackdrop.update(this.cameraManager.activeZone?.id, this.area);
-    this.exteriorBackdrop?.update(this.cameraManager.activeZone?.id, this.area);
     const room = this.activePrerenderRoom;
     this.prerenderViews.forEach((view, id) => view.update(this.player, room?.config.id === id, this.input, {
       activePortal: room?.portals.find(p => p.bounds && this.player.position.x >= p.bounds.minX && this.player.position.x <= p.bounds.maxX && this.player.position.z >= p.bounds.minZ && this.player.position.z <= p.bounds.maxZ)?.id || null,
       dialogueLocked: this.dialogueManager.isOpen,
     }));
-    this.sceneNpcAnchors.update(this.activePrerenderRoom?.config.id, this.player);
-    if (this.area === 'exterior') {
-      this.exteriorLevel.applyPlayerPresentation(
-        this.player,
-        this.cameraManager.activeCamera || this.cameraRig.camera,
-        this.bryanVisual,
-      );
-    } else {
-      this.exteriorLevel?.restorePlayerPresentation(this.bryanVisual);
-    }
+    this.sceneNpcAnchors.update(this.activePrerenderRoom?.config.id);
     this.input.clearFrameState();
 
     this.renderer.render(this.scene, this.cameraManager.activeCamera || this.cameraRig.camera);

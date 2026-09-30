@@ -420,51 +420,30 @@ export class LowPolyCharacter extends THREE.Group {
       this.forearms[0].rotation.z = 0;
     }
     if (this.pose === 'seated') {
-      const pain = Math.sin(this.elapsed * 2.25);
-      const ache = Math.sin(this.elapsed * 0.92 + 0.7);
-      this.body.position.y = -0.27 + Math.max(0, pain) * 0.008;
-      this.torso.rotation.x = -0.10 + ache * 0.035;
-      this.torso.rotation.z = pain * 0.018;
-      this.head.position.z = -0.09;
-      this.head.rotation.x = -0.13 + breath * 0.018 + ache * 0.025;
-      this.head.rotation.z = -pain * 0.025;
+      this.body.position.y = -0.27;
+      this.torso.rotation.x = -0.065;
+      this.head.position.z = -0.09; this.head.rotation.x = -0.09 + breath * 0.012;
       for (let i = 0; i < 2; i++) {
         this.arms[i].position.z = -0.08;
-        this.arms[i].rotation.x = i === 0 ? 0.52 + pain * 0.05 : 0.22;
-        this.forearms[i].rotation.x = i === 0 ? 1.05 + ache * 0.08 : 0.50;
-        this.legs[i].rotation.x = Math.PI / 2;
-        this.calves[i].rotation.x = -Math.PI / 2 + (i === 1 ? pain * 0.035 : 0);
-        this.calves[i].scale.y = 1.2;
-        this.feet[i].rotation.x = 0;
+        this.arms[i].rotation.x = 0.22; this.forearms[i].rotation.x = 0.50;
+        this.legs[i].rotation.x = Math.PI / 2; this.calves[i].rotation.x = -Math.PI / 2;
+        this.calves[i].scale.y = 1.2; this.feet[i].rotation.x = 0;
       }
     } else if (this.pose === 'lying') {
-      const pain = Math.sin(this.elapsed * 1.55);
-      const twitch = Math.max(0, Math.sin(this.elapsed * 3.1 + 1.4));
-      this.body.position.y = 0;
-      this.torso.rotation.y = pain * 0.012;
-      this.torso.rotation.z = pain * 0.016;
-      this.head.rotation.y = Math.sin(this.elapsed * 0.72) * 0.045;
-      this.head.rotation.x = -0.015 + pain * 0.018;
-      this.head.rotation.z = pain * 0.025;
-      this.torso.scale.z = 1 + breath * 0.014;
+      this.body.position.y = 0; this.torso.rotation.y = 0;
+      this.head.rotation.y = Math.sin(this.elapsed * 0.2) * 0.018;
+      this.head.rotation.x = 0;
+      this.torso.scale.z = 1 + breath * 0.006;
       for (let i = 0; i < 2; i++) {
-        this.arms[i].rotation.x = 0.04 + (i === 0 ? twitch * 0.07 : 0);
-        this.forearms[i].rotation.x = 0.12 + (i === 0 ? twitch * 0.10 : 0);
-        this.legs[i].rotation.x = i === 1 ? pain * 0.022 : 0;
-        this.calves[i].rotation.x = i === 1 ? -pain * 0.032 : 0;
-        this.feet[i].rotation.x = -0.06;
+        this.arms[i].rotation.x = 0.04; this.forearms[i].rotation.x = 0.12;
+        this.legs[i].rotation.x = 0; this.calves[i].rotation.x = 0; this.feet[i].rotation.x = -0.06;
       }
     } else if (this.pose === 'injured') {
-      const pain = Math.sin(this.elapsed * 2.0);
-      this.torso.rotation.x = -0.075 + pain * 0.025;
-      this.torso.rotation.z = pain * 0.018;
-      this.head.position.z = -0.06;
-      this.head.rotation.x = -0.13 + pain * 0.025;
-      this.head.rotation.z = -pain * 0.022;
-      this.arms[0].rotation.x = 0.48 + pain * 0.06;
-      this.arms[0].rotation.z = -0.20;
-      this.forearms[0].rotation.x = 1.34 + pain * 0.08;
-      this.body.position.y -= Math.abs(pain) * 0.012;
+      this.torso.rotation.x = -0.055;
+      this.head.position.z = -0.06; this.head.rotation.x = -0.1;
+      this.arms[0].rotation.x = 0.4; this.arms[0].rotation.z = -0.18;
+      this.forearms[0].rotation.x = 1.3;
+      this.body.position.y -= Math.abs(swing) * 0.018;
     }
   }
 }

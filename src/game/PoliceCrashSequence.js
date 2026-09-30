@@ -38,74 +38,22 @@ export class PoliceCrashSequence {
   setupOnFoot() {
     const g = this.game, v = this.vehicle, scene = this.road.scene;
     this.collision = new CollisionSystem();
-
-    v.group.updateMatrixWorld(true);
-    this.police.group.updateMatrixWorld(true);
-
-    // Use the sedan's authored PHYSICAL footprint, not Box3.setFromObject(v.group).
-    // The vehicle group also contains presentation/interior nodes that can make
-    // its visual bounds much larger than the actual car and throw Bryan far away.
-    const carCorners = [
-      new THREE.Vector3(-1.05, 0, -2.2),
-      new THREE.Vector3(1.05, 0, -2.2),
-      new THREE.Vector3(-1.05, 0, 2.2),
-      new THREE.Vector3(1.05, 0, 2.2),
-    ].map(point => v.group.localToWorld(point));
-
-    const carBox = new THREE.Box3();
-    carCorners.forEach(point => carBox.expandByPoint(point));
-
-    // Patrol bounds are safe to derive from the wreck itself.
-    const patrolBox = new THREE.Box3().setFromObject(this.police.group);
-
-    this.collision.bounds = {
-      minX: Math.min(carBox.min.x, patrolBox.min.x) - 10,
-      maxX: Math.max(carBox.max.x, patrolBox.max.x) + 10,
-      minZ: Math.min(carBox.min.z, patrolBox.min.z) - 12,
-      maxZ: Math.max(carBox.max.z, patrolBox.max.z) + 12,
-    };
-
-    for (const box of [carBox, patrolBox]) {
-      this.collision.addCollider({
-        minX: box.min.x,
-        maxX: box.max.x,
-        minZ: box.min.z,
-        maxZ: box.max.z,
-      });
+    const center = this.road.centerX(this.crashS);
+    this.collision.bounds = { minX: center - 16, maxX: center + 8, minZ: -this.crashS - 12, maxZ: -this.parkS + 8 };
+    for (const object of [v.group, this.police.group]) {
+      object.updateMatrixWorld(true); const box = new THREE.Box3().setFromObject(object);
+      this.collision.addCollider({ minX: box.min.x, maxX: box.max.x, minZ: box.min.z, maxZ: box.max.z });
     }
-
-    // Always get Bryan out at the driver's door. This is the point marked in
-    // the QA capture: immediately beside his sedan, facing the overturned patrol.
-    this.exitPosition = v.group.localToWorld(
-      new THREE.Vector3(-1.62, 0, 0.35),
-    );
-    this.exitPosition.y = 0;
-
+    this.exitPosition = v.group.localToWorld(new THREE.Vector3(-1.85, 0, 0.4)); this.exitPosition.y = 0;
+    this.exitPosition.x = Math.min(this.exitPosition.x, this.collision.colliders[0].minX - 0.65);
     this.drive.interior.unseatBryan(scene, this.exitPosition);
-
-    const patrolCenter = patrolBox.getCenter(new THREE.Vector3());
-    const facePatrol = patrolCenter.clone().sub(this.exitPosition).setY(0);
-    if (facePatrol.lengthSq() > 0.0001) {
-      g.player.rotationY = Math.atan2(-facePatrol.x, -facePatrol.z);
-      g.player.group.rotation.y = g.player.rotationY;
-    }
-
     g.player.group.visible = false; this.exitTime = 0;
     this.exitCamera = new THREE.PerspectiveCamera(60, innerWidth / innerHeight, 0.1, 100);
-    this.exitCamera.position.copy(
-      v.group.localToWorld(new THREE.Vector3(-5.0, 3.2, 4.2)),
-    );
-    this.exitCamera.lookAt(this.exitPosition.clone().setY(0.8));
-
+    this.exitCamera.position.copy(v.group.localToWorld(new THREE.Vector3(-5.5, 3.2, 4.5))); this.exitCamera.lookAt(this.exitPosition.clone().setY(0.8));
     this.wreckCamera = new THREE.PerspectiveCamera(60, innerWidth / innerHeight, 0.1, 100);
-    this.wreckCamera.position.copy(this.target).add(new THREE.Vector3(5, 3.5, 6));
-    this.wreckCamera.lookAt(this.target.clone().add(new THREE.Vector3(1, 0.8, 0)));
-
-    this.drive.transition(STATE.INVESTIGATE_POLICE);
-    g.container.classList.remove('driving-mode');
-    g.input.keys.clear();
-    g.audio?.playCue('door_open');
-    this.parkingPatch.visible = false;
+    this.wreckCamera.position.copy(this.target).add(new THREE.Vector3(5, 3.5, 6)); this.wreckCamera.lookAt(this.target.clone().add(new THREE.Vector3(1, 0.8, 0)));
+    this.drive.transition(STATE.INVESTIGATE_POLICE); g.container.classList.remove('driving-mode'); g.input.keys.clear();
+    g.audio?.playCue('door_open'); this.parkingPatch.visible = false;
   }
   update(dt) {
     if (this.aftermath) { this.aftermath.update(dt); return; }
