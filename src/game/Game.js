@@ -607,8 +607,8 @@ export class Game {
 
     this.housePorchSequence = new HousePorchSequence(this);
     this.mode = 'housePorch';
-    this.playerInputEnabled = true;
-    this.objective.hidden = false;
+    this.playerInputEnabled = false;
+    this.objective.hidden = true;
     this.dialogueManager.setHint('');
     this.input.keys.clear();
     this.input.clearFrameState();
