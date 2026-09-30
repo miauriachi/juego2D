@@ -126,95 +126,100 @@ canvas {
   z-index: 10050;
   overflow: hidden;
   background: #000;
-  opacity: 1;
   pointer-events: none;
 }
-.house-porch-cinematic.is-ready { opacity: 1; }
-
-.house-porch-cinematic__image,
-.house-porch-cinematic__reveal {
+.house-porch-cinematic__stage {
   position: absolute;
   inset: -1%;
   width: 102%;
   height: 102%;
+  transform-origin: 50% 50%;
+  will-change: transform;
+}
+.house-porch-cinematic__image {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
   object-fit: cover;
   object-position: 50% 50%;
   image-rendering: auto;
-  transform: translate3d(0,0,0) scale(1);
-  transform-origin: 50% 50%;
-  backface-visibility: hidden;
-  will-change: transform, opacity;
 }
-
-.house-porch-cinematic__image {
-  z-index: 0;
-}
-
 .house-porch-cinematic__door-void {
   position: absolute;
   z-index: 1;
-  left: 46.15%;
-  top: 18.4%;
-  width: 13.35%;
-  height: 49.6%;
-  background:
-    radial-gradient(ellipse at 50% 42%, rgba(6,7,7,.98) 0%, #010202 64%, #000 100%);
-  box-shadow:
-    inset 0 0 26px rgba(0,0,0,.95),
-    0 0 5px rgba(0,0,0,.75);
-  transform-origin: 50% 50%;
-  will-change: transform;
-  pointer-events: none;
+  left: 46.1%;
+  top: 18.2%;
+  width: 13.5%;
+  height: 50.3%;
+  background: radial-gradient(
+    ellipse at 50% 43%,
+    rgba(6,7,7,.98) 0%,
+    #010202 65%,
+    #000 100%
+  );
+  box-shadow: inset 0 0 30px #000, 0 0 6px rgba(0,0,0,.9);
 }
-
-.house-porch-cinematic__reveal {
+.house-porch-cinematic__limb {
+  position: absolute;
   z-index: 2;
   opacity: 0;
-  filter: brightness(.88) contrast(1.10) saturate(.72);
-  pointer-events: none;
+  transform-origin: 50% 50%;
+  will-change: transform, opacity;
+  filter:
+    drop-shadow(0 8px 8px rgba(0,0,0,.85))
+    brightness(.82)
+    contrast(1.16)
+    saturate(.72);
 }
-
-.house-porch-cinematic__reveal--left-high {
-  -webkit-mask-image: radial-gradient(ellipse 13% 15% at 43% 37%,
-    #000 0 48%, rgba(0,0,0,.92) 62%, transparent 100%);
-  mask-image: radial-gradient(ellipse 13% 15% at 43% 37%,
-    #000 0 48%, rgba(0,0,0,.92) 62%, transparent 100%);
+.house-porch-cinematic__limb svg {
+  display: block;
+  width: 100%;
+  height: 100%;
+  overflow: visible;
 }
-.house-porch-cinematic__reveal--right {
-  -webkit-mask-image: radial-gradient(ellipse 15% 16% at 63% 39%,
-    #000 0 48%, rgba(0,0,0,.92) 62%, transparent 100%);
-  mask-image: radial-gradient(ellipse 15% 16% at 63% 39%,
-    #000 0 48%, rgba(0,0,0,.92) 62%, transparent 100%);
+.house-porch-cinematic__limb--left-high {
+  left: 38.7%;
+  top: 31.5%;
+  width: 18.5%;
+  height: 20%;
 }
-.house-porch-cinematic__reveal--left-low {
-  -webkit-mask-image: radial-gradient(ellipse 14% 15% at 43% 52%,
-    #000 0 48%, rgba(0,0,0,.92) 62%, transparent 100%);
-  mask-image: radial-gradient(ellipse 14% 15% at 43% 52%,
-    #000 0 48%, rgba(0,0,0,.92) 62%, transparent 100%);
+.house-porch-cinematic__limb--right {
+  left: 53.9%;
+  top: 31.5%;
+  width: 18.5%;
+  height: 20%;
 }
-.house-porch-cinematic__reveal--top {
-  -webkit-mask-image: radial-gradient(ellipse 18% 23% at 45% 21%,
-    #000 0 50%, rgba(0,0,0,.94) 64%, transparent 100%);
-  mask-image: radial-gradient(ellipse 18% 23% at 45% 21%,
-    #000 0 50%, rgba(0,0,0,.94) 64%, transparent 100%);
+.house-porch-cinematic__limb--left-low {
+  left: 40.4%;
+  top: 43.5%;
+  width: 16.5%;
+  height: 18%;
+  transform: scale(.82) rotate(-14deg);
 }
-.house-porch-cinematic__reveal--bottom {
-  -webkit-mask-image: radial-gradient(ellipse 10% 20% at 62% 70%,
-    #000 0 50%, rgba(0,0,0,.94) 64%, transparent 100%);
-  mask-image: radial-gradient(ellipse 10% 20% at 62% 70%,
-    #000 0 50%, rgba(0,0,0,.94) 64%, transparent 100%);
+.house-porch-cinematic__limb--top {
+  left: 43.2%;
+  top: 7%;
+  width: 14.8%;
+  height: 31%;
 }
-
+.house-porch-cinematic__limb--bottom {
+  left: 54.1%;
+  top: 55%;
+  width: 8.5%;
+  height: 28%;
+}
 .house-porch-cinematic__vignette {
   position: absolute;
   inset: 0;
   z-index: 3;
-  opacity: .78;
-  background:
-    radial-gradient(ellipse at 50% 48%,
-      transparent 43%,
-      rgba(0,0,0,.18) 69%,
-      rgba(0,0,0,.62) 100%);
-  transition: opacity 1.2s ease;
+  opacity: .76;
+  background: radial-gradient(
+    ellipse at 50% 46%,
+    transparent 39%,
+    rgba(0,0,0,.14) 62%,
+    rgba(0,0,0,.62) 100%
+  );
   pointer-events: none;
+  transition: opacity .4s linear;
 }
