@@ -133,6 +133,8 @@ export class ElectricFenceSequence {
     this.dialogueStarted = false;
     this.afterShockDialogueStarted = false;
     this.houseDialogueStarted = false;
+    this.growlDialogueStarted = false;
+    this.bryanReactionStarted = false;
     this.transitionTime = 0;
     this.panTime = 0;
     this.rigAnimationEnabled = true;
@@ -409,12 +411,12 @@ export class ElectricFenceSequence {
     this.backdrop.hidden = false;
     this.backdrop.src = FARM_PRERENDER;
     Object.assign(this.backdrop.style, {
-      width: '122%',
-      height: '122%',
+      width: '136%',
+      height: '136%',
       objectFit: 'cover',
       objectPosition: 'center center',
       transformOrigin: '50% 50%',
-      transform: 'translate3d(7%, 0, 0) scale(1.08)',
+      transform: 'translate3d(11%, 0, 0) scale(1.06)',
       willChange: 'transform',
       filter: 'brightness(.92) contrast(1.04) saturate(.88)',
     });
@@ -428,8 +430,8 @@ export class ElectricFenceSequence {
 
     // Begin on the illuminated barn at the left, pass the tractor, and finish
     // on the yellow wooden house at the right of the same prerender.
-    const x = THREE.MathUtils.lerp(7, -11, eased);
-    const scale = THREE.MathUtils.lerp(1.08, 1.15, eased);
+    const x = THREE.MathUtils.lerp(11, -24, eased);
+    const scale = THREE.MathUtils.lerp(1.06, 1.18, eased);
     this.backdrop.style.transform = `translate3d(${x}%, 0, 0) scale(${scale})`;
 
     if (t >= 1) {
@@ -448,12 +450,12 @@ export class ElectricFenceSequence {
     this.backdrop.hidden = false;
     this.backdrop.src = FARM_PRERENDER;
     Object.assign(this.backdrop.style, {
-      width: '145%',
-      height: '145%',
+      width: '100%',
+      height: '100%',
       objectFit: 'cover',
       objectPosition: 'center center',
-      transformOrigin: '50% 50%',
-      transform: 'translate3d(-25%, 0%, 0) scale(1.78)',
+      transformOrigin: '84% 52%',
+      transform: 'translate3d(-8%, 0%, 0) scale(2.15)',
       filter: 'brightness(.96) contrast(1.06) saturate(.92)',
     });
   }
@@ -463,8 +465,106 @@ export class ElectricFenceSequence {
     this.houseDialogueStarted = true;
     this.game.dialogueManager.start([
       { speaker: 'Bryan', text: 'Ahí...' },
+    ], () => this.beginReturnToBryan());
+  }
+
+  beginReturnToBryan() {
+    this.state = 'returnFadeOut';
+    this.transitionTime = 0;
+  }
+
+  restoreBryanView() {
+    const player = this.game.player;
+
+    this.backdrop.hidden = false;
+    this.backdrop.src = FENCE_OPPOSITE_BACKDROP;
+    Object.assign(this.backdrop.style, {
+      width: '100%',
+      height: '100%',
+      objectFit: 'cover',
+      objectPosition: 'center center',
+      transformOrigin: '50% 50%',
+      transform: 'none',
+      filter: 'brightness(.88) contrast(1.04) saturate(.84)',
+    });
+
+    this.fence.visible = true;
+    player.group.visible = true;
+    player.position.set(0.18, 0, -3.15);
+    player.previousPosition.copy(player.position);
+    player.rotationY = -0.18;
+    player.group.rotation.set(0, player.rotationY, 0);
+    player.velocity.set(0, 0, 0);
+    player.animate(0, true);
+
+    this.camera.position.set(-5.45, 3.35, -7.75);
+    this.camera.lookAt(new THREE.Vector3(0.05, 0.55, -2.45));
+    this.game.bryanVisual.update(0);
+  }
+
+  playGrowlSound() {
+    try {
+      const AudioCtx = window.AudioContext || window.webkitAudioContext;
+      if (!AudioCtx) return;
+
+      const ctx = new AudioCtx();
+      const now = ctx.currentTime;
+      const duration = 1.05;
+
+      const gain = ctx.createGain();
+      gain.gain.setValueAtTime(0.0001, now);
+      gain.gain.exponentialRampToValueAtTime(0.18, now + 0.08);
+      gain.gain.exponentialRampToValueAtTime(0.0001, now + duration);
+      gain.connect(ctx.destination);
+
+      const osc = ctx.createOscillator();
+      osc.type = 'sawtooth';
+      osc.frequency.setValueAtTime(78, now);
+      osc.frequency.exponentialRampToValueAtTime(48, now + duration);
+
+      const mod = ctx.createOscillator();
+      const modGain = ctx.createGain();
+      mod.type = 'sine';
+      mod.frequency.setValueAtTime(24, now);
+      modGain.gain.setValueAtTime(12, now);
+      mod.connect(modGain);
+      modGain.connect(osc.frequency);
+
+      const filter = ctx.createBiquadFilter();
+      filter.type = 'lowpass';
+      filter.frequency.setValueAtTime(520, now);
+      filter.Q.setValueAtTime(2.6, now);
+
+      osc.connect(filter);
+      filter.connect(gain);
+
+      osc.start(now);
+      mod.start(now);
+      osc.stop(now + duration);
+      mod.stop(now + duration);
+
+      osc.addEventListener('ended', () => ctx.close?.(), { once: true });
+    } catch (error) {
+      console.warn('Growl sound could not play:', error);
+    }
+  }
+
+  startGrowlDialogue() {
+    if (this.growlDialogueStarted) return;
+    this.growlDialogueStarted = true;
+    this.playGrowlSound();
+    this.game.dialogueManager.start([
+      { speaker: '???', text: 'Grrrrrrrr' },
+    ], () => this.startBryanReaction());
+  }
+
+  startBryanReaction() {
+    if (this.bryanReactionStarted) return;
+    this.bryanReactionStarted = true;
+    this.game.dialogueManager.start([
+      { speaker: 'Bryan', text: '¿Qué diablos?' },
     ], () => {
-      this.state = 'houseHolding';
+      this.state = 'bryanHolding';
     });
   }
 
@@ -551,6 +651,29 @@ export class ElectricFenceSequence {
         this.state = 'houseDialogue';
         this.startHouseDialogue();
       }
+    } else if (this.state === 'returnFadeOut') {
+      player.velocity.set(0, 0, 0);
+      this.transitionTime += dt;
+      const fade = THREE.MathUtils.smoothstep(this.transitionTime, 0, 0.42);
+      this.blackout.style.opacity = String(fade);
+      if (this.transitionTime >= 0.44) {
+        this.blackout.style.opacity = '1';
+        this.restoreBryanView();
+        this.state = 'returnFadeIn';
+        this.transitionTime = 0;
+      }
+    } else if (this.state === 'returnFadeIn') {
+      player.previousPosition.copy(player.position);
+      player.velocity.set(0, 0, 0);
+      player.animate(dt, true);
+      this.transitionTime += dt;
+      const reveal = 1 - THREE.MathUtils.smoothstep(this.transitionTime, 0.08, 0.58);
+      this.blackout.style.opacity = String(reveal);
+      if (this.transitionTime >= 0.60) {
+        this.blackout.style.opacity = '0';
+        this.state = 'growlDialogue';
+        this.startGrowlDialogue();
+      }
     } else {
       player.velocity.set(0, 0, 0);
       if (this.state !== 'houseDialogue' && this.state !== 'houseHolding') {
@@ -566,7 +689,7 @@ export class ElectricFenceSequence {
     }
 
     // Player.animate() stores the movement speed; BryanModel consumes it here.
-    if (!['gettingUp', 'farmPan', 'farmFadeOut', 'houseFadeIn', 'houseDialogue', 'houseHolding'].includes(this.state)) {
+    if (!['gettingUp', 'farmPan', 'farmFadeOut', 'houseFadeIn', 'houseDialogue', 'returnFadeOut'].includes(this.state)) {
       game.bryanVisual.update(dt);
     }
     if (game.dialogueManager.isOpen) game.dialogueManager.update();
