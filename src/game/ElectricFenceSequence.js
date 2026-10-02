@@ -9,6 +9,7 @@ const ASPECT = 4 / 3;
 const WALK_SPEED = 0.92;
 const START = new THREE.Vector3(-0.85, 0, 3.65);
 const STOP = new THREE.Vector3(-0.20, 0, -0.35);
+const FALLEN_POSITION = new THREE.Vector3(0.18, 0.12, -3.15);
 
 function makeWarningTexture() {
   const canvas = document.createElement('canvas');
@@ -120,11 +121,14 @@ export class ElectricFenceSequence {
     this.state = 'arriving';
     this.stopTime = 0;
     this.dialogueStarted = false;
+    this.afterShockDialogueStarted = false;
+    this.transitionTime = 0;
     this.rigAnimationEnabled = true;
 
     this.originalParent = game.player.group.parent;
     this.originalPosition = game.player.position.clone();
     this.originalRotation = game.player.rotationY;
+    this.originalGroupRotation = game.player.group.rotation.clone();
     this.originalVisible = game.player.group.visible;
     this.originalGameCanvasVisibility = game.renderer.domElement.style.visibility;
 
@@ -210,6 +214,18 @@ export class ElectricFenceSequence {
     this.root.append(this.stage);
     game.container.append(this.root);
 
+    this.blackout = document.createElement('div');
+    this.blackout.dataset.role = 'electric-fence-blackout';
+    Object.assign(this.blackout.style, {
+      position: 'fixed',
+      inset: '0',
+      zIndex: '25',
+      background: '#000',
+      opacity: '0',
+      pointerEvents: 'none',
+    });
+    game.container.append(this.blackout);
+
     this.scene = new THREE.Scene();
     this.scene.background = null;
     this.scene.fog = new THREE.Fog(0x111b26, 17, 40);
@@ -294,8 +310,37 @@ export class ElectricFenceSequence {
     this.dialogueStarted = true;
     this.game.dialogueManager.start([
       { speaker: 'Bryan', text: '¿Una cerca? Dice que está electrificada...' },
+    ], () => this.beginShockTransition());
+  }
+
+  beginShockTransition() {
+    this.state = 'shockFadeOut';
+    this.transitionTime = 0;
+    this.game.input.keys.clear();
+    this.game.input.clearFrameState();
+  }
+
+  placeBryanBeyondFence() {
+    const player = this.game.player;
+    player.position.copy(FALLEN_POSITION);
+    player.previousPosition.copy(FALLEN_POSITION);
+    player.velocity.set(0, 0, 0);
+
+    // Bryan wakes up on the far side of the live 3D fence, flat on the snow.
+    // Rotate around X so his rig lies horizontally instead of swapping models.
+    player.rotationY = 0.08;
+    player.group.rotation.set(-Math.PI / 2, player.rotationY, 0);
+    this.animateBryan(0, 'idle');
+    this.game.bryanVisual.update();
+  }
+
+  startAfterShockDialogue() {
+    if (this.afterShockDialogueStarted) return;
+    this.afterShockDialogueStarted = true;
+    this.game.dialogueManager.start([
+      { speaker: 'Bryan', text: 'Maldita sea eso dolio... que pendejo' },
     ], () => {
-      this.state = 'holding';
+      this.state = 'fallenHolding';
     });
   }
 
@@ -328,6 +373,37 @@ export class ElectricFenceSequence {
         this.state = 'stopped';
         this.stopTime = 0;
       }
+    } else if (this.state === 'shockFadeOut') {
+      player.previousPosition.copy(player.position);
+      player.velocity.set(0, 0, 0);
+      player.animate(dt, true);
+      this.animateBryan(dt, 'idle');
+
+      this.transitionTime += dt;
+      const fade = THREE.MathUtils.smoothstep(this.transitionTime, 0, 0.48);
+      this.blackout.style.opacity = String(fade);
+
+      if (this.transitionTime >= 0.50) {
+        this.placeBryanBeyondFence();
+        this.state = 'shockFadeIn';
+        this.transitionTime = 0;
+        this.blackout.style.opacity = '1';
+      }
+    } else if (this.state === 'shockFadeIn') {
+      player.previousPosition.copy(player.position);
+      player.velocity.set(0, 0, 0);
+      player.animate(dt, true);
+      this.animateBryan(dt, 'idle');
+
+      this.transitionTime += dt;
+      const reveal = 1 - THREE.MathUtils.smoothstep(this.transitionTime, 0.10, 0.70);
+      this.blackout.style.opacity = String(reveal);
+
+      if (this.transitionTime >= 0.72) {
+        this.blackout.style.opacity = '0';
+        this.state = 'fallenDialogue';
+        this.startAfterShockDialogue();
+      }
     } else {
       player.previousPosition.copy(player.position);
       player.velocity.set(0, 0, 0);
@@ -354,12 +430,13 @@ export class ElectricFenceSequence {
     this.game.player.position.copy(this.originalPosition);
     this.game.player.previousPosition.copy(this.originalPosition);
     this.game.player.rotationY = this.originalRotation;
-    this.game.player.group.rotation.y = this.originalRotation;
+    this.game.player.group.rotation.copy(this.originalGroupRotation);
     this.game.player.group.visible = this.originalVisible;
     this.game.player.velocity.set(0, 0, 0);
 
     this.game.renderer.domElement.style.visibility = this.originalGameCanvasVisibility;
     this.renderer?.dispose();
+    this.blackout?.remove();
     this.root?.remove();
   }
 }
