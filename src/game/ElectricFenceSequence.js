@@ -819,7 +819,7 @@ export class ElectricFenceSequence {
     // Each fixed-camera plate has its own invisible fence corridor.
     // On the intermediate trail Bryan must run straight between the visible rails.
     if (this.chaseScene === 'barnPath') {
-      player.position.x = THREE.MathUtils.clamp(player.position.x, -0.82, 0.82);
+      player.position.x = THREE.MathUtils.clamp(player.position.x, -0.68, 0.68);
       player.position.z = THREE.MathUtils.clamp(player.position.z, -5.7, 4.0);
     } else {
       player.position.x = THREE.MathUtils.clamp(player.position.x, -2.75, 2.65);
@@ -957,7 +957,7 @@ export class ElectricFenceSequence {
       // pale/empty strip can appear on mobile.
       const scale = THREE.MathUtils.lerp(1.0, 1.08, this.barnProgress);
       this.backdrop.style.transform = `scale(${scale})`;
-      player.position.x = THREE.MathUtils.clamp(player.position.x, -0.82, 0.82);
+      player.position.x = THREE.MathUtils.clamp(player.position.x, -0.68, 0.68);
       player.position.z = THREE.MathUtils.clamp(player.position.z, -5.7, 4.0);
     } else if (this.chaseScene === 'barnClose') {
       player.position.x = THREE.MathUtils.clamp(player.position.x, -1.85, 1.85);
