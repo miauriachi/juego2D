@@ -43,7 +43,7 @@ canvas {
   pointer-events: none;
 }
 .interaction-hint { bottom: 7%; left: 50%; transform: translateX(-50%); padding: 10px 22px; }
-.dialogue-panel { bottom: 4%; left: 5%; width: 90%; padding: 20px 28px; font-size: clamp(16px, 2vw, 23px); }
+.dialogue-panel { bottom: 4%; left: 5%; width: 90%; padding: 20px 28px; font-size: clamp(16px, 2vw, 23px); pointer-events: auto; touch-action: manipulation; user-select: none; }
 .dialogue-panel strong { font-size: 0.75em; letter-spacing: 0.12em; color: #c9d7d2; }
 .dialogue-panel p { margin: 14px 0; line-height: 1.45; }
 .dialogue-panel small { display: block; text-align: right; font-size: 0.65em; }
