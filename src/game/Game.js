@@ -268,6 +268,7 @@ export class Game {
     this.lastDeliveryEnding?.onResize();
     this.openingSequence?.onResize();
     this.fenceArrivalSequence?.onResize();
+    this.electricFenceSequence?.onResize();
     this.housePorchSequence?.onResize();
     this.prerenderBackdrop?.onResize();
     this.updateEntranceViewport();
