@@ -77,6 +77,9 @@ export class HouseTitleSequence {
         this.completed = true; this.stopMusic?.(); this.overlay.hidden = true;
         this.game.prologueCompleted = true; this.game.nextChapter = 'HOUSE';
         g.input.keys.clear();
+        this.fade.remove();
+        g.startFenceArrivalSequence?.();
+        return;
       }
     }
     this.camera.aspect = innerWidth / innerHeight; this.camera.updateProjectionMatrix();
