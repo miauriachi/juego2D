@@ -1,0 +1,39 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1600" height="1200" viewBox="0 0 1600 1200">
+<defs>
+<linearGradient id="sky" x2="0" y2="1"><stop stop-color="#050a12"/><stop offset=".55" stop-color="#111b29"/><stop offset="1" stop-color="#263441"/></linearGradient>
+<linearGradient id="ground" x2="0" y2="1"><stop stop-color="#6e7c86"/><stop offset="1" stop-color="#aab4ba"/></linearGradient>
+<radialGradient id="lamp"><stop stop-color="#ffd58a" stop-opacity=".95"/><stop offset=".35" stop-color="#cf873d" stop-opacity=".45"/><stop offset="1" stop-color="#cf873d" stop-opacity="0"/></radialGradient>
+<filter id="blur"><feGaussianBlur stdDeviation="18"/></filter>
+</defs>
+<rect width="1600" height="1200" fill="url(#sky)"/>
+<circle cx="1210" cy="175" r="42" fill="#b9c8d5" opacity=".72"/>
+<g fill="#070b10"><polygon points="-35,680 5,260 48,680"/><polygon points="17,680 57,291 100,680"/><polygon points="69,680 109,322 152,680"/><polygon points="121,680 161,353 204,680"/><polygon points="173,680 213,384 256,680"/><polygon points="225,680 265,415 308,680"/><polygon points="277,680 317,446 360,680"/><polygon points="329,680 369,260 412,680"/><polygon points="381,680 421,291 464,680"/><polygon points="433,680 473,322 516,680"/><polygon points="485,680 525,353 568,680"/><polygon points="537,680 577,384 620,680"/><polygon points="589,680 629,415 672,680"/><polygon points="641,680 681,446 724,680"/><polygon points="693,680 733,260 776,680"/><polygon points="745,680 785,291 828,680"/><polygon points="797,680 837,322 880,680"/><polygon points="849,680 889,353 932,680"/><polygon points="901,680 941,384 984,680"/><polygon points="953,680 993,415 1036,680"/><polygon points="1005,680 1045,446 1088,680"/><polygon points="1057,680 1097,260 1140,680"/><polygon points="1109,680 1149,291 1192,680"/><polygon points="1161,680 1201,322 1244,680"/><polygon points="1213,680 1253,353 1296,680"/><polygon points="1265,680 1305,384 1348,680"/><polygon points="1317,680 1357,415 1400,680"/><polygon points="1369,680 1409,446 1452,680"/><polygon points="1421,680 1461,260 1504,680"/><polygon points="1473,680 1513,291 1556,680"/><polygon points="1525,680 1565,322 1608,680"/><polygon points="1577,680 1617,353 1660,680"/><polygon points="1629,680 1669,384 1712,680"/><polygon points="1681,680 1721,415 1764,680"/></g>
+<path d="M0 665 C300 625 530 660 790 650 C1050 640 1320 620 1600 655 L1600 1200 L0 1200Z" fill="url(#ground)"/>
+<!-- winding snowy trail -->
+<path d="M655 1200 C650 1090 705 1000 785 930 C865 860 965 815 1050 760 C1115 718 1160 690 1195 655 L1340 655 C1265 735 1175 795 1090 850 C980 925 925 1010 910 1200Z" fill="#c4cdd1" opacity=".78"/>
+<path d="M720 1200 C730 1080 780 1010 850 950 C920 890 1015 840 1100 785" fill="none" stroke="#65737d" stroke-width="78" opacity=".35"/>
+<!-- fences continuing perspective -->
+<g stroke="#30271f" fill="none" stroke-linecap="round">
+<path d="M35 1010 L720 790" stroke-width="25"/><path d="M30 900 L720 745" stroke-width="20"/>
+<path d="M1030 815 L1590 945" stroke-width="23"/><path d="M1065 755 L1590 835" stroke-width="18"/>
+</g>
+<g fill="#392d23"><rect x="65" y="735" width="24" height="250" rx="4"/><rect x="220" y="777" width="22" height="250" rx="4"/><rect x="380" y="819" width="20" height="250" rx="4"/><rect x="545" y="861" width="24" height="250" rx="4"/><rect x="690" y="903" width="22" height="250" rx="4"/><rect x="1090" y="735" width="20" height="250" rx="4"/><rect x="1225" y="777" width="24" height="250" rx="4"/><rect x="1370" y="819" width="22" height="250" rx="4"/><rect x="1520" y="861" width="20" height="250" rx="4"/></g>
+<!-- distant realistic barn silhouette -->
+<g transform="translate(1110 405)">
+<rect x="0" y="150" width="355" height="250" fill="#161311"/>
+<polygon points="-22,155 177,-5 378,155" fill="#0d0d0f"/>
+<path d="M18 165 H337 V390 H18Z" fill="#211914"/>
+<g stroke="#35271d" stroke-width="8" opacity=".75"><path d="M55 170 V390"/><path d="M110 170 V390"/><path d="M165 170 V390"/><path d="M220 170 V390"/><path d="M275 170 V390"/></g>
+<rect x="137" y="230" width="95" height="160" fill="#342218"/>
+<rect x="159" y="254" width="54" height="103" fill="#b46d30"/>
+<ellipse cx="186" cy="307" rx="150" ry="125" fill="url(#lamp)" filter="url(#blur)" opacity=".55"/>
+<rect x="58" y="190" width="48" height="55" fill="#b47636"/>
+</g>
+<!-- foreground bare trees -->
+<g stroke="#090b0d" stroke-linecap="round">
+<path d="M150 780 Q120 500 170 170 M155 520 L45 350 M160 430 L280 260" stroke-width="42"/>
+<path d="M510 770 Q500 480 545 80 M520 455 L400 280 M525 360 L650 190" stroke-width="35"/>
+<path d="M1510 800 Q1500 500 1460 210 M1480 510 L1360 340" stroke-width="36"/>
+</g>
+<g fill="#d8dfe2" opacity=".72"><circle cx="0" cy="690" r="2"/><circle cx="173" cy="787" r="3"/><circle cx="346" cy="884" r="4"/><circle cx="519" cy="981" r="5"/><circle cx="692" cy="1078" r="6"/><circle cx="865" cy="705" r="2"/><circle cx="1038" cy="802" r="3"/><circle cx="1211" cy="899" r="4"/><circle cx="1384" cy="996" r="5"/><circle cx="1557" cy="1093" r="6"/><circle cx="150" cy="720" r="2"/><circle cx="323" cy="817" r="3"/><circle cx="496" cy="914" r="4"/><circle cx="669" cy="1011" r="5"/><circle cx="842" cy="1108" r="6"/><circle cx="1015" cy="735" r="2"/><circle cx="1188" cy="832" r="3"/><circle cx="1361" cy="929" r="4"/><circle cx="1534" cy="1026" r="5"/><circle cx="127" cy="1123" r="6"/><circle cx="300" cy="750" r="2"/><circle cx="473" cy="847" r="3"/><circle cx="646" cy="944" r="4"/><circle cx="819" cy="1041" r="5"/><circle cx="992" cy="1138" r="6"/><circle cx="1165" cy="765" r="2"/><circle cx="1338" cy="862" r="3"/><circle cx="1511" cy="959" r="4"/><circle cx="104" cy="1056" r="5"/><circle cx="277" cy="1153" r="6"/><circle cx="450" cy="780" r="2"/><circle cx="623" cy="877" r="3"/><circle cx="796" cy="974" r="4"/><circle cx="969" cy="1071" r="5"/><circle cx="1142" cy="698" r="6"/><circle cx="1315" cy="795" r="2"/><circle cx="1488" cy="892" r="3"/><circle cx="81" cy="989" r="4"/><circle cx="254" cy="1086" r="5"/><circle cx="427" cy="713" r="6"/><circle cx="600" cy="810" r="2"/><circle cx="773" cy="907" r="3"/><circle cx="946" cy="1004" r="4"/><circle cx="1119" cy="1101" r="5"/><circle cx="1292" cy="728" r="6"/><circle cx="1465" cy="825" r="2"/><circle cx="58" cy="922" r="3"/><circle cx="231" cy="1019" r="4"/><circle cx="404" cy="1116" r="5"/><circle cx="577" cy="743" r="6"/><circle cx="750" cy="840" r="2"/><circle cx="923" cy="937" r="3"/><circle cx="1096" cy="1034" r="4"/><circle cx="1269" cy="1131" r="5"/><circle cx="1442" cy="758" r="6"/><circle cx="35" cy="855" r="2"/><circle cx="208" cy="952" r="3"/><circle cx="381" cy="1049" r="4"/><circle cx="554" cy="1146" r="5"/><circle cx="727" cy="773" r="6"/><circle cx="900" cy="870" r="2"/><circle cx="1073" cy="967" r="3"/><circle cx="1246" cy="1064" r="4"/><circle cx="1419" cy="691" r="5"/><circle cx="12" cy="788" r="6"/><circle cx="185" cy="885" r="2"/><circle cx="358" cy="982" r="3"/><circle cx="531" cy="1079" r="4"/><circle cx="704" cy="706" r="5"/><circle cx="877" cy="803" r="6"/></g>
+</svg>
