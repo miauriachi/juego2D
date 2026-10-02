@@ -78,7 +78,7 @@ export class HouseTitleSequence {
         this.game.prologueCompleted = true; this.game.nextChapter = 'HOUSE';
         g.input.keys.clear();
         this.fade.remove();
-        g.startFenceArrivalSequence?.();
+        g.startElectricFenceSequence?.();
         return;
       }
     }
