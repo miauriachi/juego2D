@@ -19,7 +19,10 @@ const FARM_PRERENDER = new URL(
 // Dedicated bridge plate between the fence and barn shots. It is intentionally
 // composed as a snowy path with the barn still far away, rather than cropping
 // the barn plate and pretending it is a new location.
-const BARN_PATH_PRERENDER = FARM_PRERENDER;
+const BARN_PATH_PRERENDER = new URL(
+  '../../assets/backgrounds/fence/barn_path_generated.svg',
+  import.meta.url,
+).href;
 
 const CORNFIELD_BACKDROP = new URL(
   '../../assets/backgrounds/fence/cornfield_chase.webp',
@@ -842,7 +845,7 @@ export class ElectricFenceSequence {
       width: '112%',
       height: '112%',
       objectFit: 'cover',
-      objectPosition: '76% 52%',
+      objectPosition: 'center center',
       transformOrigin: '50% 50%',
       transform: 'scale(1)',
       filter: 'brightness(.86) contrast(1.08) saturate(.80)',
@@ -947,9 +950,8 @@ export class ElectricFenceSequence {
       // Intermediate trail: keep the barn distant at first and let it grow only
       // gradually. The oversized plate stays beyond both viewport edges so no
       // pale/empty strip can appear on mobile.
-      const scale = THREE.MathUtils.lerp(1.0, 1.10, this.barnProgress);
-      const x = THREE.MathUtils.lerp(0, -4.5, this.barnProgress);
-      this.backdrop.style.transform = `translate3d(${x}%, 0, 0) scale(${scale})`;
+      const scale = THREE.MathUtils.lerp(1.0, 1.08, this.barnProgress);
+      this.backdrop.style.transform = `scale(${scale})`;
       player.position.x = THREE.MathUtils.clamp(player.position.x, -2.15, 2.15);
       player.position.z = THREE.MathUtils.clamp(player.position.z, -5.7, 4.0);
     } else if (this.chaseScene === 'barnClose') {
