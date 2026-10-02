@@ -15,6 +15,11 @@ const FARM_PRERENDER = new URL(
   import.meta.url,
 ).href;
 
+const CORNFIELD_BACKDROP = new URL(
+  '../../assets/backgrounds/fence/cornfield_chase.webp',
+  import.meta.url,
+).href;
+
 const ASPECT = 4 / 3;
 const WALK_SPEED = 0.92;
 const START = new THREE.Vector3(-0.85, 0, 3.65);
@@ -122,6 +127,90 @@ function makeFence() {
   return fence;
 }
 
+function makeLowPolyDog() {
+  const dog = new THREE.Group();
+  dog.name = 'cornfield-dog';
+
+  const fur = new THREE.MeshLambertMaterial({ color: 0x3a2a24, flatShading: true });
+  const dark = new THREE.MeshLambertMaterial({ color: 0x171413, flatShading: true });
+  const flesh = new THREE.MeshLambertMaterial({ color: 0x6d2a24, flatShading: true });
+  const eye = new THREE.MeshBasicMaterial({ color: 0xd8a235 });
+
+  const body = new THREE.Mesh(new THREE.BoxGeometry(1.35, 0.62, 0.55), fur);
+  body.position.set(0, 0.86, 0);
+  body.rotation.z = -0.05;
+  dog.add(body);
+
+  const chest = new THREE.Mesh(new THREE.BoxGeometry(0.52, 0.72, 0.58), fur);
+  chest.position.set(0.48, 0.92, 0);
+  chest.rotation.z = -0.18;
+  dog.add(chest);
+
+  const head = new THREE.Mesh(new THREE.BoxGeometry(0.56, 0.48, 0.50), fur);
+  head.position.set(0.83, 1.31, 0);
+  head.rotation.z = -0.12;
+  dog.add(head);
+
+  const muzzle = new THREE.Mesh(new THREE.BoxGeometry(0.48, 0.28, 0.34), dark);
+  muzzle.position.set(1.22, 1.22, 0);
+  dog.add(muzzle);
+
+  const mouth = new THREE.Mesh(new THREE.BoxGeometry(0.34, 0.10, 0.29), flesh);
+  mouth.position.set(1.24, 1.08, 0);
+  mouth.rotation.z = 0.10;
+  dog.add(mouth);
+
+  const earGeo = new THREE.ConeGeometry(0.16, 0.44, 4);
+  const earL = new THREE.Mesh(earGeo, dark);
+  const earR = earL.clone();
+  earL.position.set(0.76, 1.66, -0.18);
+  earR.position.set(0.76, 1.66, 0.18);
+  earL.rotation.z = -0.18;
+  earR.rotation.z = -0.18;
+  dog.add(earL, earR);
+
+  const eyeGeo = new THREE.SphereGeometry(0.045, 5, 4);
+  const eyeL = new THREE.Mesh(eyeGeo, eye);
+  const eyeR = eyeL.clone();
+  eyeL.position.set(1.05, 1.39, -0.25);
+  eyeR.position.set(1.05, 1.39, 0.25);
+  dog.add(eyeL, eyeR);
+
+  const legGeo = new THREE.BoxGeometry(0.18, 0.72, 0.18);
+  const legPositions = [
+    [0.43, 0.42, -0.22],
+    [0.43, 0.42, 0.22],
+    [-0.48, 0.42, -0.22],
+    [-0.48, 0.42, 0.22],
+  ];
+  const legs = legPositions.map(([x,y,z]) => {
+    const leg = new THREE.Mesh(legGeo, fur);
+    leg.position.set(x, y, z);
+    leg.geometry.translate(0, -0.18, 0);
+    dog.add(leg);
+    return leg;
+  });
+
+  const tail = new THREE.Mesh(new THREE.CylinderGeometry(0.07, 0.10, 0.95, 5), fur);
+  tail.rotation.z = Math.PI / 2.6;
+  tail.position.set(-0.93, 1.08, 0);
+  dog.add(tail);
+
+  dog.scale.setScalar(0.82);
+  dog.userData.body = body;
+  dog.userData.head = head;
+  dog.userData.legs = legs;
+  dog.userData.tail = tail;
+  dog.userData.phase = 0;
+  dog.traverse(object => {
+    if (object.isMesh) {
+      object.castShadow = true;
+      object.receiveShadow = true;
+    }
+  });
+  return dog;
+}
+
 // Independent fixed-camera capsule.
 // The prerendered plate is DOM art; Bryan and the fence are rendered as real 3D
 // on a transparent WebGL canvas layered above it.
@@ -136,6 +225,8 @@ export class ElectricFenceSequence {
     this.growlDialogueStarted = false;
     this.bryanReactionStarted = false;
     this.transitionTime = 0;
+    this.dogJumpTime = 0;
+    this.chaseTime = 0;
     this.panTime = 0;
     this.rigAnimationEnabled = true;
 
@@ -288,6 +379,10 @@ export class ElectricFenceSequence {
 
     this.fence = makeFence();
     this.scene.add(this.fence);
+
+    this.dog = makeLowPolyDog();
+    this.dog.visible = false;
+    this.scene.add(this.dog);
 
     this.farmBackdrop = new Image();
     this.farmBackdrop.src = FARM_PRERENDER;
@@ -563,9 +658,113 @@ export class ElectricFenceSequence {
     this.bryanReactionStarted = true;
     this.game.dialogueManager.start([
       { speaker: 'Bryan', text: '¿Qué diablos?' },
-    ], () => {
-      this.state = 'bryanHolding';
+    ], () => this.beginCornfieldTransition());
+  }
+
+  beginCornfieldTransition() {
+    this.state = 'cornfieldFadeOut';
+    this.transitionTime = 0;
+  }
+
+  setupCornfieldScene() {
+    const player = this.game.player;
+
+    this.backdrop.hidden = false;
+    this.backdrop.src = CORNFIELD_BACKDROP;
+    Object.assign(this.backdrop.style, {
+      width: '100%',
+      height: '100%',
+      objectFit: 'cover',
+      objectPosition: 'center center',
+      transformOrigin: '50% 50%',
+      transform: 'none',
+      filter: 'brightness(.86) contrast(1.08) saturate(.80)',
     });
+
+    this.fence.visible = false;
+
+    player.group.visible = true;
+    player.position.set(0.45, 0, -1.85);
+    player.previousPosition.copy(player.position);
+    player.rotationY = -Math.PI / 2;
+    player.group.rotation.set(0, player.rotationY, 0);
+    player.velocity.set(0, 0, 0);
+    player.animate(0, true);
+
+    this.dog.visible = true;
+    this.dog.position.set(-2.55, 0.18, -4.25);
+    this.dog.rotation.set(0, -Math.PI / 2, 0);
+    this.dog.userData.phase = 0;
+
+    this.camera.position.set(0.0, 3.25, 7.2);
+    this.camera.lookAt(new THREE.Vector3(0.0, 0.95, -2.25));
+    this.game.bryanVisual.update(0);
+  }
+
+  startDogJump() {
+    this.state = 'dogJump';
+    this.dogJumpTime = 0;
+    this.playGrowlSound();
+  }
+
+  animateDogRun(dt, intensity = 1) {
+    if (!this.dog?.visible) return;
+    this.dog.userData.phase += dt * 10.5 * intensity;
+    const phase = this.dog.userData.phase;
+    const legs = this.dog.userData.legs || [];
+    legs.forEach((leg, index) => {
+      const offset = index % 2 === 0 ? 0 : Math.PI;
+      leg.rotation.z = Math.sin(phase + offset) * 0.72 * intensity;
+    });
+    this.dog.userData.body.position.y = 0.86 + Math.abs(Math.sin(phase * 2)) * 0.045 * intensity;
+    this.dog.userData.head.rotation.z = -0.12 + Math.sin(phase * 2) * 0.06 * intensity;
+    this.dog.userData.tail.rotation.z = Math.PI / 2.6 + Math.sin(phase * 1.7) * 0.20;
+  }
+
+  updateDogJump(dt) {
+    this.dogJumpTime += dt;
+    const duration = 0.82;
+    const t = THREE.MathUtils.clamp(this.dogJumpTime / duration, 0, 1);
+    const eased = THREE.MathUtils.smoothstep(t, 0, 1);
+
+    const start = new THREE.Vector3(-2.55, 0.18, -4.25);
+    const end = new THREE.Vector3(-1.35, 0.0, -2.15);
+    this.dog.position.lerpVectors(start, end, eased);
+    this.dog.position.y += Math.sin(Math.PI * t) * 1.08;
+    this.dog.rotation.y = THREE.MathUtils.lerp(-Math.PI / 2, -Math.PI / 2, eased);
+    this.animateDogRun(dt, 1.2);
+
+    if (t >= 1) {
+      this.state = 'dogChase';
+      this.chaseTime = 0;
+      this.dog.position.set(-1.35, 0, -2.15);
+    }
+  }
+
+  updateDogChase(dt) {
+    const player = this.game.player;
+    this.chaseTime += dt;
+
+    const runSpeed = 2.55;
+    const dogSpeed = 2.95;
+    if (this.chaseTime < 2.6) {
+      player.previousPosition.copy(player.position);
+      player.position.x += runSpeed * dt;
+      player.velocity.set(runSpeed, 0, 0);
+      player.rotationY = -Math.PI / 2;
+      player.group.rotation.y = player.rotationY;
+      player.animate(dt, false);
+
+      this.dog.position.x += dogSpeed * dt;
+      this.animateDogRun(dt, 1.25);
+    } else {
+      // Hold the pursuit in-frame while both keep their running cycles alive.
+      player.previousPosition.copy(player.position);
+      player.previousPosition.x -= 0.16;
+      player.velocity.set(runSpeed, 0, 0);
+      player.animate(dt, false);
+      this.animateDogRun(dt, 1.25);
+    }
   }
 
   render() {
@@ -674,6 +873,35 @@ export class ElectricFenceSequence {
         this.state = 'growlDialogue';
         this.startGrowlDialogue();
       }
+    } else if (this.state === 'cornfieldFadeOut') {
+      player.velocity.set(0, 0, 0);
+      this.transitionTime += dt;
+      const fade = THREE.MathUtils.smoothstep(this.transitionTime, 0, 0.46);
+      this.blackout.style.opacity = String(fade);
+      if (this.transitionTime >= 0.48) {
+        this.blackout.style.opacity = '1';
+        this.setupCornfieldScene();
+        this.state = 'cornfieldFadeIn';
+        this.transitionTime = 0;
+      }
+    } else if (this.state === 'cornfieldFadeIn') {
+      player.previousPosition.copy(player.position);
+      player.velocity.set(0, 0, 0);
+      player.animate(dt, true);
+      this.transitionTime += dt;
+      const reveal = 1 - THREE.MathUtils.smoothstep(this.transitionTime, 0.12, 0.72);
+      this.blackout.style.opacity = String(reveal);
+      if (this.transitionTime >= 0.74) {
+        this.blackout.style.opacity = '0';
+        this.startDogJump();
+      }
+    } else if (this.state === 'dogJump') {
+      player.previousPosition.copy(player.position);
+      player.velocity.set(0, 0, 0);
+      player.animate(dt, true);
+      this.updateDogJump(dt);
+    } else if (this.state === 'dogChase') {
+      this.updateDogChase(dt);
     } else {
       player.velocity.set(0, 0, 0);
       if (this.state !== 'houseDialogue' && this.state !== 'houseHolding') {
