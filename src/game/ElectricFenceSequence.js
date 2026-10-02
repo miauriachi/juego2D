@@ -5,6 +5,11 @@ const FENCE_BACKDROP = new URL(
   import.meta.url,
 ).href;
 
+const FENCE_OPPOSITE_BACKDROP = new URL(
+  '../../assets/backgrounds/fence/electric_fence_opposite.webp',
+  import.meta.url,
+).href;
+
 const ASPECT = 4 / 3;
 const WALK_SPEED = 0.92;
 const START = new THREE.Vector3(-0.85, 0, 3.65);
@@ -179,9 +184,12 @@ export class ElectricFenceSequence {
       userSelect: 'none',
     });
     this.backdrop.addEventListener('error', () => {
-      console.error('Electric fence backdrop failed to load:', FENCE_BACKDROP);
+      console.error('Electric fence backdrop failed to load:', this.backdrop.src);
       this.backdrop.hidden = true;
-    }, { once: true });
+    });
+
+    this.oppositeBackdrop = new Image();
+    this.oppositeBackdrop.src = FENCE_OPPOSITE_BACKDROP;
 
     this.vignette = document.createElement('div');
     Object.assign(this.vignette.style, {
@@ -326,12 +334,17 @@ export class ElectricFenceSequence {
     player.previousPosition.copy(FALLEN_POSITION);
     player.velocity.set(0, 0, 0);
 
+    // Cut to a new prerendered angle from the far side of the same fence.
+    this.backdrop.hidden = false;
+    this.backdrop.src = FENCE_OPPOSITE_BACKDROP;
+    this.camera.position.set(-5.45, 3.35, -7.75);
+    this.camera.lookAt(new THREE.Vector3(0.05, 0.55, -2.45));
+
     // Bryan wakes up on the far side of the live 3D fence, flat on the snow.
-    // Rotate around X so his rig lies horizontally instead of swapping models.
     player.rotationY = 0.08;
     player.group.rotation.set(-Math.PI / 2, player.rotationY, 0);
     this.animateBryan(0, 'idle');
-    this.game.bryanVisual.update();
+    this.game.bryanVisual.update(0);
   }
 
   startAfterShockDialogue() {
@@ -416,7 +429,9 @@ export class ElectricFenceSequence {
       }
     }
 
-    game.bryanVisual.update();
+    // Player.animate() stores the movement speed; BryanModel consumes it here
+    // to drive the restored rigged walk animation.
+    game.bryanVisual.update(dt);
     if (game.dialogueManager.isOpen) game.dialogueManager.update();
 
     this.render();
