@@ -827,12 +827,14 @@ export class ElectricFenceSequence {
     this.fence.visible = false;
     this.backdrop.src = FARM_PRERENDER;
     Object.assign(this.backdrop.style, {
-      width: '128%',
-      height: '128%',
+      left: '-18%',
+      right: 'auto',
+      width: '136%',
+      height: '136%',
       objectFit: 'cover',
       objectPosition: 'center center',
       transformOrigin: '50% 50%',
-      transform: 'translate3d(9%, 0, 0) scale(1.08)',
+      transform: 'translate3d(0, 0, 0) scale(1.03)',
       filter: 'brightness(.86) contrast(1.08) saturate(.80)',
     });
     const player = this.game.player;
@@ -849,12 +851,14 @@ export class ElectricFenceSequence {
     this.chaseScene = 'barnClose';
     this.backdrop.src = FARM_PRERENDER;
     Object.assign(this.backdrop.style, {
-      width: '142%',
-      height: '142%',
+      left: '-22%',
+      right: 'auto',
+      width: '150%',
+      height: '150%',
       objectFit: 'cover',
       objectPosition: 'center center',
       transformOrigin: '30% 52%',
-      transform: 'translate3d(13%, 1%, 0) scale(1.34)',
+      transform: 'translate3d(0, 1%, 0) scale(1.16)',
       filter: 'brightness(.84) contrast(1.10) saturate(.78)',
     });
     const player = this.game.player;
@@ -926,9 +930,12 @@ export class ElectricFenceSequence {
 
     if (this.chaseScene === 'barnPath') {
       // Continue the earlier farm pan visually while Bryan runs toward the same barn.
-      this.barnProgress = THREE.MathUtils.clamp(this.barnProgress + Math.max(0, -player.velocity.z) * dt * 0.035, 0, 1);
-      const x = THREE.MathUtils.lerp(9, -10, this.barnProgress);
-      const scale = THREE.MathUtils.lerp(1.08, 1.24, this.barnProgress);
+      this.barnProgress = THREE.MathUtils.clamp(this.barnProgress + Math.max(0, -player.velocity.z) * dt * 0.024, 0, 1);
+      // Intermediate trail: keep the barn distant at first and let it grow only
+      // gradually. The oversized plate stays beyond both viewport edges so no
+      // pale/empty strip can appear on mobile.
+      const x = THREE.MathUtils.lerp(0, -7, this.barnProgress);
+      const scale = THREE.MathUtils.lerp(1.03, 1.13, this.barnProgress);
       this.backdrop.style.transform = `translate3d(${x}%, 0, 0) scale(${scale})`;
       player.position.x = THREE.MathUtils.clamp(player.position.x, -2.15, 2.15);
       player.position.z = THREE.MathUtils.clamp(player.position.z, -5.7, 4.0);
