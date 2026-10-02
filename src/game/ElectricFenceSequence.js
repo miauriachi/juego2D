@@ -442,32 +442,20 @@ export class ElectricFenceSequence {
     this.state = 'houseFadeIn';
     this.transitionTime = 0;
 
-    // Same prerendered location, now cropped much closer to the yellow house.
+    // Same prerendered location, now tightly framed on the yellow house at right.
+    // Bryan stays off-screen: this shot represents what he is noticing.
+    this.game.player.group.visible = false;
     this.backdrop.hidden = false;
     this.backdrop.src = FARM_PRERENDER;
     Object.assign(this.backdrop.style, {
-      width: '128%',
-      height: '128%',
+      width: '145%',
+      height: '145%',
       objectFit: 'cover',
       objectPosition: 'center center',
       transformOrigin: '50% 50%',
-      transform: 'translate3d(-17%, 1%, 0) scale(1.48)',
-      filter: 'brightness(.94) contrast(1.05) saturate(.90)',
+      transform: 'translate3d(-25%, 0%, 0) scale(1.78)',
+      filter: 'brightness(.96) contrast(1.06) saturate(.92)',
     });
-
-    const player = this.game.player;
-    player.group.visible = true;
-    player.position.set(0.72, 0, -2.85);
-    player.previousPosition.copy(player.position);
-    player.rotationY = -0.24;
-    player.group.rotation.set(0, player.rotationY, 0);
-    player.velocity.set(0, 0, 0);
-    player.animate(0, true);
-
-    // Keep Bryan as the real 3D character over the prerendered close shot.
-    this.camera.position.set(4.7, 2.8, 5.9);
-    this.camera.lookAt(new THREE.Vector3(0.72, 0.9, -2.85));
-    this.game.bryanVisual.update(0);
   }
 
   startHouseDialogue() {
@@ -554,9 +542,7 @@ export class ElectricFenceSequence {
         this.switchToHouseClose();
       }
     } else if (this.state === 'houseFadeIn') {
-      player.previousPosition.copy(player.position);
       player.velocity.set(0, 0, 0);
-      player.animate(dt, true);
       this.transitionTime += dt;
       const reveal = 1 - THREE.MathUtils.smoothstep(this.transitionTime, 0.12, 0.68);
       this.blackout.style.opacity = String(reveal);
@@ -566,10 +552,12 @@ export class ElectricFenceSequence {
         this.startHouseDialogue();
       }
     } else {
-      player.previousPosition.copy(player.position);
       player.velocity.set(0, 0, 0);
-      player.animate(dt, true);
-      this.animateBryan(dt, 'idle');
+      if (this.state !== 'houseDialogue' && this.state !== 'houseHolding') {
+        player.previousPosition.copy(player.position);
+        player.animate(dt, true);
+        this.animateBryan(dt, 'idle');
+      }
 
       if (this.state === 'stopped') {
         this.stopTime += dt;
@@ -578,7 +566,9 @@ export class ElectricFenceSequence {
     }
 
     // Player.animate() stores the movement speed; BryanModel consumes it here.
-    if (this.state !== 'gettingUp') game.bryanVisual.update(dt);
+    if (!['gettingUp', 'farmPan', 'farmFadeOut', 'houseFadeIn', 'houseDialogue', 'houseHolding'].includes(this.state)) {
+      game.bryanVisual.update(dt);
+    }
     if (game.dialogueManager.isOpen) game.dialogueManager.update();
 
     this.render();
