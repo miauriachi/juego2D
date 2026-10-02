@@ -235,6 +235,9 @@ export class ElectricFenceSequence {
     this.biteCooldown = 0;
     this.chaseScene = 'fence';
     this.barnProgress = 0;
+    this.collapseTime = 0;
+    this.postCollapseLeapTime = 0;
+    this.gameOverShown = false;
     this.rigAnimationEnabled = true;
 
     this.originalParent = game.player.group.parent;
@@ -812,6 +815,8 @@ export class ElectricFenceSequence {
     // plate instead of stopping Bryan.
     if (this.chaseScene === 'fence' && player.position.z <= -6.65) {
       this.enterBarnPath();
+    } else if (this.chaseScene === 'barnPath' && player.position.z <= -5.15) {
+      this.enterBarnClose();
     }
     player.animate(dt, false);
   }
@@ -837,10 +842,57 @@ export class ElectricFenceSequence {
     this.camera.lookAt(new THREE.Vector3(0, 0.75, -1.8));
   }
 
+  enterBarnClose() {
+    // Third chase plate: after the intermediate snowy path, the barn finally
+    // fills more of the frame. This keeps the geography continuous instead of
+    // teleporting Bryan straight from the fence to the barn.
+    this.chaseScene = 'barnClose';
+    this.backdrop.src = FARM_PRERENDER;
+    Object.assign(this.backdrop.style, {
+      width: '142%',
+      height: '142%',
+      objectFit: 'cover',
+      objectPosition: 'center center',
+      transformOrigin: '30% 52%',
+      transform: 'translate3d(13%, 1%, 0) scale(1.34)',
+      filter: 'brightness(.84) contrast(1.10) saturate(.78)',
+    });
+    const player = this.game.player;
+    player.position.set(0.10, 0, 3.45);
+    player.previousPosition.copy(player.position);
+    this.camera.position.set(5.15, 3.10, 6.45);
+    this.camera.lookAt(new THREE.Vector3(-0.25, 0.78, -1.95));
+  }
+
+  showGameOver() {
+    if (this.gameOverShown) return;
+    this.gameOverShown = true;
+    const overlay = document.createElement('div');
+    overlay.dataset.role = 'electric-fence-game-over';
+    Object.assign(overlay.style, {
+      position: 'fixed', inset: '0', zIndex: '40', display: 'grid',
+      placeItems: 'center', background: 'rgba(0,0,0,.72)', opacity: '0',
+      transition: 'opacity 900ms ease', pointerEvents: 'none',
+    });
+    const title = document.createElement('div');
+    title.textContent = 'GAME OVER';
+    Object.assign(title.style, {
+      color: '#8f1010', fontFamily: 'serif', fontWeight: '700',
+      fontSize: 'clamp(42px, 9vw, 92px)', letterSpacing: '.12em',
+      textShadow: '0 2px 10px #000',
+    });
+    overlay.append(title);
+    this.game.container.append(overlay);
+    requestAnimationFrame(() => { overlay.style.opacity = '1'; });
+    setTimeout(() => window.location.reload(), 3200);
+  }
+
   collapseBryan() {
     this.state = 'collapsed';
     this.game.playerInputEnabled = false;
     this.mobileControls.hide();
+    this.collapseTime = 0;
+    this.postCollapseLeapTime = 0;
     const player = this.game.player;
     player.velocity.set(0, 0, 0);
     player.group.rotation.x = -Math.PI / 2;
@@ -880,6 +932,9 @@ export class ElectricFenceSequence {
       this.backdrop.style.transform = `translate3d(${x}%, 0, 0) scale(${scale})`;
       player.position.x = THREE.MathUtils.clamp(player.position.x, -2.15, 2.15);
       player.position.z = THREE.MathUtils.clamp(player.position.z, -5.7, 4.0);
+    } else if (this.chaseScene === 'barnClose') {
+      player.position.x = THREE.MathUtils.clamp(player.position.x, -1.85, 1.85);
+      player.position.z = THREE.MathUtils.clamp(player.position.z, -5.6, 3.8);
     }
 
     const toPlayer = player.position.clone().sub(this.dog.position);
@@ -1082,7 +1137,24 @@ export class ElectricFenceSequence {
       this.updatePlayableChase(dt);
     } else if (this.state === 'collapsed') {
       player.velocity.set(0, 0, 0);
-      this.animateDogRun(dt, 0.18);
+      player.previousPosition.copy(player.position);
+      this.collapseTime += dt;
+      this.postCollapseLeapTime += dt;
+
+      // The dog no longer pogo-jumps. It pauses, then makes a short deliberate
+      // lunge, lands, and waits before the next one.
+      const cycle = 1.75;
+      const phase = this.postCollapseLeapTime % cycle;
+      if (phase < 0.48) {
+        const t = phase / 0.48;
+        this.dog.position.y = Math.sin(Math.PI * t) * 0.52;
+        this.animateDogRun(dt, 0.72);
+      } else {
+        this.dog.position.y = 0;
+        this.animateDogRun(dt, 0.10);
+      }
+
+      if (this.collapseTime >= 2.25) this.showGameOver();
     } else {
       player.velocity.set(0, 0, 0);
       if (this.state !== 'houseDialogue' && this.state !== 'houseHolding') {
