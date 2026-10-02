@@ -22,7 +22,7 @@ import { HospitalOpeningSequence } from './HospitalOpeningSequence.js';
 import { ParkingDepartureSequence } from './ParkingDepartureSequence.js';
 import { ForestSequence } from './ForestSequence.js';
 import { HousePorchSequence } from './HousePorchSequence.js';
-import { FenceArrivalSequence } from './FenceArrivalSequence.js';
+import { FenceArrivalSequence } from './FenceArrivalSequence.js';\nimport { ElectricFenceSequence } from './ElectricFenceSequence.js';
 import { DEBUG_MODE } from '../config/constants.js';
 import { PrerenderBackdropManager } from './PrerenderBackdropManager.js';
 import { ENTRANCE_CAMERA, ENTRANCE_GATE, ENTRANCE_NAVIGATION, ENTRANCE_ASPECT } from './EntranceConfig.js';
@@ -34,8 +34,9 @@ import { SceneNpcAnchors } from './SceneNpcAnchors.js';
 import { PrerenderRoom } from './PrerenderRoom.js';
 import { PrerenderRoomView } from './PrerenderRoomView.js';
 
-// TEMP QA checkpoint: show the new fence-arrival capsule immediately while it is being tuned.
-const TEMP_FENCE_ARRIVAL_CHECKPOINT = true;
+// TEMP QA checkpoints. ElectricFence is active while this new capsule is tuned.
+const TEMP_ELECTRIC_FENCE_CHECKPOINT = true;
+const TEMP_FENCE_ARRIVAL_CHECKPOINT = false;
 const TEMP_HOUSE_PORCH_CHECKPOINT = false;
 
 export class Game {
@@ -131,7 +132,8 @@ export class Game {
       this.input.keys.clear(); this.input.clearFrameState(); this.refreshObjective();
     }, this.container, Promise.all([this.visualReady, this.entranceBackdropReady]).then(results => results.every(Boolean)));
     this.ready = Promise.all([this.visualReady, this.entranceBackdropReady, this.openingSequence.ready]).then(() => {
-      if (TEMP_FENCE_ARRIVAL_CHECKPOINT) this.startFenceArrivalSequence();
+      if (TEMP_ELECTRIC_FENCE_CHECKPOINT) this.startElectricFenceSequence();
+      else if (TEMP_FENCE_ARRIVAL_CHECKPOINT) this.startFenceArrivalSequence();
       else if (TEMP_HOUSE_PORCH_CHECKPOINT) this.startHousePorchCheckpoint();
       return true;
     });
@@ -488,6 +490,26 @@ export class Game {
 
 
 
+  startElectricFenceSequence() {
+    // Isolated QA capsule: prerendered snowy plate + live Bryan + live 3D fence.
+    this.openingSequence?.transition?.remove();
+    if (this.openingSequence?.canvas) this.openingSequence.canvas.style.visibility = 'visible';
+    if (this.openingSequence) this.openingSequence.completed = true;
+
+    this.prerenderBackdrop?.disable();
+    this.housePorchSequence?.destroy?.();
+    this.fenceArrivalSequence?.destroy?.();
+    this.electricFenceSequence?.destroy?.();
+    this.electricFenceSequence = new ElectricFenceSequence(this);
+    this.mode = 'electricFence';
+    this.playerInputEnabled = false;
+    this.objective.hidden = true;
+    this.dialogueManager.setHint('');
+    this.input.keys.clear();
+    this.input.clearFrameState();
+  }
+
+
   startFenceArrivalSequence() {
     // Isolated prerendered capsule. The supplied plate already contains Bryan,
     // the electrified fence and his dialogue, so the live player stays hidden.
@@ -581,7 +603,7 @@ export class Game {
       this.input.clearFrameState();
       return;
     }
-    if (this.mode === 'fenceArrival') { this.fenceArrivalSequence.update(dt); return; }
+    if (this.mode === 'electricFence') { this.electricFenceSequence.update(dt); return; }\n    if (this.mode === 'fenceArrival') { this.fenceArrivalSequence.update(dt); return; }
     if (this.mode === 'housePorch') { this.housePorchSequence.update(dt); return; }
     if (this.mode === 'parkingDeparture') { this.updateDeparture(dt); return; }
     if (this.mode === 'forest') { this.forestSequence.update(dt); return; }
