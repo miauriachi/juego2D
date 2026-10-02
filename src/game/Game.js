@@ -598,7 +598,7 @@ export class Game {
 
   update() {
     const dt = Math.min(this.clock.getDelta(), 0.05);
-    this.bryanVisual.update();
+    this.bryanVisual.update(dt);
     if (this.mode === 'opening') {
       this.openingSequence.update(dt);
       // The door sequence is DOM-only; no original-hospital render is submitted.
