@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import { MobileControls } from './MobileControls.js';
 
 const FENCE_BACKDROP = new URL(
   '../../assets/backgrounds/fence/electric_fence_clean.webp',
@@ -226,7 +227,9 @@ export class ElectricFenceSequence {
     this.bryanReactionStarted = false;
     this.transitionTime = 0;
     this.dogJumpTime = 0;
+    this.dogLandingTime = 0;
     this.chaseTime = 0;
+    this.chaseGrace = 0;
     this.panTime = 0;
     this.rigAnimationEnabled = true;
 
@@ -333,6 +336,8 @@ export class ElectricFenceSequence {
       pointerEvents: 'none',
     });
     game.container.append(this.blackout);
+
+    this.mobileControls = new MobileControls(game.container, game.input);
 
     this.scene = new THREE.Scene();
     this.scene.background = null;
@@ -681,24 +686,21 @@ export class ElectricFenceSequence {
       filter: 'brightness(.86) contrast(1.08) saturate(.80)',
     });
 
+    // This is a dog-only cinematic shot. Bryan must not appear here.
     this.fence.visible = false;
-
-    player.group.visible = true;
-    player.position.set(0.45, 0, -1.85);
-    player.previousPosition.copy(player.position);
-    player.rotationY = -Math.PI / 2;
-    player.group.rotation.set(0, player.rotationY, 0);
+    player.group.visible = false;
     player.velocity.set(0, 0, 0);
-    player.animate(0, true);
 
+    // Bring the dog much closer to camera so it reads as a real medium-sized dog
+    // against the tall corn instead of a tiny distant prop.
     this.dog.visible = true;
-    this.dog.position.set(-2.55, 0.18, -4.25);
+    this.dog.scale.setScalar(1.42);
+    this.dog.position.set(-1.75, 0.08, -2.85);
     this.dog.rotation.set(0, -Math.PI / 2, 0);
     this.dog.userData.phase = 0;
 
-    this.camera.position.set(0.0, 3.25, 7.2);
-    this.camera.lookAt(new THREE.Vector3(0.0, 0.95, -2.25));
-    this.game.bryanVisual.update(0);
+    this.camera.position.set(0.0, 2.45, 5.15);
+    this.camera.lookAt(new THREE.Vector3(0.0, 0.95, -1.35));
   }
 
   startDogJump() {
@@ -723,48 +725,116 @@ export class ElectricFenceSequence {
 
   updateDogJump(dt) {
     this.dogJumpTime += dt;
-    const duration = 0.82;
+    const duration = 0.95;
     const t = THREE.MathUtils.clamp(this.dogJumpTime / duration, 0, 1);
     const eased = THREE.MathUtils.smoothstep(t, 0, 1);
 
-    const start = new THREE.Vector3(-2.55, 0.18, -4.25);
-    const end = new THREE.Vector3(-1.35, 0.0, -2.15);
+    const start = new THREE.Vector3(-1.75, 0.08, -2.85);
+    const end = new THREE.Vector3(0.10, 0.0, -0.72);
     this.dog.position.lerpVectors(start, end, eased);
-    this.dog.position.y += Math.sin(Math.PI * t) * 1.08;
-    this.dog.rotation.y = THREE.MathUtils.lerp(-Math.PI / 2, -Math.PI / 2, eased);
-    this.animateDogRun(dt, 1.2);
+    this.dog.position.y += Math.sin(Math.PI * t) * 1.28;
+    this.dog.rotation.y = -Math.PI / 2;
+    this.animateDogRun(dt, 1.15);
 
     if (t >= 1) {
-      this.state = 'dogChase';
-      this.chaseTime = 0;
-      this.dog.position.set(-1.35, 0, -2.15);
+      this.dog.position.copy(end);
+      this.state = 'dogLanding';
+      this.dogLandingTime = 0;
     }
   }
 
-  updateDogChase(dt) {
-    const player = this.game.player;
-    this.chaseTime += dt;
+  updateDogLanding(dt) {
+    this.dogLandingTime += dt;
+    this.animateDogRun(dt, 0.25);
 
-    const runSpeed = 2.55;
-    const dogSpeed = 2.95;
-    if (this.chaseTime < 2.6) {
-      player.previousPosition.copy(player.position);
-      player.position.x += runSpeed * dt;
-      player.velocity.set(runSpeed, 0, 0);
-      player.rotationY = -Math.PI / 2;
-      player.group.rotation.y = player.rotationY;
-      player.animate(dt, false);
-
-      this.dog.position.x += dogSpeed * dt;
-      this.animateDogRun(dt, 1.25);
-    } else {
-      // Hold the pursuit in-frame while both keep their running cycles alive.
-      player.previousPosition.copy(player.position);
-      player.previousPosition.x -= 0.16;
-      player.velocity.set(runSpeed, 0, 0);
-      player.animate(dt, false);
-      this.animateDogRun(dt, 1.25);
+    // Hold the landing just long enough for the player to read it, then cut.
+    if (this.dogLandingTime >= 0.42) {
+      this.state = 'dogCutFadeOut';
+      this.transitionTime = 0;
     }
+  }
+
+  setupPlayableChaseScene() {
+    const player = this.game.player;
+
+    // Return to Bryan's side of the fence. This is gameplay again, not a cutscene.
+    this.backdrop.hidden = false;
+    this.backdrop.src = FENCE_OPPOSITE_BACKDROP;
+    Object.assign(this.backdrop.style, {
+      width: '100%',
+      height: '100%',
+      objectFit: 'cover',
+      objectPosition: 'center center',
+      transformOrigin: '50% 50%',
+      transform: 'none',
+      filter: 'brightness(.88) contrast(1.04) saturate(.84)',
+    });
+
+    this.fence.visible = true;
+    player.group.visible = true;
+    player.position.set(0.18, 0, -3.15);
+    player.previousPosition.copy(player.position);
+    player.rotationY = -0.18;
+    player.group.rotation.set(0, player.rotationY, 0);
+    player.velocity.set(0, 0, 0);
+    player.animate(0, true);
+
+    this.dog.visible = false;
+    this.dog.scale.setScalar(0.92);
+
+    this.camera.position.set(-5.45, 3.35, -7.75);
+    this.camera.lookAt(new THREE.Vector3(0.05, 0.55, -2.45));
+
+    this.game.playerInputEnabled = true;
+    this.mobileControls.show();
+    this.game.input.keys.clear();
+    this.game.input.clearFrameState();
+    this.game.bryanVisual.update(0);
+    this.chaseGrace = 0;
+  }
+
+  updatePlayableMovement(dt) {
+    const player = this.game.player;
+    player.update(this.game.input, dt);
+
+    // Keep Bryan inside the useful portion of this fixed camera shot.
+    player.position.x = THREE.MathUtils.clamp(player.position.x, -3.9, 4.15);
+    player.position.z = THREE.MathUtils.clamp(player.position.z, -5.2, 0.65);
+    player.animate(dt, false);
+  }
+
+  spawnChaseDog() {
+    const player = this.game.player;
+    const forward = new THREE.Vector3(0, 0, -1)
+      .applyAxisAngle(new THREE.Vector3(0, 1, 0), player.rotationY)
+      .normalize();
+    const right = new THREE.Vector3(-forward.z, 0, forward.x);
+
+    this.dog.position.copy(player.position)
+      .addScaledVector(forward, -3.15)
+      .addScaledVector(right, -0.70);
+    this.dog.position.y = 0;
+    this.dog.visible = true;
+    this.dog.scale.setScalar(0.92);
+    this.dog.userData.phase = 0;
+    this.playGrowlSound();
+  }
+
+  updatePlayableChase(dt) {
+    this.updatePlayableMovement(dt);
+
+    const player = this.game.player;
+    const toPlayer = player.position.clone().sub(this.dog.position);
+    toPlayer.y = 0;
+    const distance = toPlayer.length();
+
+    if (distance > 0.001) {
+      toPlayer.normalize();
+      const dogSpeed = 3.15;
+      this.dog.position.addScaledVector(toPlayer, dogSpeed * dt);
+      this.dog.rotation.y = Math.atan2(-toPlayer.z, toPlayer.x);
+    }
+    this.animateDogRun(dt, 1.25);
   }
 
   render() {
@@ -885,9 +955,7 @@ export class ElectricFenceSequence {
         this.transitionTime = 0;
       }
     } else if (this.state === 'cornfieldFadeIn') {
-      player.previousPosition.copy(player.position);
       player.velocity.set(0, 0, 0);
-      player.animate(dt, true);
       this.transitionTime += dt;
       const reveal = 1 - THREE.MathUtils.smoothstep(this.transitionTime, 0.12, 0.72);
       this.blackout.style.opacity = String(reveal);
@@ -896,12 +964,43 @@ export class ElectricFenceSequence {
         this.startDogJump();
       }
     } else if (this.state === 'dogJump') {
+      player.velocity.set(0, 0, 0);
+      this.updateDogJump(dt);
+    } else if (this.state === 'dogLanding') {
+      player.velocity.set(0, 0, 0);
+      this.updateDogLanding(dt);
+    } else if (this.state === 'dogCutFadeOut') {
+      player.velocity.set(0, 0, 0);
+      this.transitionTime += dt;
+      const fade = THREE.MathUtils.smoothstep(this.transitionTime, 0, 0.38);
+      this.blackout.style.opacity = String(fade);
+      if (this.transitionTime >= 0.40) {
+        this.blackout.style.opacity = '1';
+        this.setupPlayableChaseScene();
+        this.state = 'chaseFadeIn';
+        this.transitionTime = 0;
+      }
+    } else if (this.state === 'chaseFadeIn') {
       player.previousPosition.copy(player.position);
       player.velocity.set(0, 0, 0);
       player.animate(dt, true);
-      this.updateDogJump(dt);
-    } else if (this.state === 'dogChase') {
-      this.updateDogChase(dt);
+      this.transitionTime += dt;
+      const reveal = 1 - THREE.MathUtils.smoothstep(this.transitionTime, 0.10, 0.62);
+      this.blackout.style.opacity = String(reveal);
+      if (this.transitionTime >= 0.64) {
+        this.blackout.style.opacity = '0';
+        this.state = 'playableGrace';
+        this.chaseGrace = 0;
+      }
+    } else if (this.state === 'playableGrace') {
+      this.updatePlayableMovement(dt);
+      this.chaseGrace += dt;
+      if (this.chaseGrace >= 2.35) {
+        this.spawnChaseDog();
+        this.state = 'playableChase';
+      }
+    } else if (this.state === 'playableChase') {
+      this.updatePlayableChase(dt);
     } else {
       player.velocity.set(0, 0, 0);
       if (this.state !== 'houseDialogue' && this.state !== 'houseHolding') {
@@ -917,7 +1016,11 @@ export class ElectricFenceSequence {
     }
 
     // Player.animate() stores the movement speed; BryanModel consumes it here.
-    if (!['gettingUp', 'farmPan', 'farmFadeOut', 'houseFadeIn', 'houseDialogue', 'returnFadeOut'].includes(this.state)) {
+    if (![
+      'gettingUp', 'farmPan', 'farmFadeOut', 'houseFadeIn', 'houseDialogue',
+      'returnFadeOut', 'cornfieldFadeOut', 'cornfieldFadeIn', 'dogJump',
+      'dogLanding', 'dogCutFadeOut',
+    ].includes(this.state)) {
       game.bryanVisual.update(dt);
     }
     if (game.dialogueManager.isOpen) game.dialogueManager.update();
@@ -938,6 +1041,7 @@ export class ElectricFenceSequence {
     this.game.player.velocity.set(0, 0, 0);
 
     this.game.renderer.domElement.style.visibility = this.originalGameCanvasVisibility;
+    this.mobileControls?.destroy();
     this.renderer?.dispose();
     this.blackout?.remove();
     this.root?.remove();
