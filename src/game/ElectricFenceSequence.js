@@ -231,6 +231,10 @@ export class ElectricFenceSequence {
     this.chaseTime = 0;
     this.chaseGrace = 0;
     this.panTime = 0;
+    this.biteCount = 0;
+    this.biteCooldown = 0;
+    this.chaseScene = 'fence';
+    this.barnProgress = 0;
     this.rigAnimationEnabled = true;
 
     this.originalParent = game.player.group.parent;
@@ -780,7 +784,10 @@ export class ElectricFenceSequence {
     player.animate(0, true);
 
     this.dog.visible = false;
-    this.dog.scale.setScalar(0.92);
+    this.dog.scale.setScalar(0.58);
+    this.biteCount = 0;
+    this.biteCooldown = 0;
+    this.chaseScene = 'fence';
 
     this.camera.position.set(-5.45, 3.35, -7.75);
     this.camera.lookAt(new THREE.Vector3(0.05, 0.55, -2.45));
@@ -796,10 +803,49 @@ export class ElectricFenceSequence {
     const player = this.game.player;
     player.update(this.game.input, dt);
 
-    // Keep Bryan inside the useful portion of this fixed camera shot.
-    player.position.x = THREE.MathUtils.clamp(player.position.x, -3.9, 4.15);
-    player.position.z = THREE.MathUtils.clamp(player.position.z, -5.2, 0.65);
+    // Fence rails are hard boundaries: Bryan can run down-screen toward the
+    // escape edge, but cannot cross either side of the corridor.
+    player.position.x = THREE.MathUtils.clamp(player.position.x, -2.75, 2.65);
+    player.position.z = THREE.MathUtils.clamp(player.position.z, -7.15, 0.65);
+
+    // Crossing the down-screen/red-arrow edge streams the next fixed-camera
+    // plate instead of stopping Bryan.
+    if (this.chaseScene === 'fence' && player.position.z <= -6.65) {
+      this.enterBarnPath();
+    }
     player.animate(dt, false);
+  }
+
+  enterBarnPath() {
+    this.chaseScene = 'barnPath';
+    this.barnProgress = 0;
+    this.fence.visible = false;
+    this.backdrop.src = FARM_PRERENDER;
+    Object.assign(this.backdrop.style, {
+      width: '128%',
+      height: '128%',
+      objectFit: 'cover',
+      objectPosition: 'center center',
+      transformOrigin: '50% 50%',
+      transform: 'translate3d(9%, 0, 0) scale(1.08)',
+      filter: 'brightness(.86) contrast(1.08) saturate(.80)',
+    });
+    const player = this.game.player;
+    player.position.set(0.15, 0, 3.6);
+    player.previousPosition.copy(player.position);
+    this.camera.position.set(5.8, 3.35, 7.2);
+    this.camera.lookAt(new THREE.Vector3(0, 0.75, -1.8));
+  }
+
+  collapseBryan() {
+    this.state = 'collapsed';
+    this.game.playerInputEnabled = false;
+    this.mobileControls.hide();
+    const player = this.game.player;
+    player.velocity.set(0, 0, 0);
+    player.group.rotation.x = -Math.PI / 2;
+    player.position.y = 0.10;
+    player.previousPosition.copy(player.position);
   }
 
   spawnChaseDog() {
@@ -814,24 +860,57 @@ export class ElectricFenceSequence {
       .addScaledVector(right, -0.70);
     this.dog.position.y = 0;
     this.dog.visible = true;
-    this.dog.scale.setScalar(0.92);
+    this.dog.scale.setScalar(0.58);
     this.dog.userData.phase = 0;
     this.playGrowlSound();
   }
 
   updatePlayableChase(dt) {
     this.updatePlayableMovement(dt);
+    if (this.state === 'collapsed') return;
 
     const player = this.game.player;
+    this.biteCooldown = Math.max(0, this.biteCooldown - dt);
+
+    if (this.chaseScene === 'barnPath') {
+      // Continue the earlier farm pan visually while Bryan runs toward the same barn.
+      this.barnProgress = THREE.MathUtils.clamp(this.barnProgress + Math.max(0, -player.velocity.z) * dt * 0.035, 0, 1);
+      const x = THREE.MathUtils.lerp(9, -10, this.barnProgress);
+      const scale = THREE.MathUtils.lerp(1.08, 1.24, this.barnProgress);
+      this.backdrop.style.transform = `translate3d(${x}%, 0, 0) scale(${scale})`;
+      player.position.x = THREE.MathUtils.clamp(player.position.x, -2.15, 2.15);
+      player.position.z = THREE.MathUtils.clamp(player.position.z, -5.7, 4.0);
+    }
+
     const toPlayer = player.position.clone().sub(this.dog.position);
     toPlayer.y = 0;
     const distance = toPlayer.length();
 
     if (distance > 0.001) {
       toPlayer.normalize();
-      const dogSpeed = 3.15;
+      const dogSpeed = 3.35;
       this.dog.position.addScaledVector(toPlayer, dogSpeed * dt);
       this.dog.rotation.y = Math.atan2(-toPlayer.z, toPlayer.x);
+    }
+
+    // Attack reads as a leap/bite, with one hit per contact cooldown.
+    if (distance < 0.92) {
+      const leap = Math.sin(performance.now() * 0.018);
+      this.dog.position.y = Math.max(0, leap) * 0.58;
+      if (this.biteCooldown <= 0) {
+        this.biteCooldown = 1.05;
+        this.biteCount += 1;
+        player.group.rotation.z = (this.biteCount % 2 ? -1 : 1) * 0.12;
+        setTimeout(() => {
+          if (this.state !== 'collapsed') player.group.rotation.z = 0;
+        }, 180);
+        if (this.biteCount >= 5) {
+          this.collapseBryan();
+          return;
+        }
+      }
+    } else {
+      this.dog.position.y = 0;
     }
     this.animateDogRun(dt, 1.25);
   }
@@ -1001,6 +1080,9 @@ export class ElectricFenceSequence {
       }
     } else if (this.state === 'playableChase') {
       this.updatePlayableChase(dt);
+    } else if (this.state === 'collapsed') {
+      player.velocity.set(0, 0, 0);
+      this.animateDogRun(dt, 0.18);
     } else {
       player.velocity.set(0, 0, 0);
       if (this.state !== 'houseDialogue' && this.state !== 'houseHolding') {
