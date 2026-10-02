@@ -22,7 +22,8 @@ import { HospitalOpeningSequence } from './HospitalOpeningSequence.js';
 import { ParkingDepartureSequence } from './ParkingDepartureSequence.js';
 import { ForestSequence } from './ForestSequence.js';
 import { HousePorchSequence } from './HousePorchSequence.js';
-import { FenceArrivalSequence } from './FenceArrivalSequence.js';\nimport { ElectricFenceSequence } from './ElectricFenceSequence.js';
+import { FenceArrivalSequence } from './FenceArrivalSequence.js';
+import { ElectricFenceSequence } from './ElectricFenceSequence.js';
 import { DEBUG_MODE } from '../config/constants.js';
 import { PrerenderBackdropManager } from './PrerenderBackdropManager.js';
 import { ENTRANCE_CAMERA, ENTRANCE_GATE, ENTRANCE_NAVIGATION, ENTRANCE_ASPECT } from './EntranceConfig.js';
@@ -604,7 +605,8 @@ export class Game {
       this.input.clearFrameState();
       return;
     }
-    if (this.mode === 'electricFence') { this.electricFenceSequence.update(dt); return; }\n    if (this.mode === 'fenceArrival') { this.fenceArrivalSequence.update(dt); return; }
+    if (this.mode === 'electricFence') { this.electricFenceSequence.update(dt); return; }
+    if (this.mode === 'fenceArrival') { this.fenceArrivalSequence.update(dt); return; }
     if (this.mode === 'housePorch') { this.housePorchSequence.update(dt); return; }
     if (this.mode === 'parkingDeparture') { this.updateDeparture(dt); return; }
     if (this.mode === 'forest') { this.forestSequence.update(dt); return; }
