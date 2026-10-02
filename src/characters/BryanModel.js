@@ -14,6 +14,7 @@ export class BryanModel {
     this.player = player; this.accessories = new Map(); this.loaded = false;
     this.rigBones = []; this.rigRest = []; this.rigTime = 0; this.rigMode = 'idle';
     this.rigHipIndex = BRYAN_BONES.findIndex(bone => bone.name === 'mixamorig:Hips');
+    this.mixer = null; this.walkAction = null; this.idleAction = null;
     this.ready = new Promise(resolve => {
       const failed = error => { console.error('Bryan GLB load failed:', error?.message || error); resolve(false); };
       new GLTFLoader().load(url, gltf => {
@@ -38,6 +39,29 @@ export class BryanModel {
             position: bone.position.clone(),
             quaternion: bone.quaternion.clone(),
           } : null);
+
+          if (gltf.animations?.length) {
+            this.mixer = new THREE.AnimationMixer(model);
+            const idleClip = gltf.animations.find(clip => /idle/i.test(clip.name));
+            const walkClip = gltf.animations.find(clip => /walk/i.test(clip.name))
+              || gltf.animations.find(clip => /run/i.test(clip.name))
+              || gltf.animations[0];
+            if (walkClip) {
+              this.walkAction = this.mixer.clipAction(walkClip);
+              this.walkAction.setLoop(THREE.LoopRepeat, Infinity);
+              this.walkAction.clampWhenFinished = false;
+              this.walkAction.enabled = true;
+              this.walkAction.play();
+              this.walkAction.paused = true;
+            }
+            if (idleClip) {
+              this.idleAction = this.mixer.clipAction(idleClip);
+              this.idleAction.setLoop(THREE.LoopRepeat, Infinity);
+              this.idleAction.enabled = true;
+              this.idleAction.play();
+            }
+          }
+
           const localBox = new THREE.Box3().setFromObject(visual);
           player.group.add(visual); this.group = visual;
           player.model.visible = false; this.loaded = true;
@@ -59,16 +83,51 @@ export class BryanModel {
     if (mode !== 'walk' && mode !== 'idle') mode = 'idle';
     if (this.rigMode === mode) return;
     this.rigMode = mode;
+
+    if (this.walkAction) {
+      if (mode === 'walk') {
+        this.walkAction.paused = false;
+        this.walkAction.enabled = true;
+        this.walkAction.setEffectiveTimeScale(0.72);
+        this.walkAction.setEffectiveWeight(1);
+        if (this.idleAction) this.idleAction.setEffectiveWeight(0);
+      } else {
+        this.walkAction.paused = true;
+        if (this.idleAction) this.idleAction.setEffectiveWeight(1);
+      }
+    }
+
     if (mode === 'walk') this.rigTime = 0;
   }
 
   animateRig(dt, mode = this.rigMode) {
-    if (!this.loaded || !this.rigBones.length) return;
+    if (!this.loaded) return;
     this.rigMode = mode;
 
+    if (this.mixer && this.walkAction) {
+      if (mode === 'walk') {
+        this.walkAction.paused = false;
+        this.mixer.update(Math.max(0, dt));
+        if (this.group) {
+          const phase = this.walkAction.time / Math.max(0.001, this.walkAction.getClip().duration);
+          this.group.position.y = Math.abs(Math.sin(phase * Math.PI * 2)) * 0.018;
+          this.group.rotation.z = Math.sin(phase * Math.PI * 2) * 0.010;
+        }
+      } else {
+        this.walkAction.paused = true;
+        if (this.idleAction) this.mixer.update(Math.max(0, dt));
+        if (this.group) {
+          const blend = THREE.MathUtils.clamp(Math.max(0, dt) * 10, 0, 1);
+          this.group.position.y = THREE.MathUtils.lerp(this.group.position.y, 0, blend);
+          this.group.rotation.z = THREE.MathUtils.lerp(this.group.rotation.z, 0, blend);
+        }
+      }
+      return;
+    }
+
+    if (!this.rigBones.length) return;
+
     if (mode === 'walk' && BRYAN_RUN_FRAMES.length > 1) {
-      // Reuse Bryan's existing rig animation at a slower cadence and reduced
-      // amplitude so the run capture reads as a deliberate walk in fixed camera.
       this.rigTime = (this.rigTime + Math.max(0, dt) * 0.62) % BRYAN_RUN_DURATION;
       const frame = (this.rigTime / BRYAN_RUN_DURATION) * BRYAN_RUN_FRAMES.length;
       const a = Math.floor(frame) % BRYAN_RUN_FRAMES.length;
@@ -87,7 +146,7 @@ export class BryanModel {
         qa.set(...ra);
         qb.set(...rb);
         animated.slerpQuaternions(qa, qb, alpha);
-        bone.quaternion.copy(rest.quaternion).slerp(animated, 0.52);
+        bone.quaternion.copy(rest.quaternion).slerp(animated, 0.86);
       });
 
       const hip = this.rigBones[this.rigHipIndex];
@@ -99,10 +158,16 @@ export class BryanModel {
         const y = THREE.MathUtils.lerp(ha[1], hb[1], alpha);
         const z = THREE.MathUtils.lerp(ha[2], hb[2], alpha);
         hip.position.set(
-          THREE.MathUtils.lerp(hipRest.position.x, x, 0.32),
-          THREE.MathUtils.lerp(hipRest.position.y, y, 0.32),
-          THREE.MathUtils.lerp(hipRest.position.z, z, 0.32),
+          THREE.MathUtils.lerp(hipRest.position.x, x, 0.55),
+          THREE.MathUtils.lerp(hipRest.position.y, y, 0.55),
+          THREE.MathUtils.lerp(hipRest.position.z, z, 0.55),
         );
+      }
+
+      if (this.group) {
+        const phase = this.rigTime / BRYAN_RUN_DURATION;
+        this.group.position.y = Math.abs(Math.sin(phase * Math.PI * 2)) * 0.022;
+        this.group.rotation.z = Math.sin(phase * Math.PI * 2) * 0.012;
       }
       return;
     }
@@ -115,6 +180,10 @@ export class BryanModel {
       bone.position.lerp(rest.position, blend);
       bone.quaternion.slerp(rest.quaternion, blend);
     });
+    if (this.group) {
+      this.group.position.y = THREE.MathUtils.lerp(this.group.position.y, 0, blend);
+      this.group.rotation.z = THREE.MathUtils.lerp(this.group.rotation.z, 0, blend);
+    }
   }
 
   update() {

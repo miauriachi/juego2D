@@ -1,7 +1,7 @@
 import * as THREE from 'three';
 
 const FENCE_BACKDROP = new URL(
-  '../../assets/backgrounds/forest/forest_crash_clean.jpg',
+  '../../assets/backgrounds/fence/electric_fence_clean.webp',
   import.meta.url,
 ).href;
 
@@ -171,7 +171,7 @@ export class ElectricFenceSequence {
       objectFit: 'cover',
       objectPosition: 'center center',
       imageRendering: 'auto',
-      filter: 'brightness(.72) contrast(1.08) saturate(.72)',
+      filter: 'brightness(.88) contrast(1.04) saturate(.84)',
       userSelect: 'none',
     });
     this.backdrop.addEventListener('error', () => {
