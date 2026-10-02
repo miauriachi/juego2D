@@ -786,7 +786,6 @@ export class ElectricFenceSequence {
     this.camera.lookAt(new THREE.Vector3(0.05, 0.55, -2.45));
 
     this.game.playerInputEnabled = true;
-    this.mobileControls.show();
     this.game.input.keys.clear();
     this.game.input.clearFrameState();
     this.game.bryanVisual.update(0);
@@ -991,6 +990,7 @@ export class ElectricFenceSequence {
         this.blackout.style.opacity = '0';
         this.state = 'playableGrace';
         this.chaseGrace = 0;
+        this.mobileControls.show();
       }
     } else if (this.state === 'playableGrace') {
       this.updatePlayableMovement(dt);
