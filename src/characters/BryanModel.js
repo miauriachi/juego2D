@@ -1,6 +1,7 @@
 import * as THREE from 'three';
 import { GLTFLoader } from 'https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/loaders/GLTFLoader.js';
-import { DEBUG_MODE } from '../config/constants.js';\nimport {
+import { DEBUG_MODE } from '../config/constants.js';
+import {
   BRYAN_BONES,
   BRYAN_RUN_DYNAMIC_BONES,
   BRYAN_RUN_DURATION,
