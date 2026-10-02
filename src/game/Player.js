@@ -18,11 +18,15 @@ export class Player {
     this.group.add(this.model);
     this.velocity = new THREE.Vector3();
     this.rotationY = 0;
+    this.animationSpeed = 0;
+    this.animationRunning = false;
   }
 
   animate(dt, blocked = false) {
     const speed = blocked || dt <= 0 ? 0 : this.position.distanceTo(this.previousPosition) / dt;
-    this.model.animate(dt, speed, speed > PLAYER_SPEED + 0.1);
+    this.animationSpeed = speed;
+    this.animationRunning = speed > PLAYER_SPEED + 0.1;
+    this.model.animate(dt, speed, this.animationRunning);
   }
 
   update(input, dt) {
