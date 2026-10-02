@@ -19,10 +19,7 @@ const FARM_PRERENDER = new URL(
 // Dedicated bridge plate between the fence and barn shots. It is intentionally
 // composed as a snowy path with the barn still far away, rather than cropping
 // the barn plate and pretending it is a new location.
-const BARN_PATH_PRERENDER = new URL(
-  '../../assets/backgrounds/fence/barn_path_transition.svg',
-  import.meta.url,
-).href;
+const BARN_PATH_PRERENDER = FARM_PRERENDER;
 
 const CORNFIELD_BACKDROP = new URL(
   '../../assets/backgrounds/fence/cornfield_chase.webp',
@@ -837,15 +834,17 @@ export class ElectricFenceSequence {
     this.fence.visible = false;
     this.backdrop.src = BARN_PATH_PRERENDER;
     Object.assign(this.backdrop.style, {
-      inset: '0',
-      left: '0',
-      right: '0',
-      width: '100%',
-      height: '100%',
+      inset: '-6%',
+      left: '-6%',
+      top: '-6%',
+      right: 'auto',
+      bottom: 'auto',
+      width: '112%',
+      height: '112%',
       objectFit: 'cover',
-      objectPosition: 'center center',
+      objectPosition: '76% 52%',
       transformOrigin: '50% 50%',
-      transform: 'scale(1.01)',
+      transform: 'scale(1)',
       filter: 'brightness(.86) contrast(1.08) saturate(.80)',
     });
     const player = this.game.player;
@@ -862,13 +861,15 @@ export class ElectricFenceSequence {
     this.chaseScene = 'barnClose';
     this.backdrop.src = FARM_PRERENDER;
     Object.assign(this.backdrop.style, {
-      inset: '0',
-      left: '0',
-      right: '0',
-      width: '100%',
-      height: '100%',
+      inset: '-6%',
+      left: '-6%',
+      top: '-6%',
+      right: 'auto',
+      bottom: 'auto',
+      width: '112%',
+      height: '112%',
       objectFit: 'cover',
-      objectPosition: 'center center',
+      objectPosition: '30% 52%',
       transformOrigin: '30% 52%',
       transform: 'scale(1.16)',
       filter: 'brightness(.84) contrast(1.10) saturate(.78)',
@@ -946,8 +947,9 @@ export class ElectricFenceSequence {
       // Intermediate trail: keep the barn distant at first and let it grow only
       // gradually. The oversized plate stays beyond both viewport edges so no
       // pale/empty strip can appear on mobile.
-      const scale = THREE.MathUtils.lerp(1.01, 1.07, this.barnProgress);
-      this.backdrop.style.transform = `scale(${scale})`;
+      const scale = THREE.MathUtils.lerp(1.0, 1.10, this.barnProgress);
+      const x = THREE.MathUtils.lerp(0, -4.5, this.barnProgress);
+      this.backdrop.style.transform = `translate3d(${x}%, 0, 0) scale(${scale})`;
       player.position.x = THREE.MathUtils.clamp(player.position.x, -2.15, 2.15);
       player.position.z = THREE.MathUtils.clamp(player.position.z, -5.7, 4.0);
     } else if (this.chaseScene === 'barnClose') {
