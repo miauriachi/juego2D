@@ -28,6 +28,7 @@ function makeWarningTexture() {
   ctx.fillText('PELIGRO', 64, 28);
   ctx.font = 'bold 11px monospace';
   ctx.fillText('CERCA ELECTRICA', 64, 45);
+
   const texture = new THREE.CanvasTexture(canvas);
   texture.colorSpace = THREE.SRGBColorSpace;
   texture.magFilter = THREE.NearestFilter;
@@ -73,6 +74,7 @@ function makeFence() {
     const x1 = postXs[i + 1];
     const mid = (x0 + x1) / 2;
     const length = x1 - x0;
+
     cableLevels.forEach((y, level) => {
       const cable = new THREE.Mesh(
         new THREE.CylinderGeometry(0.018, 0.018, length, 5, 1, false),
@@ -100,7 +102,7 @@ function makeFence() {
 
   const warning = new THREE.Mesh(
     new THREE.PlaneGeometry(0.72, 0.36),
-    new THREE.MeshBasicMaterial({ map: makeWarningTexture(), transparent: false }),
+    new THREE.MeshBasicMaterial({ map: makeWarningTexture() }),
   );
   warning.position.set(0, 0.84, fenceZ + 0.102);
   warning.rotation.z = -0.035;
@@ -109,22 +111,22 @@ function makeFence() {
   return fence;
 }
 
-// Isolated fixed-camera capsule. Background is a prerendered plate; Bryan and the
-// cattle fence remain real Three.js layers so this sequence can be moved later.
+// Independent fixed-camera capsule.
+// The prerendered plate is DOM art; Bryan and the fence are rendered as real 3D
+// on a transparent WebGL canvas layered above it.
 export class ElectricFenceSequence {
   constructor(game) {
     this.game = game;
-    this.scene = new THREE.Scene();
-    this.scene.background = new THREE.Color(0x09111b);
-    this.scene.fog = new THREE.Fog(0x0b1420, 16, 38);
     this.state = 'arriving';
     this.stopTime = 0;
     this.dialogueStarted = false;
+    this.rigAnimationEnabled = true;
 
     this.originalParent = game.player.group.parent;
     this.originalPosition = game.player.position.clone();
     this.originalRotation = game.player.rotationY;
     this.originalVisible = game.player.group.visible;
+    this.originalGameCanvasVisibility = game.renderer.domElement.style.visibility;
 
     game.playerInputEnabled = false;
     game.objective.hidden = true;
@@ -132,6 +134,85 @@ export class ElectricFenceSequence {
     game.container.classList.remove('driving-mode');
     game.input.keys.clear();
     game.input.clearFrameState();
+
+    // Hide the main renderer while this isolated capsule is active.
+    game.renderer.domElement.style.visibility = 'hidden';
+
+    this.root = document.createElement('section');
+    this.root.dataset.role = 'electric-fence-sequence';
+    Object.assign(this.root.style, {
+      position: 'fixed',
+      inset: '0',
+      zIndex: '5',
+      display: 'grid',
+      placeItems: 'center',
+      overflow: 'hidden',
+      background: '#02060b',
+      pointerEvents: 'none',
+    });
+
+    this.stage = document.createElement('div');
+    Object.assign(this.stage.style, {
+      position: 'relative',
+      overflow: 'hidden',
+      background: 'linear-gradient(#0a1420, #18232c 52%, #d1d9dd 53%, #9aa8af)',
+      boxShadow: '0 0 80px rgba(0,0,0,.85)',
+    });
+
+    this.backdrop = document.createElement('img');
+    this.backdrop.alt = '';
+    this.backdrop.draggable = false;
+    this.backdrop.src = FENCE_BACKDROP;
+    Object.assign(this.backdrop.style, {
+      position: 'absolute',
+      inset: '0',
+      width: '100%',
+      height: '100%',
+      objectFit: 'cover',
+      objectPosition: 'center center',
+      imageRendering: 'auto',
+      filter: 'brightness(.72) contrast(1.08) saturate(.72)',
+      userSelect: 'none',
+    });
+    this.backdrop.addEventListener('error', () => {
+      console.error('Electric fence backdrop failed to load:', FENCE_BACKDROP);
+      this.backdrop.hidden = true;
+    }, { once: true });
+
+    this.vignette = document.createElement('div');
+    Object.assign(this.vignette.style, {
+      position: 'absolute',
+      inset: '0',
+      zIndex: '3',
+      background: 'radial-gradient(ellipse at center, transparent 38%, rgba(0,0,0,.22) 70%, rgba(0,0,0,.62) 100%)',
+      pointerEvents: 'none',
+    });
+
+    this.renderer = new THREE.WebGLRenderer({
+      antialias: false,
+      alpha: true,
+      premultipliedAlpha: true,
+    });
+    this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, 1.5));
+    this.renderer.setClearColor(0x000000, 0);
+    this.renderer.shadowMap.enabled = true;
+    this.renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+    Object.assign(this.renderer.domElement.style, {
+      position: 'absolute',
+      inset: '0',
+      zIndex: '2',
+      width: '100%',
+      height: '100%',
+      pointerEvents: 'none',
+    });
+
+    this.stage.append(this.backdrop, this.renderer.domElement, this.vignette);
+    this.root.append(this.stage);
+    game.container.append(this.root);
+
+    this.scene = new THREE.Scene();
+    this.scene.background = null;
+    this.scene.fog = new THREE.Fog(0x111b26, 17, 40);
 
     game.player.group.visible = true;
     this.scene.add(game.player.group);
@@ -147,10 +228,10 @@ export class ElectricFenceSequence {
     this.camera.position.set(6.4, 3.75, 8.15);
     this.camera.lookAt(new THREE.Vector3(-0.1, 0.92, -1.35));
 
-    this.scene.add(new THREE.HemisphereLight(0x8ea9c2, 0x10151b, 1.45));
-    this.scene.add(new THREE.AmbientLight(0x6e7e90, 0.34));
+    this.scene.add(new THREE.HemisphereLight(0x9eb8cf, 0x111820, 1.75));
+    this.scene.add(new THREE.AmbientLight(0x8394a4, 0.52));
 
-    const moon = new THREE.DirectionalLight(0xaec8df, 2.35);
+    const moon = new THREE.DirectionalLight(0xbcd5eb, 2.8);
     moon.position.set(-5, 9, 6);
     moon.castShadow = true;
     moon.shadow.mapSize.set(1024, 1024);
@@ -165,33 +246,47 @@ export class ElectricFenceSequence {
 
     const shadowGround = new THREE.Mesh(
       new THREE.PlaneGeometry(18, 18),
-      new THREE.ShadowMaterial({ opacity: 0.22 }),
+      new THREE.ShadowMaterial({ color: 0x0a1118, opacity: 0.28 }),
     );
     shadowGround.rotation.x = -Math.PI / 2;
-    shadowGround.position.y = 0.005;
+    shadowGround.position.y = 0.006;
     shadowGround.receiveShadow = true;
     this.scene.add(shadowGround);
 
     this.fence = makeFence();
     this.scene.add(this.fence);
 
-    const loader = new THREE.TextureLoader();
-    loader.load(FENCE_BACKDROP, texture => {
-      texture.colorSpace = THREE.SRGBColorSpace;
-      texture.magFilter = THREE.NearestFilter;
-      texture.minFilter = THREE.LinearFilter;
-      this.scene.background = texture;
-    }, undefined, error => {
-      console.error('Electric fence backdrop failed to load:', FENCE_BACKDROP, error);
-    });
-
-    game.bryanVisual?.setRigMotion?.('walk');
     this.onResize();
+    this.animateBryan(0, 'walk');
+    game.bryanVisual.update();
+
+    // Submit a frame immediately. Even before gameplay starts updating, the
+    // capsule is already visible when the menu fade clears.
+    this.render();
   }
 
   onResize() {
+    const width = window.innerWidth;
+    const height = window.innerHeight;
+    const viewWidth = Math.max(1, Math.floor(Math.min(width, height * ASPECT)));
+    const viewHeight = Math.max(1, Math.floor(viewWidth / ASPECT));
+
+    this.stage.style.width = viewWidth + 'px';
+    this.stage.style.height = viewHeight + 'px';
+    this.renderer.setSize(viewWidth, viewHeight, false);
     this.camera.aspect = ASPECT;
     this.camera.updateProjectionMatrix();
+  }
+
+  animateBryan(dt, mode) {
+    if (!this.rigAnimationEnabled) return;
+    try {
+      this.game.bryanVisual?.setRigMotion?.(mode);
+      this.game.bryanVisual?.animateRig?.(dt, mode);
+    } catch (error) {
+      this.rigAnimationEnabled = false;
+      console.error('Bryan visual animation disabled for ElectricFenceSequence:', error);
+    }
   }
 
   startDialogue() {
@@ -204,6 +299,10 @@ export class ElectricFenceSequence {
     });
   }
 
+  render() {
+    this.renderer.render(this.scene, this.camera);
+  }
+
   update(dt) {
     const game = this.game;
     const player = game.player;
@@ -212,21 +311,20 @@ export class ElectricFenceSequence {
       player.previousPosition.copy(player.position);
       const toTarget = STOP.clone().sub(player.position);
       const distance = toTarget.length();
+
       if (distance > 0.025) {
         const step = Math.min(distance, WALK_SPEED * dt);
         toTarget.normalize();
         player.position.addScaledVector(toTarget, step);
         player.velocity.copy(toTarget).multiplyScalar(WALK_SPEED);
         player.animate(dt);
-        game.bryanVisual?.setRigMotion?.('walk');
-        game.bryanVisual?.animateRig?.(dt, 'walk');
+        this.animateBryan(dt, 'walk');
       } else {
         player.position.copy(STOP);
         player.previousPosition.copy(STOP);
         player.velocity.set(0, 0, 0);
         player.animate(dt, true);
-        game.bryanVisual?.setRigMotion?.('idle');
-        game.bryanVisual?.animateRig?.(dt, 'idle');
+        this.animateBryan(dt, 'idle');
         this.state = 'stopped';
         this.stopTime = 0;
       }
@@ -234,8 +332,7 @@ export class ElectricFenceSequence {
       player.previousPosition.copy(player.position);
       player.velocity.set(0, 0, 0);
       player.animate(dt, true);
-      game.bryanVisual?.setRigMotion?.('idle');
-      game.bryanVisual?.animateRig?.(dt, 'idle');
+      this.animateBryan(dt, 'idle');
 
       if (this.state === 'stopped') {
         this.stopTime += dt;
@@ -244,32 +341,15 @@ export class ElectricFenceSequence {
     }
 
     game.bryanVisual.update();
-
     if (game.dialogueManager.isOpen) game.dialogueManager.update();
 
-    const width = window.innerWidth;
-    const height = window.innerHeight;
-    const viewWidth = Math.min(width, height * ASPECT);
-    const viewHeight = viewWidth / ASPECT;
-    const viewX = (width - viewWidth) / 2;
-    const viewY = (height - viewHeight) / 2;
-
-    game.renderer.setScissorTest(false);
-    game.renderer.setViewport(0, 0, width, height);
-    game.renderer.setClearColor(0x000000, 1);
-    game.renderer.clear(true, true, true);
-    game.renderer.setViewport(viewX, viewY, viewWidth, viewHeight);
-    game.renderer.setScissor(viewX, viewY, viewWidth, viewHeight);
-    game.renderer.setScissorTest(true);
-    game.renderer.render(this.scene, this.camera);
-    game.renderer.setScissorTest(false);
-
+    this.render();
     game.input.clearFrameState();
   }
 
   destroy() {
-    this.game.bryanVisual?.setRigMotion?.('idle');
-    this.game.bryanVisual?.animateRig?.(1, 'idle');
+    this.animateBryan(1, 'idle');
+
     if (this.originalParent) this.originalParent.add(this.game.player.group);
     this.game.player.position.copy(this.originalPosition);
     this.game.player.previousPosition.copy(this.originalPosition);
@@ -277,5 +357,9 @@ export class ElectricFenceSequence {
     this.game.player.group.rotation.y = this.originalRotation;
     this.game.player.group.visible = this.originalVisible;
     this.game.player.velocity.set(0, 0, 0);
+
+    this.game.renderer.domElement.style.visibility = this.originalGameCanvasVisibility;
+    this.renderer?.dispose();
+    this.root?.remove();
   }
 }
