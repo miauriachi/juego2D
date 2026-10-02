@@ -117,6 +117,134 @@ function makeFence() {
   return fence;
 }
 
+function makeFarmSet() {
+  const farm = new THREE.Group();
+  farm.name = 'farm-continuity-set';
+
+  const woodDark = new THREE.MeshLambertMaterial({ color: 0x241812, flatShading: true });
+  const woodWarm = new THREE.MeshLambertMaterial({ color: 0x4a2e1c, flatShading: true });
+  const yellowWood = new THREE.MeshLambertMaterial({ color: 0x8d6a35, flatShading: true });
+  const roof = new THREE.MeshLambertMaterial({ color: 0x191d21, flatShading: true });
+  const snow = new THREE.MeshLambertMaterial({ color: 0xb9c8cf, flatShading: true });
+  const metal = new THREE.MeshLambertMaterial({ color: 0x4b351f, flatShading: true });
+  const tire = new THREE.MeshLambertMaterial({ color: 0x111214, flatShading: true });
+  const warmGlow = new THREE.MeshBasicMaterial({ color: 0xffc46a });
+
+  // Barn — left side, slightly closer than the house.
+  const barn = new THREE.Group();
+  barn.name = 'farm-barn';
+  const barnBody = new THREE.Mesh(new THREE.BoxGeometry(4.4, 3.1, 3.3), woodDark);
+  barnBody.position.y = 1.55;
+  barnBody.castShadow = true; barnBody.receiveShadow = true;
+  barn.add(barnBody);
+
+  const barnRoof = new THREE.Mesh(new THREE.ConeGeometry(3.4, 1.7, 4), roof);
+  barnRoof.rotation.y = Math.PI / 4;
+  barnRoof.scale.z = 0.76;
+  barnRoof.position.y = 3.95;
+  barnRoof.castShadow = true;
+  barn.add(barnRoof);
+
+  const barnDoorLeft = new THREE.Mesh(new THREE.BoxGeometry(1.05, 2.35, 0.12), woodWarm);
+  barnDoorLeft.position.set(-0.62, 1.18, 1.69);
+  barnDoorLeft.rotation.y = -0.24;
+  const barnDoorRight = barnDoorLeft.clone();
+  barnDoorRight.position.x = 0.72;
+  barnDoorRight.rotation.y = 0.58;
+  barn.add(barnDoorLeft, barnDoorRight);
+
+  const barnLamp = new THREE.Mesh(new THREE.BoxGeometry(0.24, 0.22, 0.18), warmGlow);
+  barnLamp.position.set(0, 2.78, 1.78);
+  barn.add(barnLamp);
+  const barnLight = new THREE.PointLight(0xffb75f, 8.5, 7.5, 2);
+  barnLight.position.set(0, 2.55, 2.05);
+  barn.add(barnLight);
+
+  const barnSnow = new THREE.Mesh(new THREE.BoxGeometry(4.2, 0.10, 0.30), snow);
+  barnSnow.position.set(0, 4.28, 0.15);
+  barnSnow.rotation.z = -0.02;
+  barn.add(barnSnow);
+  barn.position.set(-5.8, 0, -7.2);
+  barn.rotation.y = 0.10;
+  farm.add(barn);
+
+  // Old tractor — right foreground, close to Bryan's recovery point.
+  const tractor = new THREE.Group();
+  tractor.name = 'farm-tractor';
+  const chassis = new THREE.Mesh(new THREE.BoxGeometry(2.2, 0.58, 1.25), metal);
+  chassis.position.y = 0.92;
+  chassis.castShadow = true;
+  tractor.add(chassis);
+  const hood = new THREE.Mesh(new THREE.BoxGeometry(1.25, 0.72, 1.02), metal);
+  hood.position.set(-0.55, 1.38, 0);
+  hood.castShadow = true;
+  tractor.add(hood);
+  const seat = new THREE.Mesh(new THREE.BoxGeometry(0.55, 0.50, 0.55), woodDark);
+  seat.position.set(0.58, 1.55, 0);
+  tractor.add(seat);
+  const exhaust = new THREE.Mesh(new THREE.CylinderGeometry(0.08, 0.10, 1.18, 6), tire);
+  exhaust.position.set(-0.72, 2.02, -0.34);
+  tractor.add(exhaust);
+  [[-0.72, 0.58, -0.72], [-0.72, 0.58, 0.72], [0.78, 0.64, -0.78], [0.78, 0.64, 0.78]].forEach(([x,y,z], i) => {
+    const wheel = new THREE.Mesh(
+      new THREE.CylinderGeometry(i < 2 ? 0.52 : 0.70, i < 2 ? 0.52 : 0.70, 0.28, 8),
+      tire,
+    );
+    wheel.rotation.x = Math.PI / 2;
+    wheel.position.set(x, y, z);
+    wheel.castShadow = true;
+    tractor.add(wheel);
+  });
+  tractor.position.set(2.6, 0, -4.25);
+  tractor.rotation.y = -0.26;
+  farm.add(tractor);
+
+  // Yellow wooden house — farther right and deeper in the field.
+  const house = new THREE.Group();
+  house.name = 'yellow-farm-house';
+  const houseBody = new THREE.Mesh(new THREE.BoxGeometry(5.2, 3.6, 3.6), yellowWood);
+  houseBody.position.y = 1.8;
+  houseBody.castShadow = true; houseBody.receiveShadow = true;
+  house.add(houseBody);
+  const houseRoof = new THREE.Mesh(new THREE.ConeGeometry(4.2, 2.0, 4), roof);
+  houseRoof.rotation.y = Math.PI / 4;
+  houseRoof.scale.z = 0.72;
+  houseRoof.position.y = 4.55;
+  houseRoof.castShadow = true;
+  house.add(houseRoof);
+
+  const porch = new THREE.Mesh(new THREE.BoxGeometry(3.1, 0.18, 1.25), woodDark);
+  porch.position.set(-0.35, 0.12, 2.05);
+  porch.receiveShadow = true;
+  house.add(porch);
+
+  const frontDoor = new THREE.Mesh(new THREE.BoxGeometry(1.0, 2.15, 0.10), woodDark);
+  frontDoor.position.set(-0.45, 1.20, 1.84);
+  house.add(frontDoor);
+
+  [[-1.72, 2.30], [1.35, 2.30], [1.35, 1.15]].forEach(([x,y]) => {
+    const window = new THREE.Mesh(new THREE.PlaneGeometry(0.76, 0.92), warmGlow);
+    window.position.set(x, y, 1.826);
+    house.add(window);
+  });
+  const porchLamp = new THREE.PointLight(0xffb45e, 6.8, 8, 2);
+  porchLamp.position.set(-0.45, 2.25, 2.25);
+  house.add(porchLamp);
+
+  house.position.set(6.4, 0, -10.6);
+  house.rotation.y = -0.12;
+  farm.add(house);
+
+  farm.traverse(object => {
+    if (object.isMesh) {
+      object.castShadow = true;
+      object.receiveShadow = true;
+    }
+  });
+
+  return { farm, barn, tractor, house };
+}
+
 // Independent fixed-camera capsule.
 // The prerendered plate is DOM art; Bryan and the fence are rendered as real 3D
 // on a transparent WebGL canvas layered above it.
@@ -127,7 +255,9 @@ export class ElectricFenceSequence {
     this.stopTime = 0;
     this.dialogueStarted = false;
     this.afterShockDialogueStarted = false;
+    this.houseDialogueStarted = false;
     this.transitionTime = 0;
+    this.panTime = 0;
     this.rigAnimationEnabled = true;
 
     this.originalParent = game.player.group.parent;
@@ -280,6 +410,14 @@ export class ElectricFenceSequence {
     this.fence = makeFence();
     this.scene.add(this.fence);
 
+    const farmSet = makeFarmSet();
+    this.farm = farmSet.farm;
+    this.barn = farmSet.barn;
+    this.tractor = farmSet.tractor;
+    this.house = farmSet.house;
+    this.farm.visible = false;
+    this.scene.add(this.farm);
+
     this.onResize();
     this.animateBryan(0, 'walk');
     game.bryanVisual.update();
@@ -352,8 +490,101 @@ export class ElectricFenceSequence {
     this.afterShockDialogueStarted = true;
     this.game.dialogueManager.start([
       { speaker: 'Bryan', text: 'Maldita sea eso dolio... que pendejo' },
+    ], () => this.beginGetUp());
+  }
+
+  beginGetUp() {
+    this.state = 'gettingUp';
+    this.transitionTime = 0;
+    this.game.player.velocity.set(0, 0, 0);
+  }
+
+  updateGetUp(dt) {
+    const player = this.game.player;
+    this.transitionTime += dt;
+    const duration = 1.65;
+    const t = THREE.MathUtils.clamp(this.transitionTime / duration, 0, 1);
+
+    // Two-stage recovery: roll onto a knee, then rise to a stable idle.
+    const kneePhase = THREE.MathUtils.smoothstep(t, 0.0, 0.58);
+    const standPhase = THREE.MathUtils.smoothstep(t, 0.46, 1.0);
+    player.group.rotation.x = THREE.MathUtils.lerp(-Math.PI / 2, -0.38, kneePhase);
+    player.group.rotation.z = Math.sin(t * Math.PI) * -0.16 * (1 - standPhase);
+    player.group.rotation.y = THREE.MathUtils.lerp(0.08, -0.18, standPhase);
+    player.position.y = THREE.MathUtils.lerp(0.12, 0.04, kneePhase);
+    player.position.y = THREE.MathUtils.lerp(player.position.y, 0, standPhase);
+    player.previousPosition.copy(player.position);
+    player.animate(dt, true);
+    this.game.bryanVisual.update(dt);
+
+    if (t >= 1) {
+      player.group.rotation.set(0, -0.18, 0);
+      player.rotationY = -0.18;
+      player.position.y = 0;
+      player.previousPosition.copy(player.position);
+      this.beginFarmPan();
+    }
+  }
+
+  beginFarmPan() {
+    this.state = 'farmPan';
+    this.panTime = 0;
+    this.fence.visible = false;
+    this.farm.visible = true;
+    this.game.player.group.visible = false;
+
+    // Start on the open barn door and its lamp.
+    this.camera.position.set(-9.6, 3.7, 3.8);
+    this.camera.lookAt(new THREE.Vector3(-5.7, 1.8, -7.0));
+  }
+
+  updateFarmPan(dt) {
+    this.panTime += dt;
+    const duration = 5.6;
+    const t = THREE.MathUtils.clamp(this.panTime / duration, 0, 1);
+    const eased = THREE.MathUtils.smoothstep(t, 0, 1);
+
+    const startPos = new THREE.Vector3(-9.6, 3.7, 3.8);
+    const endPos = new THREE.Vector3(9.5, 3.45, 2.0);
+    const startLook = new THREE.Vector3(-5.7, 1.8, -7.0);
+    const endLook = new THREE.Vector3(6.2, 1.9, -10.4);
+
+    this.camera.position.lerpVectors(startPos, endPos, eased);
+    const look = new THREE.Vector3().lerpVectors(startLook, endLook, eased);
+    this.camera.lookAt(look);
+
+    if (t >= 1) {
+      this.state = 'farmFadeOut';
+      this.transitionTime = 0;
+    }
+  }
+
+  switchToHouseClose() {
+    this.state = 'houseFadeIn';
+    this.transitionTime = 0;
+
+    // Same yellow house, now framed much closer after the brief blackout.
+    this.camera.position.set(9.2, 2.65, -3.6);
+    this.camera.lookAt(new THREE.Vector3(6.25, 1.75, -10.45));
+
+    const player = this.game.player;
+    player.group.visible = true;
+    player.position.set(3.55, 0, -6.55);
+    player.previousPosition.copy(player.position);
+    player.rotationY = -0.34;
+    player.group.rotation.set(0, player.rotationY, 0);
+    player.velocity.set(0, 0, 0);
+    player.animate(0, true);
+    this.game.bryanVisual.update(0);
+  }
+
+  startHouseDialogue() {
+    if (this.houseDialogueStarted) return;
+    this.houseDialogueStarted = true;
+    this.game.dialogueManager.start([
+      { speaker: 'Bryan', text: 'Ahí...' },
     ], () => {
-      this.state = 'fallenHolding';
+      this.state = 'houseHolding';
     });
   }
 
@@ -417,6 +648,31 @@ export class ElectricFenceSequence {
         this.state = 'fallenDialogue';
         this.startAfterShockDialogue();
       }
+    } else if (this.state === 'gettingUp') {
+      this.updateGetUp(dt);
+    } else if (this.state === 'farmPan') {
+      player.velocity.set(0, 0, 0);
+      this.updateFarmPan(dt);
+    } else if (this.state === 'farmFadeOut') {
+      this.transitionTime += dt;
+      const fade = THREE.MathUtils.smoothstep(this.transitionTime, 0, 0.44);
+      this.blackout.style.opacity = String(fade);
+      if (this.transitionTime >= 0.46) {
+        this.blackout.style.opacity = '1';
+        this.switchToHouseClose();
+      }
+    } else if (this.state === 'houseFadeIn') {
+      player.previousPosition.copy(player.position);
+      player.velocity.set(0, 0, 0);
+      player.animate(dt, true);
+      this.transitionTime += dt;
+      const reveal = 1 - THREE.MathUtils.smoothstep(this.transitionTime, 0.12, 0.68);
+      this.blackout.style.opacity = String(reveal);
+      if (this.transitionTime >= 0.70) {
+        this.blackout.style.opacity = '0';
+        this.state = 'houseDialogue';
+        this.startHouseDialogue();
+      }
     } else {
       player.previousPosition.copy(player.position);
       player.velocity.set(0, 0, 0);
@@ -429,9 +685,8 @@ export class ElectricFenceSequence {
       }
     }
 
-    // Player.animate() stores the movement speed; BryanModel consumes it here
-    // to drive the restored rigged walk animation.
-    game.bryanVisual.update(dt);
+    // Player.animate() stores the movement speed; BryanModel consumes it here.
+    if (this.state !== 'gettingUp') game.bryanVisual.update(dt);
     if (game.dialogueManager.isOpen) game.dialogueManager.update();
 
     this.render();
