@@ -24,6 +24,11 @@ const BARN_PATH_PRERENDER = new URL(
   import.meta.url,
 ).href;
 
+const BARN_INTERIOR_PRERENDER = new URL(
+  '../../assets/backgrounds/fence/barn_interior_eastereggs.webp',
+  import.meta.url,
+).href;
+
 const CORNFIELD_BACKDROP = new URL(
   '../../assets/backgrounds/fence/cornfield_chase.webp',
   import.meta.url,
@@ -408,6 +413,34 @@ export class ElectricFenceSequence {
     this.farmBackdrop.src = FARM_PRERENDER;
     this.barnPathBackdrop = new Image();
     this.barnPathBackdrop.src = BARN_PATH_PRERENDER;
+    this.barnInteriorBackdrop = new Image();
+    this.barnInteriorBackdrop.src = BARN_INTERIOR_PRERENDER;
+
+    this.barnPrompt = document.createElement('button');
+    this.barnPrompt.textContent = 'ENTRAR';
+    Object.assign(this.barnPrompt.style, {
+      position: 'absolute', left: '50%', bottom: '12%', transform: 'translateX(-50%)',
+      zIndex: '12', display: 'none', padding: '12px 26px', border: '1px solid #d7d7d7',
+      borderRadius: '4px', background: 'rgba(5,7,10,.88)', color: '#fff',
+      fontFamily: 'serif', fontSize: '18px', letterSpacing: '.12em', pointerEvents: 'auto',
+    });
+    this.barnPrompt.addEventListener('click', () => this.beginBarnEntry());
+    this.stage.append(this.barnPrompt);
+
+    this.leftBarnDoor = document.createElement('div');
+    this.rightBarnDoor = document.createElement('div');
+    [this.leftBarnDoor, this.rightBarnDoor].forEach((door, index) => {
+      Object.assign(door.style, {
+        position: 'absolute', top: '0', bottom: '0', width: '50%', zIndex: '10',
+        display: 'none', background:
+          'linear-gradient(90deg,#1b0f09,#3a2114 18%,#24140d 38%,#4b2b19 58%,#21120b 78%,#120a07)',
+        boxShadow: index === 0 ? 'inset -8px 0 16px rgba(0,0,0,.65)' : 'inset 8px 0 16px rgba(0,0,0,.65)',
+        transition: 'transform 1.25s cubic-bezier(.55,.05,.25,1)',
+        pointerEvents: 'none',
+      });
+      door.style[index === 0 ? 'left' : 'right'] = '0';
+      this.stage.append(door);
+    });
 
     this.onResize();
     this.animateBryan(0, 'walk');
@@ -825,8 +858,9 @@ export class ElectricFenceSequence {
       const depth = THREE.MathUtils.clamp((4.0 - player.position.z) / 9.7, 0, 1);
       // The trail is a straight lane to the barn. Side input cannot carry Bryan
       // onto/over the painted fences; the allowed lane tightens with perspective.
-      const halfWidth = THREE.MathUtils.lerp(0.42, 0.14, depth);
+      const halfWidth = THREE.MathUtils.lerp(0.30, 0.09, depth);
       player.position.x = THREE.MathUtils.clamp(player.position.x, -halfWidth, halfWidth);
+      player.position.x = THREE.MathUtils.lerp(player.position.x, 0, Math.min(1, dt * 5.5));
       player.position.z = THREE.MathUtils.clamp(player.position.z, -5.7, 4.0);
     } else {
       player.position.x = THREE.MathUtils.clamp(player.position.x, -2.75, 2.65);
@@ -897,6 +931,59 @@ export class ElectricFenceSequence {
     player.previousPosition.copy(player.position);
     this.camera.position.set(5.15, 3.10, 6.45);
     this.camera.lookAt(new THREE.Vector3(-0.25, 0.78, -1.95));
+  }
+
+  showBarnEntryPrompt() {
+    if (this.state === 'barnReady') return;
+    this.state = 'barnReady';
+    this.game.playerInputEnabled = false;
+    this.game.player.velocity.set(0, 0, 0);
+    this.dog.position.y = 0;
+    this.barnPrompt.style.display = 'block';
+  }
+
+  beginBarnEntry() {
+    if (this.state !== 'barnReady') return;
+    this.state = 'barnDoorsOpening';
+    this.transitionTime = 0;
+    this.barnPrompt.style.display = 'none';
+    this.mobileControls.hide();
+    this.game.player.group.visible = false;
+    this.dog.visible = false;
+    this.leftBarnDoor.style.display = 'block';
+    this.rightBarnDoor.style.display = 'block';
+    this.leftBarnDoor.style.transform = 'translateX(0)';
+    this.rightBarnDoor.style.transform = 'translateX(0)';
+    requestAnimationFrame(() => requestAnimationFrame(() => {
+      this.leftBarnDoor.style.transform = 'translateX(-102%)';
+      this.rightBarnDoor.style.transform = 'translateX(102%)';
+    }));
+  }
+
+  enterBarnInterior() {
+    this.state = 'barnInterior';
+    this.chaseScene = 'barnInterior';
+    this.leftBarnDoor.style.display = 'none';
+    this.rightBarnDoor.style.display = 'none';
+    this.backdrop.hidden = false;
+    this.backdrop.src = BARN_INTERIOR_PRERENDER;
+    Object.assign(this.backdrop.style, {
+      inset: '0', left: '0', top: '0', width: '100%', height: '100%',
+      objectFit: 'cover', objectPosition: 'center center', transform: 'none',
+      filter: 'brightness(.90) contrast(1.08) saturate(.86)',
+    });
+    const player = this.game.player;
+    player.group.visible = true;
+    player.group.scale.setScalar(0.82);
+    player.position.set(0, 0, 1.9);
+    player.previousPosition.copy(player.position);
+    player.rotationY = Math.PI;
+    player.group.rotation.set(0, player.rotationY, 0);
+    player.velocity.set(0, 0, 0);
+    this.camera.position.set(4.8, 3.0, 6.0);
+    this.camera.lookAt(new THREE.Vector3(0, 0.8, -1.2));
+    this.game.playerInputEnabled = true;
+    this.mobileControls.show();
   }
 
   showGameOver() {
@@ -980,8 +1067,13 @@ export class ElectricFenceSequence {
       player.group.scale.setScalar(perspectiveScale);
       this.dog.scale.setScalar(0.68 * perspectiveScale);
     } else if (this.chaseScene === 'barnClose') {
-      player.position.x = THREE.MathUtils.clamp(player.position.x, -1.85, 1.85);
-      player.position.z = THREE.MathUtils.clamp(player.position.z, -5.6, 3.8);
+      player.position.x = THREE.MathUtils.clamp(player.position.x, -0.42, 0.42);
+      player.position.x = THREE.MathUtils.lerp(player.position.x, 0, Math.min(1, dt * 4.5));
+      player.position.z = THREE.MathUtils.clamp(player.position.z, -4.72, 3.8);
+      if (player.position.z <= -4.62) {
+        this.showBarnEntryPrompt();
+        return;
+      }
     }
 
     const toPlayer = player.position.clone().sub(this.dog.position);
@@ -1184,6 +1276,22 @@ export class ElectricFenceSequence {
       }
     } else if (this.state === 'playableChase') {
       this.updatePlayableChase(dt);
+    } else if (this.state === 'barnReady') {
+      player.velocity.set(0, 0, 0);
+      player.previousPosition.copy(player.position);
+      player.animate(dt, true);
+    } else if (this.state === 'barnDoorsOpening') {
+      player.velocity.set(0, 0, 0);
+      this.transitionTime += dt;
+      const zoom = THREE.MathUtils.lerp(1, 1.10, THREE.MathUtils.clamp(this.transitionTime / 1.35, 0, 1));
+      this.backdrop.style.transform = `scale(${zoom})`;
+      if (this.transitionTime >= 1.35) this.enterBarnInterior();
+    } else if (this.state === 'barnInterior') {
+      player.update(this.game.input, dt);
+      player.position.x = THREE.MathUtils.clamp(player.position.x, -1.55, 1.55);
+      player.position.z = THREE.MathUtils.clamp(player.position.z, -2.5, 2.35);
+      player.animate(dt, false);
+      this.animateBryan(dt, player.velocity.lengthSq() > 0.01 ? 'walk' : 'idle');
     } else if (this.state === 'collapsed') {
       player.velocity.set(0, 0, 0);
       player.previousPosition.copy(player.position);
