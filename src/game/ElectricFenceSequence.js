@@ -823,7 +823,9 @@ export class ElectricFenceSequence {
       // Narrow the invisible walls as Bryan runs away so he cannot walk over
       // either fence at any depth of this plate.
       const depth = THREE.MathUtils.clamp((4.0 - player.position.z) / 9.7, 0, 1);
-      const halfWidth = THREE.MathUtils.lerp(0.72, 0.22, depth);
+      // The trail is a straight lane to the barn. Side input cannot carry Bryan
+      // onto/over the painted fences; the allowed lane tightens with perspective.
+      const halfWidth = THREE.MathUtils.lerp(0.42, 0.14, depth);
       player.position.x = THREE.MathUtils.clamp(player.position.x, -halfWidth, halfWidth);
       player.position.z = THREE.MathUtils.clamp(player.position.z, -5.7, 4.0);
     } else {
@@ -966,7 +968,7 @@ export class ElectricFenceSequence {
       const scale = THREE.MathUtils.lerp(1.0, 1.08, this.barnProgress);
       this.backdrop.style.transform = `scale(${scale})`;
       const depth = THREE.MathUtils.clamp((4.0 - player.position.z) / 9.7, 0, 1);
-      const halfWidth = THREE.MathUtils.lerp(0.72, 0.22, depth);
+      const halfWidth = THREE.MathUtils.lerp(0.42, 0.14, depth);
       player.position.x = THREE.MathUtils.clamp(player.position.x, -halfWidth, halfWidth);
       player.position.z = THREE.MathUtils.clamp(player.position.z, -5.7, 4.0);
 
@@ -988,17 +990,19 @@ export class ElectricFenceSequence {
 
     if (distance > 0.001) {
       toPlayer.normalize();
-      const dogSpeed = 3.35;
+      const dogSpeed = 2.85;
       this.dog.position.addScaledVector(toPlayer, dogSpeed * dt);
       this.dog.rotation.y = Math.atan2(-toPlayer.z, toPlayer.x);
     }
 
     // Attack reads as a leap/bite, with one hit per contact cooldown.
     if (distance < 0.92) {
-      const leap = Math.sin(performance.now() * 0.018);
-      this.dog.position.y = Math.max(0, leap) * 0.58;
+      // One deliberate lunge per attack window instead of constant hopping.
+      const attackPhase = Math.max(0, 1.75 - this.biteCooldown);
+      const leap = attackPhase < 0.48 ? Math.sin((attackPhase / 0.48) * Math.PI) : 0;
+      this.dog.position.y = Math.max(0, leap) * 0.48;
       if (this.biteCooldown <= 0) {
-        this.biteCooldown = 1.05;
+        this.biteCooldown = 1.75;
         this.biteCount += 1;
         player.group.rotation.z = (this.biteCount % 2 ? -1 : 1) * 0.12;
         setTimeout(() => {
