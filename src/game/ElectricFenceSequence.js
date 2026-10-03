@@ -20,7 +20,7 @@ const FARM_PRERENDER = new URL(
 // composed as a snowy path with the barn still far away, rather than cropping
 // the barn plate and pretending it is a new location.
 const BARN_PATH_PRERENDER = new URL(
-  '../../assets/backgrounds/fence/barn_path_realistic.webp',
+  '../../assets/backgrounds/fence/barn_path_generated.svg',
   import.meta.url,
 ).href;
 
