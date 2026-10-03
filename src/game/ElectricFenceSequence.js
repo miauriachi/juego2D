@@ -419,7 +419,7 @@ export class ElectricFenceSequence {
     this.barnPrompt = document.createElement('button');
     this.barnPrompt.textContent = 'ENTRAR';
     Object.assign(this.barnPrompt.style, {
-      position: 'absolute', left: '50%', bottom: '12%', transform: 'translateX(-50%)',
+      position: 'absolute', left: '5%', bottom: '22%', transform: 'none',
       zIndex: '12', display: 'none', padding: '12px 26px', border: '1px solid #d7d7d7',
       borderRadius: '4px', background: 'rgba(5,7,10,.88)', color: '#fff',
       fontFamily: 'serif', fontSize: '18px', letterSpacing: '.12em', pointerEvents: 'auto',
@@ -943,7 +943,10 @@ export class ElectricFenceSequence {
     this.state = 'barnReady';
     this.game.playerInputEnabled = false;
     this.game.player.velocity.set(0, 0, 0);
+    // The chase ends at the barn entrance. Freeze the dog away from Bryan
+    // while the player decides whether to enter.
     this.dog.position.y = 0;
+    this.dog.visible = false;
     this.barnPrompt.style.display = 'block';
   }
 
@@ -955,6 +958,7 @@ export class ElectricFenceSequence {
     this.mobileControls.hide();
     this.game.player.group.visible = false;
     this.dog.visible = false;
+    this.dog.position.set(0, 0, 8);
     this.leftBarnDoor.style.display = 'block';
     this.rightBarnDoor.style.display = 'block';
     this.leftBarnDoor.style.transform = 'translateX(0)';
@@ -1075,7 +1079,9 @@ export class ElectricFenceSequence {
       player.position.x = THREE.MathUtils.clamp(player.position.x, -0.42, 0.42);
       player.position.x = THREE.MathUtils.lerp(player.position.x, 0, Math.min(1, dt * 4.5));
       player.position.z = THREE.MathUtils.clamp(player.position.z, -4.72, 3.8);
-      if (player.position.z <= -4.62) {
+      // Show the interaction slightly before Bryan reaches the door so the
+      // prompt is obvious and reachable on mobile.
+      if (player.position.z <= -3.65) {
         this.showBarnEntryPrompt();
         return;
       }
