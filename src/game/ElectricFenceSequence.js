@@ -862,6 +862,11 @@ export class ElectricFenceSequence {
       player.position.x = THREE.MathUtils.clamp(player.position.x, -halfWidth, halfWidth);
       player.position.x = THREE.MathUtils.lerp(player.position.x, 0, Math.min(1, dt * 5.5));
       player.position.z = THREE.MathUtils.clamp(player.position.z, -5.7, 4.0);
+    } else if (this.chaseScene === 'barnClose') {
+      // Final approach: keep Bryan centered and let him actually reach the door.
+      player.position.x = THREE.MathUtils.clamp(player.position.x, -0.42, 0.42);
+      player.position.x = THREE.MathUtils.lerp(player.position.x, 0, Math.min(1, dt * 4.5));
+      player.position.z = THREE.MathUtils.clamp(player.position.z, -4.72, 3.8);
     } else {
       player.position.x = THREE.MathUtils.clamp(player.position.x, -2.75, 2.65);
       player.position.z = THREE.MathUtils.clamp(player.position.z, -7.15, 0.65);
