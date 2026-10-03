@@ -797,7 +797,7 @@ export class ElectricFenceSequence {
     player.animate(0, true);
 
     this.dog.visible = false;
-    this.dog.scale.setScalar(0.58);
+    this.dog.scale.setScalar(0.68);
     this.biteCount = 0;
     this.biteCooldown = 0;
     this.chaseScene = 'fence';
@@ -858,7 +858,7 @@ export class ElectricFenceSequence {
     const player = this.game.player;
     player.position.set(0.15, 0, 3.6);
     player.previousPosition.copy(player.position);
-    this.camera.position.set(5.8, 3.35, 7.2);
+    this.camera.position.set(5.3, 3.15, 6.6);
     this.camera.lookAt(new THREE.Vector3(0, 0.75, -1.8));
   }
 
@@ -937,7 +937,7 @@ export class ElectricFenceSequence {
       .addScaledVector(right, -0.70);
     this.dog.position.y = 0;
     this.dog.visible = true;
-    this.dog.scale.setScalar(0.58);
+    this.dog.scale.setScalar(0.68);
     this.dog.userData.phase = 0;
     this.playGrowlSound();
   }
