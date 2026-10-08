@@ -849,18 +849,29 @@ export class ElectricFenceSequence {
     const player = this.game.player;
     player.update(this.game.input, dt);
 
-    // Each fixed-camera plate has its own invisible fence corridor.
-    // On the intermediate trail Bryan must run straight between the visible rails.
+    // SECOND SCENE / BARN PATH:
+    // The red areas in the reference image are treated as invisible walls.
+    // Bryan enters exactly on the yellow center line and is locked to that
+    // straight path. Input can still move him forward/backward, but never
+    // sideways into the snowy/fence areas.
     if (this.chaseScene === 'barnPath') {
-      // Perspective corridor: the visible fences converge toward the barn.
-      // Narrow the invisible walls as Bryan runs away so he cannot walk over
-      // either fence at any depth of this plate.
+      const laneCenter = 0.15;
       const depth = THREE.MathUtils.clamp((4.0 - player.position.z) / 9.7, 0, 1);
-      // The trail is a straight lane to the barn. Side input cannot carry Bryan
-      // onto/over the painted fences; the allowed lane tightens with perspective.
+
+      // These are the two invisible side walls. They converge toward the barn
+      // to match the perspective of the prerendered image.
       const halfWidth = THREE.MathUtils.lerp(0.30, 0.09, depth);
-      player.position.x = THREE.MathUtils.clamp(player.position.x, -halfWidth, halfWidth);
-      player.position.x = THREE.MathUtils.lerp(player.position.x, 0, Math.min(1, dt * 5.5));
+      const leftWall = laneCenter - halfWidth;
+      const rightWall = laneCenter + halfWidth;
+
+      // Collision with the invisible walls + automatic return to the yellow
+      // line. The final lerp makes the route read as a straight approach.
+      player.position.x = THREE.MathUtils.clamp(player.position.x, leftWall, rightWall);
+      player.position.x = THREE.MathUtils.lerp(
+        player.position.x,
+        laneCenter,
+        Math.min(1, dt * 10),
+      );
       player.position.z = THREE.MathUtils.clamp(player.position.z, -5.7, 4.0);
     } else if (this.chaseScene === 'barnClose') {
       // Final approach: keep Bryan centered and let him actually reach the door.
@@ -902,6 +913,7 @@ export class ElectricFenceSequence {
       filter: 'brightness(.86) contrast(1.08) saturate(.80)',
     });
     const player = this.game.player;
+    // Yellow line / center of the visible trail.
     player.position.set(0.15, 0, 3.6);
     player.group.scale.setScalar(1);
     player.previousPosition.copy(player.position);
@@ -1056,23 +1068,26 @@ export class ElectricFenceSequence {
     this.biteCooldown = Math.max(0, this.biteCooldown - dt);
 
     if (this.chaseScene === 'barnPath') {
-      // Continue the earlier farm pan visually while Bryan runs toward the same barn.
-      this.barnProgress = THREE.MathUtils.clamp(this.barnProgress + Math.max(0, -player.velocity.z) * dt * 0.024, 0, 1);
-      // Intermediate trail: keep the barn distant at first and let it grow only
-      // gradually. The oversized plate stays beyond both viewport edges so no
-      // pale/empty strip can appear on mobile.
+      // Continue toward the barn while the prerender remains fixed.
+      this.barnProgress = THREE.MathUtils.clamp(
+        this.barnProgress + Math.max(0, -player.velocity.z) * dt * 0.024,
+        0,
+        1,
+      );
       const scale = THREE.MathUtils.lerp(1.0, 1.08, this.barnProgress);
       this.backdrop.style.transform = `scale(${scale})`;
-      const depth = THREE.MathUtils.clamp((4.0 - player.position.z) / 9.7, 0, 1);
-      const halfWidth = THREE.MathUtils.lerp(0.42, 0.14, depth);
-      player.position.x = THREE.MathUtils.clamp(player.position.x, -halfWidth, halfWidth);
+
+      // Keep Bryan on the yellow line. The invisible walls are enforced in
+      // updatePlayableMovement(), and this second guard prevents animation,
+      // collision or chase code from ever drifting him sideways.
+      const laneCenter = 0.15;
+      player.position.x = laneCenter;
       player.position.z = THREE.MathUtils.clamp(player.position.z, -5.7, 4.0);
 
-      // Fixed-camera prerender perspective: because the gameplay plane is not
-      // naturally receding enough on this plate, scale both live actors down
-      // with depth. Keep the scale moderate near camera and clearly smaller
-      // beside the distant barn.
-      const perspectiveScale = THREE.MathUtils.lerp(1.0, 0.46, depth);
+      // Simulate perspective: as z decreases, Bryan is farther away and gets
+      // progressively smaller. The dog follows the same depth scale.
+      const depth = THREE.MathUtils.clamp((4.0 - player.position.z) / 9.7, 0, 1);
+      const perspectiveScale = THREE.MathUtils.lerp(1.0, 0.42, depth);
       player.group.scale.setScalar(perspectiveScale);
       this.dog.scale.setScalar(0.68 * perspectiveScale);
     } else if (this.chaseScene === 'barnClose') {
