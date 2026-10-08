@@ -858,7 +858,7 @@ export class ElectricFenceSequence {
       // The yellow line in the reference image is intentionally to the right
       // of the old corridor. Shift the whole invisible corridor there so Bryan
       // enters on that line instead of appearing from the left.
-      const laneCenter = 0.95;
+      const laneCenter = 5.95;
       const depth = THREE.MathUtils.clamp((4.0 - player.position.z) / 8.3, 0, 1);
 
       // Invisible walls follow the red boundaries. The left wall is now
@@ -921,13 +921,13 @@ export class ElectricFenceSequence {
     // Yellow line / center of the visible trail.
     // Reset rotation as well: Bryan must enter facing straight toward the barn,
     // not carrying the sideways rotation from the previous scene.
-    player.position.set(0.95, 0, 3.6);
+    player.position.set(5.95, 0, 3.6);
     player.rotationY = 0;
     player.group.rotation.set(0, 0, 0);
     player.group.scale.setScalar(1);
     player.previousPosition.copy(player.position);
-    this.camera.position.set(5.3, 3.15, 6.6);
-    this.camera.lookAt(new THREE.Vector3(0, 0.75, -1.8));
+    this.camera.position.set(10.3, 3.15, 6.6);
+    this.camera.lookAt(new THREE.Vector3(5, 0.75, -1.8));
   }
 
   enterBarnClose() {
@@ -953,12 +953,12 @@ export class ElectricFenceSequence {
     const player = this.game.player;
     // Continue with the same scale used at the end of the previous plate so
     // there is no visible size pop during the scene transition.
-    player.position.set(0.95, 0, 3.45);
+    player.position.set(5.95, 0, 3.45);
     player.group.scale.setScalar(0.88);
     this.dog.scale.setScalar(0.68);
     player.previousPosition.copy(player.position);
-    this.camera.position.set(5.15, 3.10, 6.45);
-    this.camera.lookAt(new THREE.Vector3(-0.25, 0.78, -1.95));
+    this.camera.position.set(10.15, 3.10, 6.45);
+    this.camera.lookAt(new THREE.Vector3(4.75, 0.78, -1.95));
   }
 
   showBarnEntryPrompt() {
@@ -1091,7 +1091,7 @@ export class ElectricFenceSequence {
       // Keep Bryan on the yellow line. The invisible walls are enforced in
       // updatePlayableMovement(), and this second guard prevents animation,
       // collision or chase code from ever drifting him sideways.
-      const laneCenter = 0.95;
+      const laneCenter = 5.95;
       player.position.x = laneCenter;
       player.position.z = THREE.MathUtils.clamp(player.position.z, -4.25, 4.0);
 
