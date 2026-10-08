@@ -855,12 +855,15 @@ export class ElectricFenceSequence {
     // straight path. Input can still move him forward/backward, but never
     // sideways into the snowy/fence areas.
     if (this.chaseScene === 'barnPath') {
-      const laneCenter = 0.15;
-      const depth = THREE.MathUtils.clamp((4.0 - player.position.z) / 9.7, 0, 1);
+      // The yellow line in the reference image is intentionally to the right
+      // of the old corridor. Shift the whole invisible corridor there so Bryan
+      // enters on that line instead of appearing from the left.
+      const laneCenter = 0.95;
+      const depth = THREE.MathUtils.clamp((4.0 - player.position.z) / 8.3, 0, 1);
 
-      // These are the two invisible side walls. They converge toward the barn
-      // to match the perspective of the prerendered image.
-      const halfWidth = THREE.MathUtils.lerp(0.30, 0.09, depth);
+      // Invisible walls follow the red boundaries. The left wall is now
+      // comfortably to the right of the blue line from the old setup.
+      const halfWidth = THREE.MathUtils.lerp(0.34, 0.18, depth);
       const leftWall = laneCenter - halfWidth;
       const rightWall = laneCenter + halfWidth;
 
@@ -887,7 +890,9 @@ export class ElectricFenceSequence {
     // plate instead of stopping Bryan.
     if (this.chaseScene === 'fence' && player.position.z <= -6.65) {
       this.enterBarnPath();
-    } else if (this.chaseScene === 'barnPath' && player.position.z <= -5.15) {
+    } else if (this.chaseScene === 'barnPath' && player.position.z <= -4.25) {
+      // Switch to the third plate before the perspective shrink becomes
+      // visually aggressive. This avoids the "suddenly tiny Bryan" effect.
       this.enterBarnClose();
     }
     player.animate(dt, false);
@@ -914,7 +919,11 @@ export class ElectricFenceSequence {
     });
     const player = this.game.player;
     // Yellow line / center of the visible trail.
-    player.position.set(0.15, 0, 3.6);
+    // Reset rotation as well: Bryan must enter facing straight toward the barn,
+    // not carrying the sideways rotation from the previous scene.
+    player.position.set(0.95, 0, 3.6);
+    player.rotationY = 0;
+    player.group.rotation.set(0, 0, 0);
     player.group.scale.setScalar(1);
     player.previousPosition.copy(player.position);
     this.camera.position.set(5.3, 3.15, 6.6);
@@ -942,8 +951,10 @@ export class ElectricFenceSequence {
       filter: 'brightness(.84) contrast(1.10) saturate(.78)',
     });
     const player = this.game.player;
-    player.position.set(0.10, 0, 3.45);
-    player.group.scale.setScalar(1);
+    // Continue with the same scale used at the end of the previous plate so
+    // there is no visible size pop during the scene transition.
+    player.position.set(0.95, 0, 3.45);
+    player.group.scale.setScalar(0.88);
     this.dog.scale.setScalar(0.68);
     player.previousPosition.copy(player.position);
     this.camera.position.set(5.15, 3.10, 6.45);
@@ -1080,14 +1091,14 @@ export class ElectricFenceSequence {
       // Keep Bryan on the yellow line. The invisible walls are enforced in
       // updatePlayableMovement(), and this second guard prevents animation,
       // collision or chase code from ever drifting him sideways.
-      const laneCenter = 0.15;
+      const laneCenter = 0.95;
       player.position.x = laneCenter;
-      player.position.z = THREE.MathUtils.clamp(player.position.z, -5.7, 4.0);
+      player.position.z = THREE.MathUtils.clamp(player.position.z, -4.25, 4.0);
 
-      // Simulate perspective: as z decreases, Bryan is farther away and gets
-      // progressively smaller. The dog follows the same depth scale.
-      const depth = THREE.MathUtils.clamp((4.0 - player.position.z) / 9.7, 0, 1);
-      const perspectiveScale = THREE.MathUtils.lerp(1.0, 0.42, depth);
+      // Only a subtle perspective reduction is used on this plate. The scene
+      // changes before Bryan can become dramatically small.
+      const depth = THREE.MathUtils.clamp((4.0 - player.position.z) / 8.25, 0, 1);
+      const perspectiveScale = THREE.MathUtils.lerp(1.0, 0.88, depth);
       player.group.scale.setScalar(perspectiveScale);
       this.dog.scale.setScalar(0.68 * perspectiveScale);
     } else if (this.chaseScene === 'barnClose') {
